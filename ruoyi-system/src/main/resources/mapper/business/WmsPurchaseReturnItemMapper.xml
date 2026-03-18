@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsPurchaseReturnItemMapper">
+
+    <resultMap type="WmsPurchaseReturnItem" id="WmsPurchaseReturnItemResult">
+        <id     property="purchaseReturnItemId" column="purchase_return_item_id" />
+        <result property="purchaseReturnId"     column="purchase_return_id" />
+        <result property="productId"            column="product_id" />
+        <result property="quantity"             column="quantity" />
+        <result property="price"                column="price" />
+        <result property="amount"               column="amount" />
+    </resultMap>
+
+    <sql id="selectWmsPurchaseReturnItemVo">
+        select purchase_return_item_id, purchase_return_id, product_id, quantity, price, amount
+        from wms_purchase_return_item
+    </sql>
+
+    <select id="selectWmsPurchaseReturnItemById" parameterType="Long" resultMap="WmsPurchaseReturnItemResult">
+        <include refid="selectWmsPurchaseReturnItemVo"/>
+        where purchase_return_item_id = #{purchaseReturnItemId}
+    </select>
+
+    <select id="selectWmsPurchaseReturnItemList" parameterType="WmsPurchaseReturnItem" resultMap="WmsPurchaseReturnItemResult">
+        <include refid="selectWmsPurchaseReturnItemVo"/>
+        <where>
+            <if test="purchaseReturnId != null">
+                and purchase_return_id = #{purchaseReturnId}
+            </if>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertWmsPurchaseReturnItem" parameterType="WmsPurchaseReturnItem" useGeneratedKeys="true" keyProperty="purchaseReturnItemId">
+        insert into wms_purchase_return_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="purchaseReturnId != null">purchase_return_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="price != null">price,</if>
+            <if test="amount != null">amount,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="purchaseReturnId != null">#{purchaseReturnId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="price != null">#{price},</if>
+            <if test="amount != null">#{amount},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsPurchaseReturnItem" parameterType="WmsPurchaseReturnItem">
+        update wms_purchase_return_item
+        <set>
+            <if test="purchaseReturnId != null">purchase_return_id = #{purchaseReturnId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="amount != null">amount = #{amount},</if>
+        </set>
+        where purchase_return_item_id = #{purchaseReturnItemId}
+    </update>
+
+    <delete id="deleteWmsPurchaseReturnItemById" parameterType="Long">
+        delete from wms_purchase_return_item where purchase_return_item_id = #{purchaseReturnItemId}
+    </delete>
+
+    <delete id="deleteWmsPurchaseReturnItemByIds" parameterType="Long">
+        delete from wms_purchase_return_item where purchase_return_item_id in
+        <foreach collection="array" item="purchaseReturnItemId" open="(" separator="," close=")">
+            #{purchaseReturnItemId}
+        </foreach>
+    </delete>
+</mapper>

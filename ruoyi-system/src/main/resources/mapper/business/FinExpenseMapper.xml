@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.FinExpenseMapper">
+
+    <resultMap type="FinExpense" id="FinExpenseResult">
+        <id     property="expenseId"    column="expense_id"    />
+        <result property="expenseNo"    column="expense_no"    />
+        <result property="expenseType"  column="expense_type"  />
+        <result property="amount"       column="amount"        />
+        <result property="expenseDate"  column="expense_date"  />
+        <result property="payChannel"   column="pay_channel"   />
+        <result property="fundAccountId" column="fund_account_id" />
+        <result property="status"       column="status"        />
+        <result property="createBy"     column="create_by"     />
+        <result property="createTime"   column="create_time"   />
+        <result property="updateBy"     column="update_by"     />
+        <result property="updateTime"   column="update_time"   />
+        <result property="remark"       column="remark"        />
+    </resultMap>
+
+    <sql id="selectFinExpenseVo">
+        select expense_id, expense_no, expense_type, amount, expense_date, pay_channel, fund_account_id,
+               status, create_by, create_time, update_by, update_time, remark
+        from fin_expense
+    </sql>
+
+    <select id="selectFinExpenseById" parameterType="Long" resultMap="FinExpenseResult">
+        <include refid="selectFinExpenseVo"/>
+        where expense_id = #{expenseId}
+    </select>
+
+    <select id="selectFinExpenseList" parameterType="FinExpense" resultMap="FinExpenseResult">
+        <include refid="selectFinExpenseVo"/>
+        <where>
+            <if test="expenseNo != null and expenseNo != ''">
+                and expense_no = #{expenseNo}
+            </if>
+            <if test="expenseType != null and expenseType != ''">
+                and expense_type = #{expenseType}
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+            <if test="fundAccountId != null">
+                and fund_account_id = #{fundAccountId}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertFinExpense" parameterType="FinExpense" useGeneratedKeys="true" keyProperty="expenseId">
+        insert into fin_expense
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="expenseNo != null and expenseNo != ''">expense_no,</if>
+            <if test="expenseType != null and expenseType != ''">expense_type,</if>
+            <if test="amount != null">amount,</if>
+            <if test="expenseDate != null">expense_date,</if>
+            <if test="payChannel != null and payChannel != ''">pay_channel,</if>
+            <if test="fundAccountId != null">fund_account_id,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="expenseNo != null and expenseNo != ''">#{expenseNo},</if>
+            <if test="expenseType != null and expenseType != ''">#{expenseType},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="expenseDate != null">#{expenseDate},</if>
+            <if test="payChannel != null and payChannel != ''">#{payChannel},</if>
+            <if test="fundAccountId != null">#{fundAccountId},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateFinExpense" parameterType="FinExpense">
+        update fin_expense
+        <set>
+            <if test="expenseNo != null and expenseNo != ''">expense_no = #{expenseNo},</if>
+            <if test="expenseType != null and expenseType != ''">expense_type = #{expenseType},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="expenseDate != null">expense_date = #{expenseDate},</if>
+            <if test="payChannel != null and payChannel != ''">pay_channel = #{payChannel},</if>
+            <if test="fundAccountId != null">fund_account_id = #{fundAccountId},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where expense_id = #{expenseId}
+    </update>
+
+    <delete id="deleteFinExpenseById" parameterType="Long">
+        delete from fin_expense where expense_id = #{expenseId}
+    </delete>
+
+    <delete id="deleteFinExpenseByIds" parameterType="Long">
+        delete from fin_expense where expense_id in
+        <foreach collection="array" item="expenseId" open="(" separator="," close=")">
+            #{expenseId}
+        </foreach>
+    </delete>
+</mapper>

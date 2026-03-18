@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.BizReportMapper">
+
+    <select id="selectApprovedSaleAmount" resultType="java.math.BigDecimal">
+        select ifnull(sum(total_amount), 0)
+        from wms_sale_order
+        where status = 'audited'
+    </select>
+
+    <select id="selectReceivableAmount" resultType="java.math.BigDecimal">
+        select ifnull(sum(amount_due), 0)
+        from fin_receivable
+    </select>
+
+    <select id="selectReceivedAmount" resultType="java.math.BigDecimal">
+        select ifnull(sum(amount), 0)
+        from fin_receipt
+    </select>
+
+    <select id="selectOverdueReceivableCount" resultType="java.lang.Long">
+        select count(1)
+        from fin_receivable
+        where status != 'paid'
+          and due_date is not null
+          and due_date &lt; sysdate()
+    </select>
+
+    <select id="selectStockWarningCount" resultType="java.lang.Long">
+        select count(1)
+        from wms_stock
+        where (warning_min_qty is not null and quantity &lt; warning_min_qty)
+           or (warning_max_qty is not null and quantity &gt; warning_max_qty)
+    </select>
+
+    <select id="selectSaleTrendList" resultType="java.util.HashMap">
+        select date_format(create_time, '%y-%m-%d') as date, ifnull(sum(total_amount), 0) as amount
+        from wms_sale_order
+        where status = 'audited'
+          and create_time &gt;= date_sub(curdate(), interval 6 day)
+        group by date_format(create_time, '%y-%m-%d')
+        order by date_format(create_time, '%y-%m-%d') asc
+    </select>
+
+    <select id="selectTopCustomerList" resultType="java.util.HashMap">
+        select cast(o.customer_id as char) as customer, ifnull(sum(o.total_amount), 0) as amount
+        from wms_sale_order o
+        where o.status = 'audited'
+        group by o.customer_id
+        order by amount desc
+        limit 5
+    </select>
+
+    <select id="selectPendingSaleOrderCount" resultType="java.lang.Long">
+        select count(1)
+        from wms_sale_order
+        where status = 'submitted'
+    </select>
+
+    <select id="selectPendingInboundCount" resultType="java.lang.Long">
+        select count(1)
+        from wms_inbound
+        where status = 'submitted'
+    </select>
+
+    <select id="selectPendingOutboundCount" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where status = 'submitted'
+    </select>
+
+    <select id="selectLatestNoticeList" resultType="java.util.HashMap">
+        select cast(notice_id as char) as message_id, notice_title as message_title, create_time as message_time, 'notice' as message_type
+        from sys_notice
+        where status = '0'
+        order by notice_id desc
+        limit 5
+    </select>
+
+    <select id="selectLatestStockWarningMessageList" resultType="java.util.HashMap">
+        select cast(message_id as char) as message_id, message_title, create_time as message_time, message_type, message_level, business_type,
+               cast(business_id as char) as business_id
+        from biz_message
+        where status = '0'
+          and message_type = 'stock_warning'
+        order by message_id desc
+        limit 5
+    </select>
+
+    <select id="selectLatestDueReceivableList" resultType="java.util.HashMap">
+        select cast(receivable_id as char) as message_id, concat('应收到期提醒，销售单：', sale_order_id) as message_title, due_date as message_time,
+               'receivable' as message_type, 'sale_order' as business_type, cast(sale_order_id as char) as business_id
+        from fin_receivable
+        where status in ('unpaid', 'partial')
+          and due_date is not null
+        order by due_date asc
+        limit 5
+    </select>
+
+    <select id="selectLatestSaleOrderAuditMessageList" resultType="java.util.HashMap">
+        select cast(message_id as char) as message_id, message_title, create_time as message_time, message_type, message_level, business_type,
+               cast(business_id as char) as business_id
+        from biz_message
+        where status = '0'
+          and message_type = 'sale_order_audit'
+        order by message_id desc
+        limit 5
+    </select>
+</mapper>

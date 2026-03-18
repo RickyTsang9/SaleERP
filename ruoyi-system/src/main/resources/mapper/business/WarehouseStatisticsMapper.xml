@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WarehouseStatisticsMapper">
+    <resultMap type="WarehouseStatisticsCardData" id="WarehouseStatisticsCardDataResult">
+        <result property="billCount" column="bill_count" />
+        <result property="totalQuantity" column="total_quantity" />
+        <result property="totalAmount" column="total_amount" />
+    </resultMap>
+    <resultMap type="WarehouseStatisticsOperationItem" id="WarehouseStatisticsOperationItemResult">
+        <result property="billId" column="bill_id" />
+        <result property="billNo" column="bill_no" />
+        <result property="businessType" column="business_type" />
+        <result property="totalQuantity" column="total_quantity" />
+        <result property="totalAmount" column="total_amount" />
+        <result property="businessTime" column="business_time" />
+        <result property="summary" column="summary" />
+    </resultMap>
+    <resultMap type="WarehouseStatisticsStockData" id="WarehouseStatisticsStockDataResult">
+        <result property="totalQuantity" column="total_quantity" />
+        <result property="totalAmount" column="total_amount" />
+    </resultMap>
+    <resultMap type="WarehouseStatisticsProductRankItem" id="WarehouseStatisticsProductRankItemResult">
+        <result property="productId" column="product_id" />
+        <result property="productCode" column="product_code" />
+        <result property="productName" column="product_name" />
+        <result property="unitName" column="unit_name" />
+        <result property="availableQuantity" column="available_quantity" />
+    </resultMap>
+
+    <sql id="queryWarehouseAndTimeCondition">
+        <if test="warehouseId != null">
+            and warehouse_id = #{warehouseId}
+        </if>
+        <if test="startTime != null">
+            and create_time &gt;= #{startTime}
+        </if>
+        <if test="endTime != null">
+            and create_time &lt;= #{endTime}
+        </if>
+    </sql>
+
+    <select id="selectInboundCardData" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsCardDataResult">
+        select
+            count(1) as bill_count,
+            ifnull(sum(total_qty), 0) as total_quantity,
+            ifnull(sum(total_amount), 0) as total_amount
+        from wms_inbound
+        where status = '1'
+        <include refid="queryWarehouseAndTimeCondition"/>
+    </select>
+
+    <select id="selectOutboundCardData" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsCardDataResult">
+        select
+            count(1) as bill_count,
+            ifnull(sum(total_qty), 0) as total_quantity,
+            ifnull(sum(total_amount), 0) as total_amount
+        from wms_outbound
+        where status = '1'
+        <include refid="queryWarehouseAndTimeCondition"/>
+    </select>
+
+    <select id="selectInventoryInboundCardData" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsCardDataResult">
+        select
+            count(distinct concat(bill_type, '_', bill_id)) as bill_count,
+            ifnull(sum(quantity), 0) as total_quantity,
+            ifnull(sum(amount), 0) as total_amount
+        from wms_stock_log
+        where bill_type in ('transfer', 'inventory_check')
+          and in_out = '1'
+        <include refid="queryWarehouseAndTimeCondition"/>
+    </select>
+
+    <select id="selectInventoryOutboundCardData" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsCardDataResult">
+        select
+            count(distinct concat(bill_type, '_', bill_id)) as bill_count,
+            ifnull(sum(quantity), 0) as total_quantity,
+            ifnull(sum(amount), 0) as total_amount
+        from wms_stock_log
+        where bill_type in ('transfer', 'inventory_check')
+          and in_out = '2'
+        <include refid="queryWarehouseAndTimeCondition"/>
+    </select>
+
+    <select id="selectInboundOperationList" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsOperationItemResult">
+        select
+            inbound_id as bill_id,
+            inbound_no as bill_no,
+            'inbound' as business_type,
+            total_qty as total_quantity,
+            total_amount as total_amount,
+            create_time as business_time,
+            concat('入库类型:', ifnull(inbound_type, '')) as summary
+        from wms_inbound
+        where status = '1'
+        <include refid="queryWarehouseAndTimeCondition"/>
+        order by create_time desc
+        limit #{operationLimit}
+    </select>
+
+    <select id="selectOutboundOperationList" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsOperationItemResult">
+        select
+            outbound_id as bill_id,
+            outbound_no as bill_no,
+            'outbound' as business_type,
+            total_qty as total_quantity,
+            total_amount as total_amount,
+            create_time as business_time,
+            concat('出库类型:', ifnull(outbound_type, '')) as summary
+        from wms_outbound
+        where status = '1'
+        <include refid="queryWarehouseAndTimeCondition"/>
+        order by create_time desc
+        limit #{operationLimit}
+    </select>
+
+    <select id="selectInventoryInboundOperationList" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsOperationItemResult">
+        select
+            bill_id,
+            concat(upper(bill_type), '-', bill_id) as bill_no,
+            'inventory' as business_type,
+            ifnull(sum(quantity), 0) as total_quantity,
+            ifnull(sum(amount), 0) as total_amount,
+            max(create_time) as business_time,
+            concat('库存调整-',
+                case
+                    when bill_type = 'transfer' then '调拨入库'
+                    when bill_type = 'inventory_check' then '盘点盘盈'
+                    else bill_type
+                end) as summary
+        from wms_stock_log
+        where bill_type in ('transfer', 'inventory_check')
+          and in_out = '1'
+        <include refid="queryWarehouseAndTimeCondition"/>
+        group by bill_type, bill_id
+        order by business_time desc
+        limit #{operationLimit}
+    </select>
+
+    <select id="selectInventoryOutboundOperationList" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsOperationItemResult">
+        select
+            bill_id,
+            concat(upper(bill_type), '-', bill_id) as bill_no,
+            'inventory' as business_type,
+            ifnull(sum(quantity), 0) as total_quantity,
+            ifnull(sum(amount), 0) as total_amount,
+            max(create_time) as business_time,
+            concat('库存调整-',
+                case
+                    when bill_type = 'transfer' then '调拨出库'
+                    when bill_type = 'inventory_check' then '盘点盘亏'
+                    else bill_type
+                end) as summary
+        from wms_stock_log
+        where bill_type in ('transfer', 'inventory_check')
+          and in_out = '2'
+        <include refid="queryWarehouseAndTimeCondition"/>
+        group by bill_type, bill_id
+        order by business_time desc
+        limit #{operationLimit}
+    </select>
+
+    <select id="selectWarehouseStockData" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsStockDataResult">
+        select
+            ifnull(sum(wms_stock.quantity), 0) as total_quantity,
+            ifnull(sum(wms_stock.quantity * ifnull(md_product.cost_price, 0)), 0) as total_amount
+        from wms_stock
+        left join md_product on wms_stock.product_id = md_product.product_id
+        where 1 = 1
+        <if test="warehouseId != null">
+            and wms_stock.warehouse_id = #{warehouseId}
+        </if>
+    </select>
+
+    <select id="selectProductRankList" parameterType="WarehouseStatisticsQuery" resultMap="WarehouseStatisticsProductRankItemResult">
+        select
+            wms_stock.product_id as product_id,
+            max(md_product.product_code) as product_code,
+            max(md_product.product_name) as product_name,
+            max(md_product.unit_name) as unit_name,
+            ifnull(sum(wms_stock.quantity - ifnull(wms_stock.locked_quantity, 0) - ifnull(wms_stock.frozen_quantity, 0)), 0)
+                as available_quantity
+        from wms_stock
+        left join md_product on wms_stock.product_id = md_product.product_id
+        where 1 = 1
+        <if test="warehouseId != null">
+            and wms_stock.warehouse_id = #{warehouseId}
+        </if>
+        group by wms_stock.product_id
+        order by available_quantity desc
+        limit #{rankLimit}
+    </select>
+</mapper>

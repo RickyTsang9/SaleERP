@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsStockLogMapper">
+
+    <resultMap type="WmsStockLog" id="WmsStockLogResult">
+        <id     property="stockLogId" column="stock_log_id" />
+        <result property="warehouseId" column="warehouse_id" />
+        <result property="productId"   column="product_id"   />
+        <result property="locationId"  column="location_id"  />
+        <result property="batchNo"     column="batch_no"     />
+        <result property="billType"    column="bill_type"    />
+        <result property="billId"      column="bill_id"      />
+        <result property="billNo"      column="bill_no"      />
+        <result property="inOut"       column="in_out"       />
+        <result property="quantity"    column="quantity"     />
+        <result property="price"       column="price"        />
+        <result property="amount"      column="amount"       />
+        <result property="beforeQty"   column="before_qty"   />
+        <result property="afterQty"    column="after_qty"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"  column="create_time"  />
+    </resultMap>
+
+    <sql id="selectWmsStockLogVo">
+        select sl.stock_log_id, sl.warehouse_id, sl.product_id, sl.location_id, sl.batch_no, sl.bill_type, sl.bill_id,
+               case
+                   when sl.bill_type in ('sale_order', 'sale_order_rollback') then so.order_no
+                   when sl.bill_type = 'sale_return' then sr.return_no
+                   else concat(upper(sl.bill_type), '-', sl.bill_id)
+               end as bill_no,
+               sl.in_out, sl.quantity, sl.price, sl.amount, sl.before_qty, sl.after_qty, sl.create_by, sl.create_time
+        from wms_stock_log sl
+        left join wms_sale_order so on so.sale_order_id = sl.bill_id and sl.bill_type in ('sale_order', 'sale_order_rollback')
+        left join wms_sale_return sr on sr.sale_return_id = sl.bill_id and sl.bill_type = 'sale_return'
+    </sql>
+
+    <select id="selectWmsStockLogById" parameterType="Long" resultMap="WmsStockLogResult">
+        <include refid="selectWmsStockLogVo"/>
+        where sl.stock_log_id = #{stockLogId}
+    </select>
+
+    <select id="selectWmsStockLogList" parameterType="WmsStockLog" resultMap="WmsStockLogResult">
+        <include refid="selectWmsStockLogVo"/>
+        <where>
+            <if test="warehouseId != null">
+                and sl.warehouse_id = #{warehouseId}
+            </if>
+            <if test="productId != null">
+                and sl.product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and sl.location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and sl.batch_no = #{batchNo}
+            </if>
+            <if test="billType != null and billType != ''">
+                and sl.bill_type = #{billType}
+            </if>
+            <if test="billId != null">
+                and sl.bill_id = #{billId}
+            </if>
+            <if test="billNo != null and billNo != ''">
+                and (
+                    (sl.bill_type in ('sale_order', 'sale_order_rollback') and so.order_no like concat('%', #{billNo}, '%'))
+                    or (sl.bill_type = 'sale_return' and sr.return_no like concat('%', #{billNo}, '%'))
+                    or (sl.bill_type not in ('sale_order', 'sale_order_rollback', 'sale_return')
+                        and concat(upper(sl.bill_type), '-', sl.bill_id) like concat('%', #{billNo}, '%'))
+                )
+            </if>
+            <if test="inOut != null and inOut != ''">
+                and sl.in_out = #{inOut}
+            </if>
+        </where>
+        order by sl.stock_log_id desc
+    </select>
+
+    <insert id="insertWmsStockLog" parameterType="WmsStockLog" useGeneratedKeys="true" keyProperty="stockLogId">
+        insert into wms_stock_log
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="billType != null and billType != ''">bill_type,</if>
+            <if test="billId != null">bill_id,</if>
+            <if test="inOut != null and inOut != ''">in_out,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="price != null">price,</if>
+            <if test="amount != null">amount,</if>
+            <if test="beforeQty != null">before_qty,</if>
+            <if test="afterQty != null">after_qty,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="billType != null and billType != ''">#{billType},</if>
+            <if test="billId != null">#{billId},</if>
+            <if test="inOut != null and inOut != ''">#{inOut},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="price != null">#{price},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="beforeQty != null">#{beforeQty},</if>
+            <if test="afterQty != null">#{afterQty},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+        </trim>
+    </insert>
+
+    <update id="updateWmsStockLog" parameterType="WmsStockLog">
+        update wms_stock_log
+        <set>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="billType != null and billType != ''">bill_type = #{billType},</if>
+            <if test="billId != null">bill_id = #{billId},</if>
+            <if test="inOut != null and inOut != ''">in_out = #{inOut},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="beforeQty != null">before_qty = #{beforeQty},</if>
+            <if test="afterQty != null">after_qty = #{afterQty},</if>
+        </set>
+        where stock_log_id = #{stockLogId}
+    </update>
+
+    <delete id="deleteWmsStockLogById" parameterType="Long">
+        delete from wms_stock_log where stock_log_id = #{stockLogId}
+    </delete>
+
+    <delete id="deleteWmsStockLogByIds" parameterType="Long">
+        delete from wms_stock_log where stock_log_id in
+        <foreach collection="array" item="stockLogId" open="(" separator="," close=")">
+            #{stockLogId}
+        </foreach>
+    </delete>
+</mapper>

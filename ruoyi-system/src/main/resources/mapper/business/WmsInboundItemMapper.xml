@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsInboundItemMapper">
+
+    <resultMap type="WmsInboundItem" id="WmsInboundItemResult">
+        <id     property="inboundItemId" column="inbound_item_id" />
+        <result property="inboundId"     column="inbound_id"      />
+        <result property="productId"     column="product_id"      />
+        <result property="locationId"    column="location_id"     />
+        <result property="batchNo"       column="batch_no"        />
+        <result property="quantity"      column="quantity"        />
+        <result property="price"         column="price"           />
+        <result property="amount"        column="amount"          />
+    </resultMap>
+
+    <sql id="selectWmsInboundItemVo">
+        select inbound_item_id, inbound_id, product_id, location_id, batch_no, quantity, price, amount
+        from wms_inbound_item
+    </sql>
+
+    <select id="selectWmsInboundItemById" parameterType="Long" resultMap="WmsInboundItemResult">
+        <include refid="selectWmsInboundItemVo"/>
+        where inbound_item_id = #{inboundItemId}
+    </select>
+
+    <select id="selectWmsInboundItemList" parameterType="WmsInboundItem" resultMap="WmsInboundItemResult">
+        <include refid="selectWmsInboundItemVo"/>
+        <where>
+            <if test="inboundId != null">
+                and inbound_id = #{inboundId}
+            </if>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and batch_no = #{batchNo}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertWmsInboundItem" parameterType="WmsInboundItem" useGeneratedKeys="true" keyProperty="inboundItemId">
+        insert into wms_inbound_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="inboundId != null">inbound_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="price != null">price,</if>
+            <if test="amount != null">amount,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="inboundId != null">#{inboundId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="price != null">#{price},</if>
+            <if test="amount != null">#{amount},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsInboundItem" parameterType="WmsInboundItem">
+        update wms_inbound_item
+        <set>
+            <if test="inboundId != null">inbound_id = #{inboundId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="amount != null">amount = #{amount},</if>
+        </set>
+        where inbound_item_id = #{inboundItemId}
+    </update>
+
+    <delete id="deleteWmsInboundItemById" parameterType="Long">
+        delete from wms_inbound_item where inbound_item_id = #{inboundItemId}
+    </delete>
+
+    <delete id="deleteWmsInboundItemByIds" parameterType="Long">
+        delete from wms_inbound_item where inbound_item_id in
+        <foreach collection="array" item="inboundItemId" open="(" separator="," close=")">
+            #{inboundItemId}
+        </foreach>
+    </delete>
+</mapper>

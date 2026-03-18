@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsOutboundItemMapper">
+
+    <resultMap type="WmsOutboundItem" id="WmsOutboundItemResult">
+        <id     property="outboundItemId" column="outbound_item_id" />
+        <result property="outboundId"     column="outbound_id"      />
+        <result property="productId"      column="product_id"       />
+        <result property="locationId"     column="location_id"      />
+        <result property="batchNo"        column="batch_no"         />
+        <result property="quantity"       column="quantity"         />
+        <result property="price"          column="price"            />
+        <result property="amount"         column="amount"           />
+    </resultMap>
+
+    <sql id="selectWmsOutboundItemVo">
+        select outbound_item_id, outbound_id, product_id, location_id, batch_no, quantity, price, amount
+        from wms_outbound_item
+    </sql>
+
+    <select id="selectWmsOutboundItemById" parameterType="Long" resultMap="WmsOutboundItemResult">
+        <include refid="selectWmsOutboundItemVo"/>
+        where outbound_item_id = #{outboundItemId}
+    </select>
+
+    <select id="selectWmsOutboundItemList" parameterType="WmsOutboundItem" resultMap="WmsOutboundItemResult">
+        <include refid="selectWmsOutboundItemVo"/>
+        <where>
+            <if test="outboundId != null">
+                and outbound_id = #{outboundId}
+            </if>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and batch_no = #{batchNo}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertWmsOutboundItem" parameterType="WmsOutboundItem" useGeneratedKeys="true" keyProperty="outboundItemId">
+        insert into wms_outbound_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="outboundId != null">outbound_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="price != null">price,</if>
+            <if test="amount != null">amount,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="outboundId != null">#{outboundId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="price != null">#{price},</if>
+            <if test="amount != null">#{amount},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsOutboundItem" parameterType="WmsOutboundItem">
+        update wms_outbound_item
+        <set>
+            <if test="outboundId != null">outbound_id = #{outboundId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="amount != null">amount = #{amount},</if>
+        </set>
+        where outbound_item_id = #{outboundItemId}
+    </update>
+
+    <delete id="deleteWmsOutboundItemById" parameterType="Long">
+        delete from wms_outbound_item where outbound_item_id = #{outboundItemId}
+    </delete>
+
+    <delete id="deleteWmsOutboundItemByIds" parameterType="Long">
+        delete from wms_outbound_item where outbound_item_id in
+        <foreach collection="array" item="outboundItemId" open="(" separator="," close=")">
+            #{outboundItemId}
+        </foreach>
+    </delete>
+</mapper>

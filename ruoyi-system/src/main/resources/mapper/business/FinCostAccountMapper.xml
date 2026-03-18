@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.FinCostAccountMapper">
+
+    <resultMap type="FinCostAccount" id="FinCostAccountResult">
+        <id     property="costAccountId" column="cost_account_id" />
+        <result property="productId"     column="product_id" />
+        <result property="warehouseId"   column="warehouse_id" />
+        <result property="costMethod"    column="cost_method" />
+        <result property="totalQty"      column="total_qty" />
+        <result property="totalAmount"   column="total_amount" />
+        <result property="avgCost"       column="avg_cost" />
+        <result property="lastCostPrice" column="last_cost_price" />
+        <result property="lastCostQty"   column="last_cost_qty" />
+        <result property="createBy"      column="create_by" />
+        <result property="createTime"    column="create_time" />
+        <result property="updateBy"      column="update_by" />
+        <result property="updateTime"    column="update_time" />
+        <result property="remark"        column="remark" />
+    </resultMap>
+
+    <sql id="selectFinCostAccountVo">
+        select cost_account_id, product_id, warehouse_id, cost_method, total_qty, total_amount, avg_cost,
+               last_cost_price, last_cost_qty, create_by, create_time, update_by, update_time, remark
+        from fin_cost_account
+    </sql>
+
+    <select id="selectFinCostAccountById" parameterType="Long" resultMap="FinCostAccountResult">
+        <include refid="selectFinCostAccountVo"/>
+        where cost_account_id = #{costAccountId}
+    </select>
+
+    <select id="selectFinCostAccountByUnique" resultMap="FinCostAccountResult">
+        <include refid="selectFinCostAccountVo"/>
+        where product_id = #{productId}
+          and warehouse_id = #{warehouseId}
+          and cost_method = #{costMethod}
+    </select>
+
+    <select id="selectFinCostAccountList" parameterType="FinCostAccount" resultMap="FinCostAccountResult">
+        <include refid="selectFinCostAccountVo"/>
+        <where>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+            <if test="warehouseId != null">
+                and warehouse_id = #{warehouseId}
+            </if>
+            <if test="costMethod != null and costMethod != ''">
+                and cost_method = #{costMethod}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertFinCostAccount" parameterType="FinCostAccount" useGeneratedKeys="true" keyProperty="costAccountId">
+        insert into fin_cost_account
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="productId != null">product_id,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="costMethod != null and costMethod != ''">cost_method,</if>
+            <if test="totalQty != null">total_qty,</if>
+            <if test="totalAmount != null">total_amount,</if>
+            <if test="avgCost != null">avg_cost,</if>
+            <if test="lastCostPrice != null">last_cost_price,</if>
+            <if test="lastCostQty != null">last_cost_qty,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="productId != null">#{productId},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="costMethod != null and costMethod != ''">#{costMethod},</if>
+            <if test="totalQty != null">#{totalQty},</if>
+            <if test="totalAmount != null">#{totalAmount},</if>
+            <if test="avgCost != null">#{avgCost},</if>
+            <if test="lastCostPrice != null">#{lastCostPrice},</if>
+            <if test="lastCostQty != null">#{lastCostQty},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateFinCostAccount" parameterType="FinCostAccount">
+        update fin_cost_account
+        <set>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="costMethod != null and costMethod != ''">cost_method = #{costMethod},</if>
+            <if test="totalQty != null">total_qty = #{totalQty},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="avgCost != null">avg_cost = #{avgCost},</if>
+            <if test="lastCostPrice != null">last_cost_price = #{lastCostPrice},</if>
+            <if test="lastCostQty != null">last_cost_qty = #{lastCostQty},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where cost_account_id = #{costAccountId}
+    </update>
+
+    <delete id="deleteFinCostAccountById" parameterType="Long">
+        delete from fin_cost_account where cost_account_id = #{costAccountId}
+    </delete>
+
+    <delete id="deleteFinCostAccountByIds" parameterType="Long">
+        delete from fin_cost_account where cost_account_id in
+        <foreach collection="array" item="costAccountId" open="(" separator="," close=")">
+            #{costAccountId}
+        </foreach>
+    </delete>
+</mapper>

@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsStockMapper">
+
+    <resultMap type="WmsStock" id="WmsStockResult">
+        <id     property="stockId"        column="stock_id"        />
+        <result property="warehouseId"    column="warehouse_id"    />
+        <result property="productId"      column="product_id"      />
+        <result property="locationId"     column="location_id"     />
+        <result property="batchNo"        column="batch_no"        />
+        <result property="quantity"       column="quantity"        />
+        <result property="lockedQuantity" column="locked_quantity" />
+        <result property="frozenQuantity" column="frozen_quantity" />
+        <result property="warningMinQty"  column="warning_min_qty" />
+        <result property="warningMaxQty"  column="warning_max_qty" />
+        <result property="version"        column="version"         />
+        <result property="createBy"       column="create_by"       />
+        <result property="createTime"     column="create_time"     />
+        <result property="updateBy"       column="update_by"       />
+        <result property="updateTime"     column="update_time"     />
+    </resultMap>
+
+    <sql id="selectWmsStockVo">
+        select stock_id, warehouse_id, product_id, location_id, batch_no, quantity, locked_quantity, frozen_quantity,
+               warning_min_qty, warning_max_qty, version, create_by, create_time, update_by, update_time
+        from wms_stock
+    </sql>
+
+    <select id="selectWmsStockById" parameterType="Long" resultMap="WmsStockResult">
+        <include refid="selectWmsStockVo"/>
+        where stock_id = #{stockId}
+    </select>
+
+    <select id="selectWmsStockByKey" parameterType="WmsStock" resultMap="WmsStockResult">
+        <include refid="selectWmsStockVo"/>
+        where warehouse_id = #{warehouseId}
+          and product_id = #{productId}
+          and location_id = #{locationId}
+          and batch_no = #{batchNo}
+    </select>
+
+    <select id="selectWmsStockWarningList" parameterType="WmsStock" resultMap="WmsStockResult">
+        <include refid="selectWmsStockVo"/>
+        <where>
+            <if test="warehouseId != null">
+                and warehouse_id = #{warehouseId}
+            </if>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and batch_no = #{batchNo}
+            </if>
+            and (
+                (warning_min_qty is not null and quantity &lt; warning_min_qty)
+                or
+                (warning_max_qty is not null and quantity &gt; warning_max_qty)
+            )
+        </where>
+    </select>
+
+    <select id="selectWmsStockList" parameterType="WmsStock" resultMap="WmsStockResult">
+        <include refid="selectWmsStockVo"/>
+        <where>
+            <if test="warehouseId != null">
+                and warehouse_id = #{warehouseId}
+            </if>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and batch_no = #{batchNo}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertWmsStock" parameterType="WmsStock" useGeneratedKeys="true" keyProperty="stockId">
+        insert into wms_stock
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="lockedQuantity != null">locked_quantity,</if>
+            <if test="frozenQuantity != null">frozen_quantity,</if>
+            <if test="warningMinQty != null">warning_min_qty,</if>
+            <if test="warningMaxQty != null">warning_max_qty,</if>
+            <if test="version != null">version,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="lockedQuantity != null">#{lockedQuantity},</if>
+            <if test="frozenQuantity != null">#{frozenQuantity},</if>
+            <if test="warningMinQty != null">#{warningMinQty},</if>
+            <if test="warningMaxQty != null">#{warningMaxQty},</if>
+            <if test="version != null">#{version},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsStock" parameterType="WmsStock">
+        update wms_stock
+        <set>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="lockedQuantity != null">locked_quantity = #{lockedQuantity},</if>
+            <if test="frozenQuantity != null">frozen_quantity = #{frozenQuantity},</if>
+            <if test="warningMinQty != null">warning_min_qty = #{warningMinQty},</if>
+            <if test="warningMaxQty != null">warning_max_qty = #{warningMaxQty},</if>
+            <if test="version != null">version = #{version},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where stock_id = #{stockId}
+    </update>
+
+    <delete id="deleteWmsStockById" parameterType="Long">
+        delete from wms_stock where stock_id = #{stockId}
+    </delete>
+
+    <delete id="deleteWmsStockByIds" parameterType="Long">
+        delete from wms_stock where stock_id in
+        <foreach collection="array" item="stockId" open="(" separator="," close=")">
+            #{stockId}
+        </foreach>
+    </delete>
+</mapper>

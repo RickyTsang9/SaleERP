@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsInventoryCheckItemMapper">
+
+    <resultMap type="WmsInventoryCheckItem" id="WmsInventoryCheckItemResult">
+        <id     property="checkItemId" column="check_item_id" />
+        <result property="checkId"     column="check_id"      />
+        <result property="productId"   column="product_id"    />
+        <result property="locationId"  column="location_id"   />
+        <result property="batchNo"     column="batch_no"      />
+        <result property="stockQty"    column="stock_qty"     />
+        <result property="actualQty"   column="actual_qty"    />
+        <result property="diffQty"     column="diff_qty"      />
+        <result property="price"       column="price"         />
+        <result property="diffAmount"  column="diff_amount"   />
+    </resultMap>
+
+    <sql id="selectWmsInventoryCheckItemVo">
+        select check_item_id, check_id, product_id, location_id, batch_no, stock_qty, actual_qty, diff_qty, price, diff_amount
+        from wms_inventory_check_item
+    </sql>
+
+    <select id="selectWmsInventoryCheckItemById" parameterType="Long" resultMap="WmsInventoryCheckItemResult">
+        <include refid="selectWmsInventoryCheckItemVo"/>
+        where check_item_id = #{checkItemId}
+    </select>
+
+    <select id="selectWmsInventoryCheckItemsByCheckId" parameterType="Long" resultMap="WmsInventoryCheckItemResult">
+        <include refid="selectWmsInventoryCheckItemVo"/>
+        where check_id = #{checkId}
+        order by check_item_id asc
+    </select>
+
+    <select id="selectWmsInventoryCheckItemList" parameterType="WmsInventoryCheckItem" resultMap="WmsInventoryCheckItemResult">
+        <include refid="selectWmsInventoryCheckItemVo"/>
+        <where>
+            <if test="checkId != null">
+                and check_id = #{checkId}
+            </if>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and batch_no = #{batchNo}
+            </if>
+        </where>
+        order by check_item_id desc
+    </select>
+
+    <insert id="insertWmsInventoryCheckItem" parameterType="WmsInventoryCheckItem" useGeneratedKeys="true" keyProperty="checkItemId">
+        insert into wms_inventory_check_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="checkId != null">check_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="stockQty != null">stock_qty,</if>
+            <if test="actualQty != null">actual_qty,</if>
+            <if test="diffQty != null">diff_qty,</if>
+            <if test="price != null">price,</if>
+            <if test="diffAmount != null">diff_amount,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="checkId != null">#{checkId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="stockQty != null">#{stockQty},</if>
+            <if test="actualQty != null">#{actualQty},</if>
+            <if test="diffQty != null">#{diffQty},</if>
+            <if test="price != null">#{price},</if>
+            <if test="diffAmount != null">#{diffAmount},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsInventoryCheckItem" parameterType="WmsInventoryCheckItem">
+        update wms_inventory_check_item
+        <set>
+            <if test="checkId != null">check_id = #{checkId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="stockQty != null">stock_qty = #{stockQty},</if>
+            <if test="actualQty != null">actual_qty = #{actualQty},</if>
+            <if test="diffQty != null">diff_qty = #{diffQty},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="diffAmount != null">diff_amount = #{diffAmount},</if>
+        </set>
+        where check_item_id = #{checkItemId}
+    </update>
+
+    <delete id="deleteWmsInventoryCheckItemById" parameterType="Long">
+        delete from wms_inventory_check_item where check_item_id = #{checkItemId}
+    </delete>
+
+    <delete id="deleteWmsInventoryCheckItemByIds" parameterType="Long">
+        delete from wms_inventory_check_item where check_item_id in
+        <foreach collection="array" item="checkItemId" open="(" separator="," close=")">
+            #{checkItemId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteWmsInventoryCheckItemByCheckId" parameterType="Long">
+        delete from wms_inventory_check_item where check_id = #{checkId}
+    </delete>
+
+    <delete id="deleteWmsInventoryCheckItemByCheckIds" parameterType="Long">
+        delete from wms_inventory_check_item where check_id in
+        <foreach collection="array" item="checkId" open="(" separator="," close=")">
+            #{checkId}
+        </foreach>
+    </delete>
+</mapper>
