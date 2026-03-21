@@ -1,9 +1,12 @@
 package com.ruoyi.business.service.impl;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.business.domain.WmsSaleOrderItem;
+import com.ruoyi.business.mapper.WmsSaleOrderMapper;
 import com.ruoyi.business.mapper.WmsSaleOrderItemMapper;
 import com.ruoyi.business.service.IWmsSaleOrderItemService;
 
@@ -12,6 +15,9 @@ public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
 {
     @Autowired
     private WmsSaleOrderItemMapper wmsSaleOrderItemMapper;
+
+    @Autowired
+    private WmsSaleOrderMapper wmsSaleOrderMapper;
 
     @Override
     public WmsSaleOrderItem selectWmsSaleOrderItemById(Long saleOrderItemId)
@@ -34,24 +40,58 @@ public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
     @Override
     public int insertWmsSaleOrderItem(WmsSaleOrderItem wmsSaleOrderItem)
     {
-        return wmsSaleOrderItemMapper.insertWmsSaleOrderItem(wmsSaleOrderItem);
+        int insertRows = wmsSaleOrderItemMapper.insertWmsSaleOrderItem(wmsSaleOrderItem);
+        refreshSaleOrderTotal(wmsSaleOrderItem.getSaleOrderId());
+        return insertRows;
     }
 
     @Override
     public int updateWmsSaleOrderItem(WmsSaleOrderItem wmsSaleOrderItem)
     {
-        return wmsSaleOrderItemMapper.updateWmsSaleOrderItem(wmsSaleOrderItem);
+        WmsSaleOrderItem databaseSaleOrderItem = wmsSaleOrderItemMapper.selectWmsSaleOrderItemById(wmsSaleOrderItem.getSaleOrderItemId());
+        int updateRows = wmsSaleOrderItemMapper.updateWmsSaleOrderItem(wmsSaleOrderItem);
+        refreshSaleOrderTotal(wmsSaleOrderItem.getSaleOrderId());
+        if (databaseSaleOrderItem != null && databaseSaleOrderItem.getSaleOrderId() != null
+            && !databaseSaleOrderItem.getSaleOrderId().equals(wmsSaleOrderItem.getSaleOrderId()))
+        {
+            refreshSaleOrderTotal(databaseSaleOrderItem.getSaleOrderId());
+        }
+        return updateRows;
     }
 
     @Override
     public int deleteWmsSaleOrderItemById(Long saleOrderItemId)
     {
-        return wmsSaleOrderItemMapper.deleteWmsSaleOrderItemById(saleOrderItemId);
+        WmsSaleOrderItem databaseSaleOrderItem = wmsSaleOrderItemMapper.selectWmsSaleOrderItemById(saleOrderItemId);
+        int deleteRows = wmsSaleOrderItemMapper.deleteWmsSaleOrderItemById(saleOrderItemId);
+        if (databaseSaleOrderItem != null)
+        {
+            refreshSaleOrderTotal(databaseSaleOrderItem.getSaleOrderId());
+        }
+        return deleteRows;
     }
 
     @Override
     public int deleteWmsSaleOrderItemByIds(Long[] saleOrderItemIds)
     {
-        return wmsSaleOrderItemMapper.deleteWmsSaleOrderItemByIds(saleOrderItemIds);
+        List<Long> saleOrderIdList = wmsSaleOrderItemMapper.selectSaleOrderIdsBySaleOrderItemIds(saleOrderItemIds);
+        int deleteRows = wmsSaleOrderItemMapper.deleteWmsSaleOrderItemByIds(saleOrderItemIds);
+        if (saleOrderIdList != null && !saleOrderIdList.isEmpty())
+        {
+            Set<Long> saleOrderIdSet = new LinkedHashSet<Long>(saleOrderIdList);
+            for (Long saleOrderId : saleOrderIdSet)
+            {
+                refreshSaleOrderTotal(saleOrderId);
+            }
+        }
+        return deleteRows;
+    }
+
+    private void refreshSaleOrderTotal(Long saleOrderId)
+    {
+        if (saleOrderId != null)
+        {
+            wmsSaleOrderMapper.refreshTotalBySaleOrderId(saleOrderId);
+        }
     }
 }

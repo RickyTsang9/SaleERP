@@ -59,7 +59,7 @@ public class WmsStockController extends BaseController
     @PreAuthorize("@ss.hasPermi('business:stock:export')")
     @Log(title = "库存台账", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsStock wmsStock)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsStock wmsStock)
     {
         List<WmsStock> wmsStockList = wmsStockService.selectWmsStockList(wmsStock);
         ExcelUtil<WmsStock> util = new ExcelUtil<WmsStock>(WmsStock.class);

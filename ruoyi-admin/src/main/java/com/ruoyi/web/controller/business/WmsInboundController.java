@@ -40,7 +40,7 @@ public class WmsInboundController extends BaseController
     @PreAuthorize("@ss.hasPermi('business:inbound:export')")
     @Log(title = "入库单", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsInbound wmsInbound)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsInbound wmsInbound)
     {
         List<WmsInbound> wmsInboundList = wmsInboundService.selectWmsInboundList(wmsInbound);
         ExcelUtil<WmsInbound> util = new ExcelUtil<WmsInbound>(WmsInbound.class);

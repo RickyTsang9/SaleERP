@@ -40,7 +40,7 @@ public class WmsPurchaseReturnController extends BaseController
     @PreAuthorize("@ss.hasPermi('business:purchaseReturn:export')")
     @Log(title = "采购退货单", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsPurchaseReturn wmsPurchaseReturn)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsPurchaseReturn wmsPurchaseReturn)
     {
         List<WmsPurchaseReturn> wmsPurchaseReturnList = wmsPurchaseReturnService.selectWmsPurchaseReturnList(wmsPurchaseReturn);
         ExcelUtil<WmsPurchaseReturn> util = new ExcelUtil<WmsPurchaseReturn>(WmsPurchaseReturn.class);

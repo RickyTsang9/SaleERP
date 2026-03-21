@@ -90,4 +90,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{saleOrderItemId}
         </foreach>
     </delete>
+
+    <delete id="deleteWmsSaleOrderItemBySaleOrderIds" parameterType="Long">
+        delete from wms_sale_order_item where sale_order_id in
+        <foreach collection="array" item="saleOrderId" open="(" separator="," close=")">
+            #{saleOrderId}
+        </foreach>
+    </delete>
+
+    <select id="selectSaleOrderIdsBySaleOrderItemIds" parameterType="Long" resultType="Long">
+        select distinct sale_order_id
+        from wms_sale_order_item
+        where sale_order_item_id in
+        <foreach collection="array" item="saleOrderItemId" open="(" separator="," close=")">
+            #{saleOrderItemId}
+        </foreach>
+    </select>
 </mapper>

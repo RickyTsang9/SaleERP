@@ -28,7 +28,7 @@ public class WmsSaleOrderItemController extends BaseController
     @Autowired
     private IWmsSaleOrderItemService wmsSaleOrderItemService;
 
-    @PreAuthorize("@ss.hasPermi('business:saleOrderItem:list')")
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:list')")
     @GetMapping("/list")
     public TableDataInfo list(WmsSaleOrderItem wmsSaleOrderItem)
     {
@@ -37,24 +37,24 @@ public class WmsSaleOrderItemController extends BaseController
         return getDataTable(wmsSaleOrderItemList);
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleOrderItem:export')")
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:export')")
     @Log(title = "销售订单明细", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsSaleOrderItem wmsSaleOrderItem)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsSaleOrderItem wmsSaleOrderItem)
     {
         List<WmsSaleOrderItem> wmsSaleOrderItemList = wmsSaleOrderItemService.selectWmsSaleOrderItemList(wmsSaleOrderItem);
         ExcelUtil<WmsSaleOrderItem> util = new ExcelUtil<WmsSaleOrderItem>(WmsSaleOrderItem.class);
         util.exportExcel(response, wmsSaleOrderItemList, "销售订单明细数据");
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleOrderItem:query')")
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:query')")
     @GetMapping("/{saleOrderItemId}")
     public AjaxResult getInfo(@PathVariable Long saleOrderItemId)
     {
         return success(wmsSaleOrderItemService.selectWmsSaleOrderItemById(saleOrderItemId));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleOrderItem:add')")
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:add')")
     @Log(title = "销售订单明细", businessType = BusinessType.INSERT)
     @RepeatSubmit
     @PostMapping
@@ -63,7 +63,7 @@ public class WmsSaleOrderItemController extends BaseController
         return toAjax(wmsSaleOrderItemService.insertWmsSaleOrderItem(wmsSaleOrderItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleOrderItem:edit')")
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:edit')")
     @Log(title = "销售订单明细", businessType = BusinessType.UPDATE)
     @RepeatSubmit
     @PutMapping
@@ -72,7 +72,7 @@ public class WmsSaleOrderItemController extends BaseController
         return toAjax(wmsSaleOrderItemService.updateWmsSaleOrderItem(wmsSaleOrderItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleOrderItem:remove')")
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:remove')")
     @Log(title = "销售订单明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/{saleOrderItemIds}")
     public AjaxResult remove(@PathVariable Long[] saleOrderItemIds)

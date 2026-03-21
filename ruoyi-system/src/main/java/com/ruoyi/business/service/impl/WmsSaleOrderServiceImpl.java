@@ -427,12 +427,14 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
     @Override
     public int deleteWmsSaleOrderById(Long saleOrderId)
     {
+        wmsSaleOrderItemMapper.deleteWmsSaleOrderItemBySaleOrderIds(new Long[] { saleOrderId });
         return wmsSaleOrderMapper.deleteWmsSaleOrderById(saleOrderId);
     }
 
     @Override
     public int deleteWmsSaleOrderByIds(Long[] saleOrderIds)
     {
+        wmsSaleOrderItemMapper.deleteWmsSaleOrderItemBySaleOrderIds(saleOrderIds);
         return wmsSaleOrderMapper.deleteWmsSaleOrderByIds(saleOrderIds);
     }
 

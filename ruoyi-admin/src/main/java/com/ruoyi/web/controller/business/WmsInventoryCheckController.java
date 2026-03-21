@@ -40,7 +40,7 @@ public class WmsInventoryCheckController extends BaseController
     @PreAuthorize("@ss.hasPermi('business:inventoryCheck:export')")
     @Log(title = "库存盘点单", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsInventoryCheck wmsInventoryCheck)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsInventoryCheck wmsInventoryCheck)
     {
         List<WmsInventoryCheck> wmsInventoryCheckList = wmsInventoryCheckService.selectWmsInventoryCheckList(wmsInventoryCheck);
         ExcelUtil<WmsInventoryCheck> util = new ExcelUtil<WmsInventoryCheck>(WmsInventoryCheck.class);

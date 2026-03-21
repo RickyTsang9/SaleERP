@@ -121,4 +121,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectMaxInboundNoByPrefix" parameterType="String" resultType="String">
         select max(inbound_no) from wms_inbound where inbound_no like concat(#{noPrefix}, '%')
     </select>
+
+    <update id="refreshTotalByInboundId" parameterType="Long">
+        update wms_inbound
+        set total_qty = ifnull((select sum(quantity) from wms_inbound_item where inbound_id = #{inboundId}), 0),
+            total_amount = ifnull((select sum(amount) from wms_inbound_item where inbound_id = #{inboundId}), 0),
+            update_time = sysdate()
+        where inbound_id = #{inboundId}
+    </update>
 </mapper>

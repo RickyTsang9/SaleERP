@@ -28,7 +28,7 @@ public class WmsPurchaseReturnItemController extends BaseController
     @Autowired
     private IWmsPurchaseReturnItemService wmsPurchaseReturnItemService;
 
-    @PreAuthorize("@ss.hasPermi('business:purchaseReturnItem:list')")
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:list')")
     @GetMapping("/list")
     public TableDataInfo list(WmsPurchaseReturnItem wmsPurchaseReturnItem)
     {
@@ -37,24 +37,24 @@ public class WmsPurchaseReturnItemController extends BaseController
         return getDataTable(wmsPurchaseReturnItemList);
     }
 
-    @PreAuthorize("@ss.hasPermi('business:purchaseReturnItem:export')")
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:export')")
     @Log(title = "采购退货明细", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsPurchaseReturnItem wmsPurchaseReturnItem)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsPurchaseReturnItem wmsPurchaseReturnItem)
     {
         List<WmsPurchaseReturnItem> wmsPurchaseReturnItemList = wmsPurchaseReturnItemService.selectWmsPurchaseReturnItemList(wmsPurchaseReturnItem);
         ExcelUtil<WmsPurchaseReturnItem> util = new ExcelUtil<WmsPurchaseReturnItem>(WmsPurchaseReturnItem.class);
         util.exportExcel(response, wmsPurchaseReturnItemList, "采购退货明细数据");
     }
 
-    @PreAuthorize("@ss.hasPermi('business:purchaseReturnItem:query')")
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:query')")
     @GetMapping("/{purchaseReturnItemId}")
     public AjaxResult getInfo(@PathVariable Long purchaseReturnItemId)
     {
         return success(wmsPurchaseReturnItemService.selectWmsPurchaseReturnItemById(purchaseReturnItemId));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:purchaseReturnItem:add')")
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:add')")
     @Log(title = "采购退货明细", businessType = BusinessType.INSERT)
     @RepeatSubmit
     @PostMapping
@@ -63,7 +63,7 @@ public class WmsPurchaseReturnItemController extends BaseController
         return toAjax(wmsPurchaseReturnItemService.insertWmsPurchaseReturnItem(wmsPurchaseReturnItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:purchaseReturnItem:edit')")
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:edit')")
     @Log(title = "采购退货明细", businessType = BusinessType.UPDATE)
     @RepeatSubmit
     @PutMapping
@@ -72,7 +72,7 @@ public class WmsPurchaseReturnItemController extends BaseController
         return toAjax(wmsPurchaseReturnItemService.updateWmsPurchaseReturnItem(wmsPurchaseReturnItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:purchaseReturnItem:remove')")
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:remove')")
     @Log(title = "采购退货明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/{purchaseReturnItemIds}")
     public AjaxResult remove(@PathVariable Long[] purchaseReturnItemIds)

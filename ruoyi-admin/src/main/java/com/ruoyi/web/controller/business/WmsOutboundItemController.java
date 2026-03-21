@@ -28,7 +28,7 @@ public class WmsOutboundItemController extends BaseController
     @Autowired
     private IWmsOutboundItemService wmsOutboundItemService;
 
-    @PreAuthorize("@ss.hasPermi('business:outboundItem:list')")
+    @PreAuthorize("@ss.hasPermi('business:outbound:list')")
     @GetMapping("/list")
     public TableDataInfo list(WmsOutboundItem wmsOutboundItem)
     {
@@ -37,24 +37,24 @@ public class WmsOutboundItemController extends BaseController
         return getDataTable(wmsOutboundItemList);
     }
 
-    @PreAuthorize("@ss.hasPermi('business:outboundItem:export')")
+    @PreAuthorize("@ss.hasPermi('business:outbound:export')")
     @Log(title = "出库明细", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsOutboundItem wmsOutboundItem)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsOutboundItem wmsOutboundItem)
     {
         List<WmsOutboundItem> wmsOutboundItemList = wmsOutboundItemService.selectWmsOutboundItemList(wmsOutboundItem);
         ExcelUtil<WmsOutboundItem> util = new ExcelUtil<WmsOutboundItem>(WmsOutboundItem.class);
         util.exportExcel(response, wmsOutboundItemList, "出库明细数据");
     }
 
-    @PreAuthorize("@ss.hasPermi('business:outboundItem:query')")
+    @PreAuthorize("@ss.hasPermi('business:outbound:query')")
     @GetMapping("/{outboundItemId}")
     public AjaxResult getInfo(@PathVariable Long outboundItemId)
     {
         return success(wmsOutboundItemService.selectWmsOutboundItemById(outboundItemId));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:outboundItem:add')")
+    @PreAuthorize("@ss.hasPermi('business:outbound:add')")
     @Log(title = "出库明细", businessType = BusinessType.INSERT)
     @RepeatSubmit
     @PostMapping
@@ -63,7 +63,7 @@ public class WmsOutboundItemController extends BaseController
         return toAjax(wmsOutboundItemService.insertWmsOutboundItem(wmsOutboundItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:outboundItem:edit')")
+    @PreAuthorize("@ss.hasPermi('business:outbound:edit')")
     @Log(title = "出库明细", businessType = BusinessType.UPDATE)
     @RepeatSubmit
     @PutMapping
@@ -72,7 +72,7 @@ public class WmsOutboundItemController extends BaseController
         return toAjax(wmsOutboundItemService.updateWmsOutboundItem(wmsOutboundItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:outboundItem:remove')")
+    @PreAuthorize("@ss.hasPermi('business:outbound:remove')")
     @Log(title = "出库明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/{outboundItemIds}")
     public AjaxResult remove(@PathVariable Long[] outboundItemIds)

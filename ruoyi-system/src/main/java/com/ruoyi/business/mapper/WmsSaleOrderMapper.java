@@ -33,4 +33,6 @@ public interface WmsSaleOrderMapper
     public WmsSaleOrder selectWmsSaleOrderByOrderNo(String orderNo);
 
     public BigDecimal selectCustomerPendingApprovalAmount(Long customerId);
+
+    public int refreshTotalBySaleOrderId(Long saleOrderId);
 }

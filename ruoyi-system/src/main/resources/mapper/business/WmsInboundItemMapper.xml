@@ -89,4 +89,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{inboundItemId}
         </foreach>
     </delete>
+
+    <delete id="deleteWmsInboundItemByInboundIds" parameterType="Long">
+        delete from wms_inbound_item where inbound_id in
+        <foreach collection="array" item="inboundId" open="(" separator="," close=")">
+            #{inboundId}
+        </foreach>
+    </delete>
+
+    <select id="selectInboundIdsByInboundItemIds" parameterType="Long" resultType="Long">
+        select distinct inbound_id
+        from wms_inbound_item
+        where inbound_item_id in
+        <foreach collection="array" item="inboundItemId" open="(" separator="," close=")">
+            #{inboundItemId}
+        </foreach>
+    </select>
 </mapper>

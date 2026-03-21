@@ -134,4 +134,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectMaxReturnNoByPrefix" parameterType="String" resultType="String">
         select max(return_no) from wms_sale_return where return_no like concat(#{noPrefix}, '%')
     </select>
+
+    <update id="refreshTotalBySaleReturnId" parameterType="Long">
+        update wms_sale_return
+        set total_qty = ifnull((select sum(quantity) from wms_sale_return_item where sale_return_id = #{saleReturnId}), 0),
+            total_amount = ifnull((select sum(amount) from wms_sale_return_item where sale_return_id = #{saleReturnId}), 0),
+            update_time = sysdate()
+        where sale_return_id = #{saleReturnId}
+    </update>
 </mapper>

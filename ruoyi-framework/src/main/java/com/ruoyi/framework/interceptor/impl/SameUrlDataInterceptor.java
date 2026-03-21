@@ -3,7 +3,7 @@ package com.ruoyi.framework.interceptor.impl;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -30,7 +30,7 @@ public class SameUrlDataInterceptor extends RepeatSubmitInterceptor
     public final String REPEAT_TIME = "repeatTime";
 
     // 令牌自定义标识
-    @Value("${token.header}")
+    @Value("${token.header:Authorization}")
     private String header;
 
     @Autowired

@@ -150,4 +150,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectMaxOutboundNoByPrefix" parameterType="String" resultType="String">
         select max(outbound_no) from wms_outbound where outbound_no like concat(#{noPrefix}, '%')
     </select>
+
+    <update id="refreshTotalByOutboundId" parameterType="Long">
+        update wms_outbound
+        set total_qty = ifnull((select sum(quantity) from wms_outbound_item where outbound_id = #{outboundId}), 0),
+            total_amount = ifnull((select sum(amount) from wms_outbound_item where outbound_id = #{outboundId}), 0),
+            update_time = sysdate()
+        where outbound_id = #{outboundId}
+    </update>
 </mapper>

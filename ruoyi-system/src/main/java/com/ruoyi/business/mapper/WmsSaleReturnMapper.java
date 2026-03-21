@@ -20,4 +20,6 @@ public interface WmsSaleReturnMapper
     public int deleteWmsSaleReturnByIds(Long[] saleReturnIds);
 
     public String selectMaxReturnNoByPrefix(String noPrefix);
+
+    public int refreshTotalBySaleReturnId(Long saleReturnId);
 }

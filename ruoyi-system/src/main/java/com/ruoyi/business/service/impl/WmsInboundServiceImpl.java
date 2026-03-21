@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.business.domain.WmsInbound;
 import com.ruoyi.business.mapper.WmsInboundMapper;
+import com.ruoyi.business.mapper.WmsInboundItemMapper;
 import com.ruoyi.business.service.IWmsInboundService;
 
 @Service
@@ -14,6 +15,9 @@ public class WmsInboundServiceImpl implements IWmsInboundService
 {
     @Autowired
     private WmsInboundMapper wmsInboundMapper;
+
+    @Autowired
+    private WmsInboundItemMapper wmsInboundItemMapper;
 
     @Override
     public WmsInbound selectWmsInboundById(Long inboundId)
@@ -46,12 +50,14 @@ public class WmsInboundServiceImpl implements IWmsInboundService
     @Override
     public int deleteWmsInboundById(Long inboundId)
     {
+        wmsInboundItemMapper.deleteWmsInboundItemByInboundIds(new Long[] { inboundId });
         return wmsInboundMapper.deleteWmsInboundById(inboundId);
     }
 
     @Override
     public int deleteWmsInboundByIds(Long[] inboundIds)
     {
+        wmsInboundItemMapper.deleteWmsInboundItemByInboundIds(inboundIds);
         return wmsInboundMapper.deleteWmsInboundByIds(inboundIds);
     }
 

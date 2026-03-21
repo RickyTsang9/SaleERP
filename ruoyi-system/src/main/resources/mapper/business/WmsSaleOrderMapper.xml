@@ -198,4 +198,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where customer_id = #{customerId}
           and status in ('submitted', 'manager_approved')
     </select>
+
+    <update id="refreshTotalBySaleOrderId" parameterType="Long">
+        update wms_sale_order
+        set total_qty = ifnull((select sum(quantity) from wms_sale_order_item where sale_order_id = #{saleOrderId}), 0),
+            total_amount = ifnull((select sum(amount) from wms_sale_order_item where sale_order_id = #{saleOrderId}), 0),
+            update_time = sysdate()
+        where sale_order_id = #{saleOrderId}
+    </update>
 </mapper>

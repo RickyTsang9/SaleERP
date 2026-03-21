@@ -3,7 +3,7 @@ package com.ruoyi.framework.web.service;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,15 +34,15 @@ public class TokenService
     private static final Logger log = LoggerFactory.getLogger(TokenService.class);
 
     // 令牌自定义标识
-    @Value("${token.header}")
+    @Value("${token.header:Authorization}")
     private String header;
 
     // 令牌秘钥
-    @Value("${token.secret}")
+    @Value("${token.secret:abcdefghijklmnopqrstuvwxyz}")
     private String secret;
 
     // 令牌有效期（默认30分钟）
-    @Value("${token.expireTime}")
+    @Value("${token.expireTime:30}")
     private int expireTime;
 
     protected static final long MILLIS_SECOND = 1000;

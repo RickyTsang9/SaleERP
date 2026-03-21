@@ -18,4 +18,8 @@ public interface WmsSaleOrderItemMapper
     public int deleteWmsSaleOrderItemById(Long saleOrderItemId);
 
     public int deleteWmsSaleOrderItemByIds(Long[] saleOrderItemIds);
+
+    public int deleteWmsSaleOrderItemBySaleOrderIds(Long[] saleOrderIds);
+
+    public List<Long> selectSaleOrderIdsBySaleOrderItemIds(Long[] saleOrderItemIds);
 }

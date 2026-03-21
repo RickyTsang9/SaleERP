@@ -1,13 +1,14 @@
 package com.ruoyi.framework.config;
 
 import com.ruoyi.common.utils.Threads;
-import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * 线程池配置
@@ -37,7 +38,6 @@ public class ThreadPoolConfig
         executor.setCorePoolSize(corePoolSize);
         executor.setQueueCapacity(queueCapacity);
         executor.setKeepAliveSeconds(keepAliveSeconds);
-        // 线程池对拒绝任务(无线程可用)的处理策略
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         return executor;
     }
@@ -48,9 +48,18 @@ public class ThreadPoolConfig
     @Bean(name = "scheduledExecutorService")
     protected ScheduledExecutorService scheduledExecutorService()
     {
-        return new ScheduledThreadPoolExecutor(corePoolSize,
-            BasicThreadFactory.builder().namingPattern("schedule-pool-%d").daemon(true).build(),
-            new ThreadPoolExecutor.CallerRunsPolicy())
+        return new ScheduledThreadPoolExecutor(corePoolSize, new ThreadFactory()
+        {
+            private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+            @Override
+            public Thread newThread(Runnable r)
+            {
+                Thread thread = new Thread(r, "schedule-pool-" + threadNumber.getAndIncrement());
+                thread.setDaemon(true);
+                return thread;
+            }
+        }, new ThreadPoolExecutor.CallerRunsPolicy())
         {
             @Override
             protected void afterExecute(Runnable r, Throwable t)

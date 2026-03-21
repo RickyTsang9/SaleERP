@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.business.domain.WmsPurchaseReturn;
+import com.ruoyi.business.mapper.WmsPurchaseReturnItemMapper;
 import com.ruoyi.business.mapper.WmsPurchaseReturnMapper;
 import com.ruoyi.business.service.IWmsPurchaseReturnService;
 
@@ -14,6 +15,9 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
 {
     @Autowired
     private WmsPurchaseReturnMapper wmsPurchaseReturnMapper;
+
+    @Autowired
+    private WmsPurchaseReturnItemMapper wmsPurchaseReturnItemMapper;
 
     @Override
     public WmsPurchaseReturn selectWmsPurchaseReturnById(Long purchaseReturnId)
@@ -46,12 +50,14 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
     @Override
     public int deleteWmsPurchaseReturnById(Long purchaseReturnId)
     {
+        wmsPurchaseReturnItemMapper.deleteWmsPurchaseReturnItemByPurchaseReturnIds(new Long[] { purchaseReturnId });
         return wmsPurchaseReturnMapper.deleteWmsPurchaseReturnById(purchaseReturnId);
     }
 
     @Override
     public int deleteWmsPurchaseReturnByIds(Long[] purchaseReturnIds)
     {
+        wmsPurchaseReturnItemMapper.deleteWmsPurchaseReturnItemByPurchaseReturnIds(purchaseReturnIds);
         return wmsPurchaseReturnMapper.deleteWmsPurchaseReturnByIds(purchaseReturnIds);
     }
 

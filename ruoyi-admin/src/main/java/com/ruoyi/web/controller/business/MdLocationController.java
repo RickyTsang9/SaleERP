@@ -40,7 +40,7 @@ public class MdLocationController extends BaseController
     @PreAuthorize("@ss.hasPermi('business:location:export')")
     @Log(title = "库位资料", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, MdLocation mdLocation)
+    public void export(javax.servlet.http.HttpServletResponse response, MdLocation mdLocation)
     {
         List<MdLocation> mdLocationList = mdLocationService.selectMdLocationList(mdLocation);
         ExcelUtil<MdLocation> util = new ExcelUtil<MdLocation>(MdLocation.class);

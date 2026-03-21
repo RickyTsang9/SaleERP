@@ -80,4 +80,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{saleReturnItemId}
         </foreach>
     </delete>
+
+    <delete id="deleteWmsSaleReturnItemBySaleReturnIds" parameterType="Long">
+        delete from wms_sale_return_item where sale_return_id in
+        <foreach collection="array" item="saleReturnId" open="(" separator="," close=")">
+            #{saleReturnId}
+        </foreach>
+    </delete>
+
+    <select id="selectSaleReturnIdsBySaleReturnItemIds" parameterType="Long" resultType="Long">
+        select distinct sale_return_id
+        from wms_sale_return_item
+        where sale_return_item_id in
+        <foreach collection="array" item="saleReturnItemId" open="(" separator="," close=")">
+            #{saleReturnItemId}
+        </foreach>
+    </select>
 </mapper>

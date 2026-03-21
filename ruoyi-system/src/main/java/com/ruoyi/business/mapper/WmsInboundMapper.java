@@ -18,4 +18,6 @@ public interface WmsInboundMapper
     public int deleteWmsInboundByIds(Long[] inboundIds);
 
     public String selectMaxInboundNoByPrefix(String noPrefix);
+
+    public int refreshTotalByInboundId(Long inboundId);
 }

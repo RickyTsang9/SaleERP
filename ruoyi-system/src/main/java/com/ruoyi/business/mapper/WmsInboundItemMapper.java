@@ -16,4 +16,8 @@ public interface WmsInboundItemMapper
     public int deleteWmsInboundItemById(Long inboundItemId);
 
     public int deleteWmsInboundItemByIds(Long[] inboundItemIds);
+
+    public int deleteWmsInboundItemByInboundIds(Long[] inboundIds);
+
+    public List<Long> selectInboundIdsByInboundItemIds(Long[] inboundItemIds);
 }

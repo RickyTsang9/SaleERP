@@ -16,4 +16,8 @@ public interface WmsPurchaseReturnItemMapper
     public int deleteWmsPurchaseReturnItemById(Long purchaseReturnItemId);
 
     public int deleteWmsPurchaseReturnItemByIds(Long[] purchaseReturnItemIds);
+
+    public int deleteWmsPurchaseReturnItemByPurchaseReturnIds(Long[] purchaseReturnIds);
+
+    public List<Long> selectPurchaseReturnIdsByPurchaseReturnItemIds(Long[] purchaseReturnItemIds);
 }

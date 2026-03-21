@@ -107,15 +107,12 @@
         </dependency>
 
         <!-- 解析客户端操作系统、浏览器等 -->
-        <dependency>
-            <groupId>nl.basjes.parse.useragent</groupId>
-            <artifactId>yauaa</artifactId>
-        </dependency>
 
         <!-- servlet包 -->
         <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>4.0.1</version>
         </dependency>
 
     </dependencies>

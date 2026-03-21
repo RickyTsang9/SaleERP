@@ -205,12 +205,14 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
     @Override
     public int deleteWmsSaleReturnById(Long saleReturnId)
     {
+        wmsSaleReturnItemMapper.deleteWmsSaleReturnItemBySaleReturnIds(new Long[] { saleReturnId });
         return wmsSaleReturnMapper.deleteWmsSaleReturnById(saleReturnId);
     }
 
     @Override
     public int deleteWmsSaleReturnByIds(Long[] saleReturnIds)
     {
+        wmsSaleReturnItemMapper.deleteWmsSaleReturnItemBySaleReturnIds(saleReturnIds);
         return wmsSaleReturnMapper.deleteWmsSaleReturnByIds(saleReturnIds);
     }
 

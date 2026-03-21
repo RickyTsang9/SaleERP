@@ -75,4 +75,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{purchaseReturnItemId}
         </foreach>
     </delete>
+
+    <delete id="deleteWmsPurchaseReturnItemByPurchaseReturnIds" parameterType="Long">
+        delete from wms_purchase_return_item where purchase_return_id in
+        <foreach collection="array" item="purchaseReturnId" open="(" separator="," close=")">
+            #{purchaseReturnId}
+        </foreach>
+    </delete>
+
+    <select id="selectPurchaseReturnIdsByPurchaseReturnItemIds" parameterType="Long" resultType="Long">
+        select distinct purchase_return_id
+        from wms_purchase_return_item
+        where purchase_return_item_id in
+        <foreach collection="array" item="purchaseReturnItemId" open="(" separator="," close=")">
+            #{purchaseReturnItemId}
+        </foreach>
+    </select>
 </mapper>

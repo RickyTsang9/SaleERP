@@ -40,7 +40,7 @@ public class MdProductController extends BaseController
     @PreAuthorize("@ss.hasPermi('business:product:export')")
     @Log(title = "商品资料", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, MdProduct mdProduct)
+    public void export(javax.servlet.http.HttpServletResponse response, MdProduct mdProduct)
     {
         List<MdProduct> mdProductList = mdProductService.selectMdProductList(mdProduct);
         ExcelUtil<MdProduct> util = new ExcelUtil<MdProduct>(MdProduct.class);

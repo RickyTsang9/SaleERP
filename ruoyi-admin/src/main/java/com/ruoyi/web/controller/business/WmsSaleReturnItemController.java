@@ -28,7 +28,7 @@ public class WmsSaleReturnItemController extends BaseController
     @Autowired
     private IWmsSaleReturnItemService wmsSaleReturnItemService;
 
-    @PreAuthorize("@ss.hasPermi('business:saleReturnItem:list')")
+    @PreAuthorize("@ss.hasPermi('business:saleReturn:list')")
     @GetMapping("/list")
     public TableDataInfo list(WmsSaleReturnItem wmsSaleReturnItem)
     {
@@ -37,24 +37,24 @@ public class WmsSaleReturnItemController extends BaseController
         return getDataTable(wmsSaleReturnItemList);
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleReturnItem:export')")
+    @PreAuthorize("@ss.hasPermi('business:saleReturn:export')")
     @Log(title = "销售退货明细", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsSaleReturnItem wmsSaleReturnItem)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsSaleReturnItem wmsSaleReturnItem)
     {
         List<WmsSaleReturnItem> wmsSaleReturnItemList = wmsSaleReturnItemService.selectWmsSaleReturnItemList(wmsSaleReturnItem);
         ExcelUtil<WmsSaleReturnItem> util = new ExcelUtil<WmsSaleReturnItem>(WmsSaleReturnItem.class);
         util.exportExcel(response, wmsSaleReturnItemList, "销售退货明细数据");
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleReturnItem:query')")
+    @PreAuthorize("@ss.hasPermi('business:saleReturn:query')")
     @GetMapping("/{saleReturnItemId}")
     public AjaxResult getInfo(@PathVariable Long saleReturnItemId)
     {
         return success(wmsSaleReturnItemService.selectWmsSaleReturnItemById(saleReturnItemId));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleReturnItem:add')")
+    @PreAuthorize("@ss.hasPermi('business:saleReturn:add')")
     @Log(title = "销售退货明细", businessType = BusinessType.INSERT)
     @RepeatSubmit
     @PostMapping
@@ -63,7 +63,7 @@ public class WmsSaleReturnItemController extends BaseController
         return toAjax(wmsSaleReturnItemService.insertWmsSaleReturnItem(wmsSaleReturnItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleReturnItem:edit')")
+    @PreAuthorize("@ss.hasPermi('business:saleReturn:edit')")
     @Log(title = "销售退货明细", businessType = BusinessType.UPDATE)
     @RepeatSubmit
     @PutMapping
@@ -72,7 +72,7 @@ public class WmsSaleReturnItemController extends BaseController
         return toAjax(wmsSaleReturnItemService.updateWmsSaleReturnItem(wmsSaleReturnItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:saleReturnItem:remove')")
+    @PreAuthorize("@ss.hasPermi('business:saleReturn:remove')")
     @Log(title = "销售退货明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/{saleReturnItemIds}")
     public AjaxResult remove(@PathVariable Long[] saleReturnItemIds)

@@ -18,4 +18,8 @@ public interface WmsSaleReturnItemMapper
     public int deleteWmsSaleReturnItemById(Long saleReturnItemId);
 
     public int deleteWmsSaleReturnItemByIds(Long[] saleReturnItemIds);
+
+    public int deleteWmsSaleReturnItemBySaleReturnIds(Long[] saleReturnIds);
+
+    public List<Long> selectSaleReturnIdsBySaleReturnItemIds(Long[] saleReturnItemIds);
 }

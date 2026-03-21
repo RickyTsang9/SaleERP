@@ -28,7 +28,7 @@ public class WmsInventoryCheckItemController extends BaseController
     @Autowired
     private IWmsInventoryCheckItemService wmsInventoryCheckItemService;
 
-    @PreAuthorize("@ss.hasPermi('business:inventoryCheckItem:list')")
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:list')")
     @GetMapping("/list")
     public TableDataInfo list(WmsInventoryCheckItem wmsInventoryCheckItem)
     {
@@ -37,24 +37,24 @@ public class WmsInventoryCheckItemController extends BaseController
         return getDataTable(wmsInventoryCheckItemList);
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inventoryCheckItem:export')")
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:export')")
     @Log(title = "库存盘点明细", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsInventoryCheckItem wmsInventoryCheckItem)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsInventoryCheckItem wmsInventoryCheckItem)
     {
         List<WmsInventoryCheckItem> wmsInventoryCheckItemList = wmsInventoryCheckItemService.selectWmsInventoryCheckItemList(wmsInventoryCheckItem);
         ExcelUtil<WmsInventoryCheckItem> util = new ExcelUtil<WmsInventoryCheckItem>(WmsInventoryCheckItem.class);
         util.exportExcel(response, wmsInventoryCheckItemList, "库存盘点明细数据");
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inventoryCheckItem:query')")
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:query')")
     @GetMapping("/{checkItemId}")
     public AjaxResult getInfo(@PathVariable Long checkItemId)
     {
         return success(wmsInventoryCheckItemService.selectWmsInventoryCheckItemById(checkItemId));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inventoryCheckItem:add')")
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:add')")
     @Log(title = "库存盘点明细", businessType = BusinessType.INSERT)
     @RepeatSubmit
     @PostMapping
@@ -63,7 +63,7 @@ public class WmsInventoryCheckItemController extends BaseController
         return toAjax(wmsInventoryCheckItemService.insertWmsInventoryCheckItem(wmsInventoryCheckItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inventoryCheckItem:edit')")
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:edit')")
     @Log(title = "库存盘点明细", businessType = BusinessType.UPDATE)
     @RepeatSubmit
     @PutMapping
@@ -72,7 +72,7 @@ public class WmsInventoryCheckItemController extends BaseController
         return toAjax(wmsInventoryCheckItemService.updateWmsInventoryCheckItem(wmsInventoryCheckItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inventoryCheckItem:remove')")
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:remove')")
     @Log(title = "库存盘点明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/{checkItemIds}")
     public AjaxResult remove(@PathVariable Long[] checkItemIds)

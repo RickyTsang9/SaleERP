@@ -36,7 +36,7 @@ public class WmsStockLogController extends BaseController
     @PreAuthorize("@ss.hasPermi('business:stockLog:export')")
     @Log(title = "库存流水", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsStockLog wmsStockLog)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsStockLog wmsStockLog)
     {
         List<WmsStockLog> wmsStockLogList = wmsStockLogService.selectWmsStockLogList(wmsStockLog);
         ExcelUtil<WmsStockLog> util = new ExcelUtil<WmsStockLog>(WmsStockLog.class);

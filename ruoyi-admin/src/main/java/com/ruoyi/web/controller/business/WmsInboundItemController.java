@@ -28,7 +28,7 @@ public class WmsInboundItemController extends BaseController
     @Autowired
     private IWmsInboundItemService wmsInboundItemService;
 
-    @PreAuthorize("@ss.hasPermi('business:inboundItem:list')")
+    @PreAuthorize("@ss.hasPermi('business:inbound:list')")
     @GetMapping("/list")
     public TableDataInfo list(WmsInboundItem wmsInboundItem)
     {
@@ -37,24 +37,24 @@ public class WmsInboundItemController extends BaseController
         return getDataTable(wmsInboundItemList);
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inboundItem:export')")
+    @PreAuthorize("@ss.hasPermi('business:inbound:export')")
     @Log(title = "入库明细", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, WmsInboundItem wmsInboundItem)
+    public void export(javax.servlet.http.HttpServletResponse response, WmsInboundItem wmsInboundItem)
     {
         List<WmsInboundItem> wmsInboundItemList = wmsInboundItemService.selectWmsInboundItemList(wmsInboundItem);
         ExcelUtil<WmsInboundItem> util = new ExcelUtil<WmsInboundItem>(WmsInboundItem.class);
         util.exportExcel(response, wmsInboundItemList, "入库明细数据");
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inboundItem:query')")
+    @PreAuthorize("@ss.hasPermi('business:inbound:query')")
     @GetMapping("/{inboundItemId}")
     public AjaxResult getInfo(@PathVariable Long inboundItemId)
     {
         return success(wmsInboundItemService.selectWmsInboundItemById(inboundItemId));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inboundItem:add')")
+    @PreAuthorize("@ss.hasPermi('business:inbound:add')")
     @Log(title = "入库明细", businessType = BusinessType.INSERT)
     @RepeatSubmit
     @PostMapping
@@ -63,7 +63,7 @@ public class WmsInboundItemController extends BaseController
         return toAjax(wmsInboundItemService.insertWmsInboundItem(wmsInboundItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inboundItem:edit')")
+    @PreAuthorize("@ss.hasPermi('business:inbound:edit')")
     @Log(title = "入库明细", businessType = BusinessType.UPDATE)
     @RepeatSubmit
     @PutMapping
@@ -72,7 +72,7 @@ public class WmsInboundItemController extends BaseController
         return toAjax(wmsInboundItemService.updateWmsInboundItem(wmsInboundItem));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:inboundItem:remove')")
+    @PreAuthorize("@ss.hasPermi('business:inbound:remove')")
     @Log(title = "入库明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/{inboundItemIds}")
     public AjaxResult remove(@PathVariable Long[] inboundItemIds)

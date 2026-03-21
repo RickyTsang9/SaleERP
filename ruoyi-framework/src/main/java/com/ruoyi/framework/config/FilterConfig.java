@@ -2,7 +2,7 @@ package com.ruoyi.framework.config;
 
 import java.util.HashMap;
 import java.util.Map;
-import jakarta.servlet.DispatcherType;
+import javax.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -22,13 +22,13 @@ import com.ruoyi.common.utils.StringUtils;
 @Configuration
 public class FilterConfig
 {
-    @Value("${xss.excludes}")
+    @Value("${xss.excludes:}")
     private String excludes;
 
-    @Value("${xss.urlPatterns}")
+    @Value("${xss.urlPatterns:/*}")
     private String urlPatterns;
 
-    @Value("${referer.allowed-domains}")
+    @Value("${referer.allowed-domains:}")
     private String allowedDomains;
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

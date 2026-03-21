@@ -59,7 +59,7 @@ public class FinReceivableController extends BaseController
     @PreAuthorize("@ss.hasPermi('business:receivable:export')")
     @Log(title = "应收台账", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(jakarta.servlet.http.HttpServletResponse response, FinReceivable finReceivable)
+    public void export(javax.servlet.http.HttpServletResponse response, FinReceivable finReceivable)
     {
         List<FinReceivable> finReceivableList = finReceivableService.selectFinReceivableList(finReceivable);
         ExcelUtil<FinReceivable> util = new ExcelUtil<FinReceivable>(FinReceivable.class);
