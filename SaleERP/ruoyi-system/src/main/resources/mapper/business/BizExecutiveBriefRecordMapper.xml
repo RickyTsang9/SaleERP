@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.BizExecutiveBriefRecordMapper">
+
+    <resultMap type="BizExecutiveBriefRecord" id="BizExecutiveBriefRecordResult">
+        <id     property="briefId"          column="brief_id"           />
+        <result property="briefTitle"       column="brief_title"        />
+        <result property="briefDate"        column="brief_date"         />
+        <result property="briefStatus"      column="brief_status"       />
+        <result property="generatedTime"    column="generated_time"     />
+        <result property="summaryContent"   column="summary_content"    />
+        <result property="highlightContent" column="highlight_content"  />
+        <result property="riskContent"      column="risk_content"       />
+        <result property="actionContent"    column="action_content"     />
+        <result property="plainTextContent" column="plain_text_content" />
+        <result property="sourceMode"       column="source_mode"        />
+        <result property="createBy"         column="create_by"          />
+        <result property="createTime"       column="create_time"        />
+        <result property="updateBy"         column="update_by"          />
+        <result property="updateTime"       column="update_time"        />
+        <result property="remark"           column="remark"             />
+    </resultMap>
+
+    <sql id="selectBizExecutiveBriefRecordVo">
+        select brief_id, brief_title, brief_date, brief_status, generated_time, summary_content, highlight_content,
+               risk_content, action_content, plain_text_content, source_mode, create_by, create_time, update_by,
+               update_time, remark
+        from biz_executive_brief_record
+    </sql>
+
+    <select id="selectBizExecutiveBriefRecordByBriefId" parameterType="Long" resultMap="BizExecutiveBriefRecordResult">
+        <include refid="selectBizExecutiveBriefRecordVo"/>
+        where brief_id = #{briefId}
+    </select>
+
+    <select id="selectBizExecutiveBriefRecordList" parameterType="BizExecutiveBriefRecord" resultMap="BizExecutiveBriefRecordResult">
+        <include refid="selectBizExecutiveBriefRecordVo"/>
+        <where>
+            <if test="briefTitle != null and briefTitle != ''">
+                and brief_title like concat('%', #{briefTitle}, '%')
+            </if>
+            <if test="briefStatus != null and briefStatus != ''">
+                and brief_status = #{briefStatus}
+            </if>
+            <if test="briefDate != null">
+                and date(brief_date) = date(#{briefDate})
+            </if>
+        </where>
+        order by brief_date desc, brief_id desc
+    </select>
+
+    <insert id="insertBizExecutiveBriefRecord" parameterType="BizExecutiveBriefRecord" useGeneratedKeys="true" keyProperty="briefId">
+        insert into biz_executive_brief_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="briefTitle != null and briefTitle != ''">brief_title,</if>
+            <if test="briefDate != null">brief_date,</if>
+            <if test="briefStatus != null and briefStatus != ''">brief_status,</if>
+            <if test="generatedTime != null">generated_time,</if>
+            <if test="summaryContent != null and summaryContent != ''">summary_content,</if>
+            <if test="highlightContent != null and highlightContent != ''">highlight_content,</if>
+            <if test="riskContent != null and riskContent != ''">risk_content,</if>
+            <if test="actionContent != null and actionContent != ''">action_content,</if>
+            <if test="plainTextContent != null and plainTextContent != ''">plain_text_content,</if>
+            <if test="sourceMode != null and sourceMode != ''">source_mode,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="briefTitle != null and briefTitle != ''">#{briefTitle},</if>
+            <if test="briefDate != null">#{briefDate},</if>
+            <if test="briefStatus != null and briefStatus != ''">#{briefStatus},</if>
+            <if test="generatedTime != null">#{generatedTime},</if>
+            <if test="summaryContent != null and summaryContent != ''">#{summaryContent},</if>
+            <if test="highlightContent != null and highlightContent != ''">#{highlightContent},</if>
+            <if test="riskContent != null and riskContent != ''">#{riskContent},</if>
+            <if test="actionContent != null and actionContent != ''">#{actionContent},</if>
+            <if test="plainTextContent != null and plainTextContent != ''">#{plainTextContent},</if>
+            <if test="sourceMode != null and sourceMode != ''">#{sourceMode},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+</mapper>

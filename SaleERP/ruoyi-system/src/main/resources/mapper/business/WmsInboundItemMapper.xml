@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsInboundItemMapper">
+
+    <resultMap type="WmsInboundItem" id="WmsInboundItemResult">
+        <id     property="inboundItemId" column="inbound_item_id" />
+        <result property="inboundId"     column="inbound_id"      />
+        <result property="purchaseOrderItemId" column="purchase_order_item_id" />
+        <result property="productId"     column="product_id"      />
+        <result property="locationId"    column="location_id"     />
+        <result property="batchNo"       column="batch_no"        />
+        <result property="quantity"      column="quantity"        />
+        <result property="price"         column="price"           />
+        <result property="amount"        column="amount"          />
+        <result property="purchaseQuantity" column="purchase_quantity" />
+        <result property="receivedQuantity" column="received_quantity" />
+        <result property="remainQuantity" column="remain_quantity" />
+    </resultMap>
+
+    <sql id="selectWmsInboundItemVo">
+        select inbound_item.inbound_item_id, inbound_item.inbound_id, inbound_item.purchase_order_item_id,
+               inbound_item.product_id, inbound_item.location_id, inbound_item.batch_no, inbound_item.quantity, inbound_item.price, inbound_item.amount,
+               purchase_order_item.quantity as purchase_quantity,
+               ifnull((
+                   select sum(history_item.quantity)
+                   from wms_inbound_item history_item
+                   left join wms_inbound history_inbound on history_inbound.inbound_id = history_item.inbound_id
+                   where history_inbound.status = 'audited'
+                     and (
+                         (inbound_item.purchase_order_item_id is not null and history_item.purchase_order_item_id = inbound_item.purchase_order_item_id)
+                         or (
+                             inbound_item.purchase_order_item_id is null
+                             and inbound.purchase_order_id is not null
+                             and history_inbound.purchase_order_id = inbound.purchase_order_id
+                             and history_item.product_id = inbound_item.product_id
+                         )
+                     )
+               ), 0) as received_quantity,
+               case
+                   when purchase_order_item.purchase_order_item_id is null then null
+                   else greatest(
+                       ifnull(purchase_order_item.quantity, 0) - ifnull((
+                           select sum(history_item.quantity)
+                           from wms_inbound_item history_item
+                           left join wms_inbound history_inbound on history_inbound.inbound_id = history_item.inbound_id
+                           where history_inbound.status = 'audited'
+                             and (
+                                 (inbound_item.purchase_order_item_id is not null and history_item.purchase_order_item_id = inbound_item.purchase_order_item_id)
+                                 or (
+                                     inbound_item.purchase_order_item_id is null
+                                     and inbound.purchase_order_id is not null
+                                     and history_inbound.purchase_order_id = inbound.purchase_order_id
+                                     and history_item.product_id = inbound_item.product_id
+                                 )
+                             )
+                       ), 0),
+                       0
+                   )
+               end as remain_quantity
+        from wms_inbound_item inbound_item
+        left join wms_inbound inbound on inbound.inbound_id = inbound_item.inbound_id
+        left join wms_purchase_order_item purchase_order_item on purchase_order_item.purchase_order_item_id = inbound_item.purchase_order_item_id
+    </sql>
+
+    <select id="selectWmsInboundItemById" parameterType="Long" resultMap="WmsInboundItemResult">
+        <include refid="selectWmsInboundItemVo"/>
+        where inbound_item_id = #{inboundItemId}
+    </select>
+
+    <select id="selectWmsInboundItemList" parameterType="WmsInboundItem" resultMap="WmsInboundItemResult">
+        <include refid="selectWmsInboundItemVo"/>
+        <where>
+            <if test="inboundId != null">
+                and inbound_item.inbound_id = #{inboundId}
+            </if>
+            <if test="purchaseOrderItemId != null">
+                and inbound_item.purchase_order_item_id = #{purchaseOrderItemId}
+            </if>
+            <if test="productId != null">
+                and inbound_item.product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and inbound_item.location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and inbound_item.batch_no = #{batchNo}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertWmsInboundItem" parameterType="WmsInboundItem" useGeneratedKeys="true" keyProperty="inboundItemId">
+        insert into wms_inbound_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="inboundId != null">inbound_id,</if>
+            <if test="purchaseOrderItemId != null">purchase_order_item_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="price != null">price,</if>
+            <if test="amount != null">amount,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="inboundId != null">#{inboundId},</if>
+            <if test="purchaseOrderItemId != null">#{purchaseOrderItemId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="price != null">#{price},</if>
+            <if test="amount != null">#{amount},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsInboundItem" parameterType="WmsInboundItem">
+        update wms_inbound_item
+        <set>
+            <if test="inboundId != null">inbound_id = #{inboundId},</if>
+            <if test="purchaseOrderItemId != null">purchase_order_item_id = #{purchaseOrderItemId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="amount != null">amount = #{amount},</if>
+        </set>
+        where inbound_item_id = #{inboundItemId}
+    </update>
+
+    <delete id="deleteWmsInboundItemById" parameterType="Long">
+        delete from wms_inbound_item where inbound_item_id = #{inboundItemId}
+    </delete>
+
+    <delete id="deleteWmsInboundItemByIds" parameterType="Long">
+        delete from wms_inbound_item where inbound_item_id in
+        <foreach collection="array" item="inboundItemId" open="(" separator="," close=")">
+            #{inboundItemId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteWmsInboundItemByInboundIds" parameterType="Long">
+        delete from wms_inbound_item where inbound_id in
+        <foreach collection="array" item="inboundId" open="(" separator="," close=")">
+            #{inboundId}
+        </foreach>
+    </delete>
+
+    <select id="selectInboundIdsByInboundItemIds" parameterType="Long" resultType="Long">
+        select distinct inbound_id
+        from wms_inbound_item
+        where inbound_item_id in
+        <foreach collection="array" item="inboundItemId" open="(" separator="," close=")">
+            #{inboundItemId}
+        </foreach>
+    </select>
+</mapper>

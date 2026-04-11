@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsSaleReturnMapper">
+
+    <resultMap type="WmsSaleReturn" id="WmsSaleReturnResult">
+        <id     property="saleReturnId" column="sale_return_id" />
+        <result property="returnNo"     column="return_no" />
+        <result property="returnType"   column="return_type" />
+        <result property="customerId"   column="customer_id" />
+        <result property="warehouseId"  column="warehouse_id" />
+        <result property="totalQty"     column="total_qty" />
+        <result property="totalAmount"  column="total_amount" />
+        <result property="status"       column="status" />
+        <result property="auditBy"      column="audit_by" />
+        <result property="auditTime"    column="audit_time" />
+        <result property="createBy"     column="create_by" />
+        <result property="createTime"   column="create_time" />
+        <result property="updateBy"     column="update_by" />
+        <result property="updateTime"   column="update_time" />
+        <result property="remark"       column="remark" />
+    </resultMap>
+
+    <sql id="selectWmsSaleReturnVo">
+        select s.sale_return_id, s.return_no, s.return_type, s.customer_id, s.warehouse_id, s.total_qty, s.total_amount,
+               s.status, s.audit_by, s.audit_time, s.create_by, s.create_time, s.update_by, s.update_time, s.remark
+        from wms_sale_return s
+        left join sys_user su on su.user_name = s.create_by
+    </sql>
+
+    <select id="selectWmsSaleReturnById" parameterType="Long" resultMap="WmsSaleReturnResult">
+        <include refid="selectWmsSaleReturnVo"/>
+        where s.sale_return_id = #{saleReturnId}
+    </select>
+
+    <select id="selectWmsSaleReturnList" parameterType="WmsSaleReturn" resultMap="WmsSaleReturnResult">
+        <include refid="selectWmsSaleReturnVo"/>
+        <where>
+            <if test="returnNo != null and returnNo != ''">
+                and s.return_no like concat('%', #{returnNo}, '%')
+            </if>
+            <if test="returnType != null and returnType != ''">
+                and s.return_type = #{returnType}
+            </if>
+            <if test="customerId != null">
+                and s.customer_id = #{customerId}
+            </if>
+            <if test="warehouseId != null">
+                and s.warehouse_id = #{warehouseId}
+            </if>
+            <if test="status != null and status != ''">
+                and s.status = #{status}
+            </if>
+            ${params.dataScope}
+        </where>
+        order by s.sale_return_id desc
+    </select>
+
+    <insert id="insertWmsSaleReturn" parameterType="WmsSaleReturn" useGeneratedKeys="true" keyProperty="saleReturnId">
+        insert into wms_sale_return
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="returnNo != null and returnNo != ''">return_no,</if>
+            <if test="returnType != null">return_type,</if>
+            <if test="customerId != null">customer_id,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="totalQty != null">total_qty,</if>
+            <if test="totalAmount != null">total_amount,</if>
+            <if test="status != null">status,</if>
+            <if test="auditBy != null">audit_by,</if>
+            <if test="auditTime != null">audit_time,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="returnNo != null and returnNo != ''">#{returnNo},</if>
+            <if test="returnType != null">#{returnType},</if>
+            <if test="customerId != null">#{customerId},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="totalQty != null">#{totalQty},</if>
+            <if test="totalAmount != null">#{totalAmount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="auditBy != null">#{auditBy},</if>
+            <if test="auditTime != null">#{auditTime},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsSaleReturn" parameterType="WmsSaleReturn">
+        update wms_sale_return
+        <set>
+            <if test="returnNo != null and returnNo != ''">return_no = #{returnNo},</if>
+            <if test="returnType != null">return_type = #{returnType},</if>
+            <if test="customerId != null">customer_id = #{customerId},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="totalQty != null">total_qty = #{totalQty},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where sale_return_id = #{saleReturnId}
+    </update>
+
+    <update id="updateWmsSaleReturnStatus">
+        update wms_sale_return
+        set status = #{status},
+            <if test="auditBy != null and auditBy != ''">
+                audit_by = #{auditBy},
+                audit_time = sysdate(),
+            </if>
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where sale_return_id = #{saleReturnId}
+          and status = #{currentStatus}
+    </update>
+
+    <delete id="deleteWmsSaleReturnById" parameterType="Long">
+        delete from wms_sale_return where sale_return_id = #{saleReturnId}
+    </delete>
+
+    <delete id="deleteWmsSaleReturnByIds" parameterType="Long">
+        delete from wms_sale_return where sale_return_id in
+        <foreach collection="array" item="saleReturnId" open="(" separator="," close=")">
+            #{saleReturnId}
+        </foreach>
+    </delete>
+
+    <select id="selectMaxReturnNoByPrefix" parameterType="String" resultType="String">
+        select max(return_no) from wms_sale_return where return_no like concat(#{noPrefix}, '%')
+    </select>
+
+    <update id="refreshTotalBySaleReturnId" parameterType="Long">
+        update wms_sale_return
+        set total_qty = ifnull((select sum(quantity) from wms_sale_return_item where sale_return_id = #{saleReturnId}), 0),
+            total_amount = ifnull((select sum(amount) from wms_sale_return_item where sale_return_id = #{saleReturnId}), 0),
+            update_time = sysdate()
+        where sale_return_id = #{saleReturnId}
+    </update>
+</mapper>

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.MdLocationMapper">
+
+    <resultMap type="MdLocation" id="MdLocationResult">
+        <id     property="locationId"   column="location_id"   />
+        <result property="warehouseId"  column="warehouse_id"  />
+        <result property="locationCode" column="location_code" />
+        <result property="locationName" column="location_name" />
+        <result property="status"       column="status"        />
+        <result property="delFlag"      column="del_flag"      />
+        <result property="createBy"     column="create_by"     />
+        <result property="createTime"   column="create_time"   />
+        <result property="updateBy"     column="update_by"     />
+        <result property="updateTime"   column="update_time"   />
+        <result property="remark"       column="remark"        />
+    </resultMap>
+
+    <sql id="selectMdLocationVo">
+        select location_id, warehouse_id, location_code, location_name, status, del_flag,
+               create_by, create_time, update_by, update_time, remark
+        from md_location
+    </sql>
+
+    <select id="selectMdLocationById" parameterType="Long" resultMap="MdLocationResult">
+        <include refid="selectMdLocationVo"/>
+        where location_id = #{locationId}
+    </select>
+
+    <select id="selectMdLocationList" parameterType="MdLocation" resultMap="MdLocationResult">
+        <include refid="selectMdLocationVo"/>
+        <where>
+            <if test="warehouseId != null">
+                and warehouse_id = #{warehouseId}
+            </if>
+            <if test="locationCode != null and locationCode != ''">
+                and location_code like concat('%', #{locationCode}, '%')
+            </if>
+            <if test="locationName != null and locationName != ''">
+                and location_name like concat('%', #{locationName}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+            <if test="delFlag != null and delFlag != ''">
+                and del_flag = #{delFlag}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertMdLocation" parameterType="MdLocation" useGeneratedKeys="true" keyProperty="locationId">
+        insert into md_location
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="locationCode != null and locationCode != ''">location_code,</if>
+            <if test="locationName != null and locationName != ''">location_name,</if>
+            <if test="status != null">status,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="locationCode != null and locationCode != ''">#{locationCode},</if>
+            <if test="locationName != null and locationName != ''">#{locationName},</if>
+            <if test="status != null">#{status},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateMdLocation" parameterType="MdLocation">
+        update md_location
+        <set>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="locationCode != null and locationCode != ''">location_code = #{locationCode},</if>
+            <if test="locationName != null and locationName != ''">location_name = #{locationName},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where location_id = #{locationId}
+    </update>
+
+    <delete id="deleteMdLocationById" parameterType="Long">
+        delete from md_location where location_id = #{locationId}
+    </delete>
+
+    <delete id="deleteMdLocationByIds" parameterType="Long">
+        delete from md_location where location_id in
+        <foreach collection="array" item="locationId" open="(" separator="," close=")">
+            #{locationId}
+        </foreach>
+    </delete>
+</mapper>

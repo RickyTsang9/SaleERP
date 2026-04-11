@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.BizMessageMapper">
+
+    <resultMap type="BizMessage" id="BizMessageResult">
+        <id     property="messageId"      column="message_id"      />
+        <result property="messageType"    column="message_type"    />
+        <result property="messageTitle"   column="message_title"   />
+        <result property="messageContent" column="message_content" />
+        <result property="messageLevel"   column="message_level"   />
+        <result property="businessType"   column="business_type"   />
+        <result property="businessId"     column="business_id"     />
+        <result property="status"         column="status"          />
+        <result property="readStatus"     column="read_status"     />
+        <result property="createBy"       column="create_by"       />
+        <result property="createTime"     column="create_time"     />
+        <result property="updateBy"       column="update_by"       />
+        <result property="updateTime"     column="update_time"     />
+        <result property="remark"         column="remark"          />
+    </resultMap>
+
+    <sql id="selectBizMessageVo">
+        select m.message_id, m.message_type, m.message_title, m.message_content, m.message_level, m.business_type, m.business_id, m.status,
+               m.create_by, m.create_time, m.update_by, m.update_time, m.remark,
+               case when r.read_id is null then '0' else '1' end as read_status
+        from biz_message m
+        left join biz_message_read r on m.message_id = r.message_id and r.user_id = #{userId}
+    </sql>
+
+    <select id="selectBizMessageList" resultMap="BizMessageResult">
+        <include refid="selectBizMessageVo"/>
+        <where>
+            m.status = '0'
+            <if test="bizMessage != null and bizMessage.messageType != null and bizMessage.messageType != ''">
+                and m.message_type = #{bizMessage.messageType}
+            </if>
+            <if test="bizMessage != null and bizMessage.messageTitle != null and bizMessage.messageTitle != ''">
+                and m.message_title like concat('%', #{bizMessage.messageTitle}, '%')
+            </if>
+            <if test="bizMessage != null and bizMessage.readStatus != null and bizMessage.readStatus != ''">
+                and case when r.read_id is null then '0' else '1' end = #{bizMessage.readStatus}
+            </if>
+        </where>
+        order by m.message_id desc
+    </select>
+
+    <select id="selectPopupBizMessageList" resultMap="BizMessageResult">
+        select m.message_id, m.message_type, m.message_title, m.message_content, m.message_level, m.business_type, m.business_id, m.status,
+               m.create_by, m.create_time, m.update_by, m.update_time, m.remark,
+               '0' as read_status
+        from biz_message m
+        left join biz_message_read r on m.message_id = r.message_id and r.user_id = #{userId}
+        where m.status = '0'
+          and r.read_id is null
+          <if test="messageType != null and messageType != ''">
+              and m.message_type = #{messageType}
+          </if>
+        order by m.message_id desc
+        limit #{limitCount}
+    </select>
+
+    <select id="selectUnreadCount" resultType="java.lang.Long">
+        select count(1)
+        from biz_message m
+        left join biz_message_read r on m.message_id = r.message_id and r.user_id = #{userId}
+        where m.status = '0'
+          and r.read_id is null
+          <if test="messageType != null and messageType != ''">
+              and m.message_type = #{messageType}
+          </if>
+    </select>
+
+    <select id="selectUnreadBizMessageList" resultMap="BizMessageResult">
+        select m.message_id, m.message_type, m.message_title, m.message_content, m.message_level, m.business_type, m.business_id, m.status,
+               m.create_by, m.create_time, m.update_by, m.update_time, m.remark,
+               '0' as read_status
+        from biz_message m
+        left join biz_message_read r on m.message_id = r.message_id and r.user_id = #{userId}
+        where m.status = '0'
+          and r.read_id is null
+          <if test="messageType != null and messageType != ''">
+              and m.message_type = #{messageType}
+          </if>
+        order by m.message_id desc
+    </select>
+
+    <select id="selectBizMessageByTypeAndTitle" resultMap="BizMessageResult">
+        select message_id, message_type, message_title
+        from biz_message
+        where status = '0'
+          and message_type = #{messageType}
+          and message_title = #{messageTitle}
+        limit 1
+    </select>
+
+    <insert id="insertBizMessage" parameterType="BizMessage" useGeneratedKeys="true" keyProperty="messageId">
+        insert into biz_message
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="messageType != null and messageType != ''">message_type,</if>
+            <if test="messageTitle != null and messageTitle != ''">message_title,</if>
+            <if test="messageContent != null and messageContent != ''">message_content,</if>
+            <if test="messageLevel != null and messageLevel != ''">message_level,</if>
+            <if test="businessType != null and businessType != ''">business_type,</if>
+            <if test="businessId != null">business_id,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="messageType != null and messageType != ''">#{messageType},</if>
+            <if test="messageTitle != null and messageTitle != ''">#{messageTitle},</if>
+            <if test="messageContent != null and messageContent != ''">#{messageContent},</if>
+            <if test="messageLevel != null and messageLevel != ''">#{messageLevel},</if>
+            <if test="businessType != null and businessType != ''">#{businessType},</if>
+            <if test="businessId != null">#{businessId},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate()
+        </trim>
+    </insert>
+
+    <select id="selectReadCount" resultType="java.lang.Long">
+        select count(1)
+        from biz_message_read
+        where message_id = #{messageId}
+          and user_id = #{userId}
+    </select>
+
+    <insert id="insertBizMessageRead">
+        insert into biz_message_read(message_id, user_id, read_time, create_time)
+        values(#{messageId}, #{userId}, sysdate(), sysdate())
+    </insert>
+</mapper>

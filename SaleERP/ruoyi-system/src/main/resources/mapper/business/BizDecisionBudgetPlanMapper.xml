@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.BizDecisionBudgetPlanMapper">
+
+    <resultMap type="BizDecisionBudgetPlan" id="BizDecisionBudgetPlanResult">
+        <id     property="planId"                     column="plan_id"                       />
+        <result property="budgetYear"                column="budget_year"                   />
+        <result property="planName"                  column="plan_name"                     />
+        <result property="planStatus"                column="plan_status"                   />
+        <result property="saleBudgetAmount"          column="sale_budget_amount"            />
+        <result property="grossProfitBudgetAmount"   column="gross_profit_budget_amount"    />
+        <result property="collectionBudgetAmount"    column="collection_budget_amount"      />
+        <result property="purchaseBudgetAmount"      column="purchase_budget_amount"        />
+        <result property="netCashBudgetAmount"       column="net_cash_budget_amount"        />
+        <result property="saleMonthlyPlanText"       column="sale_monthly_plan_text"        />
+        <result property="grossProfitMonthlyPlanText" column="gross_profit_monthly_plan_text" />
+        <result property="collectionMonthlyPlanText" column="collection_monthly_plan_text"  />
+        <result property="purchaseMonthlyPlanText"   column="purchase_monthly_plan_text"    />
+        <result property="netCashMonthlyPlanText"    column="net_cash_monthly_plan_text"    />
+        <result property="submitBy"                  column="submit_by"                     />
+        <result property="submitTime"                column="submit_time"                   />
+        <result property="approveBy"                 column="approve_by"                    />
+        <result property="approveTime"               column="approve_time"                  />
+        <result property="approveRemark"             column="approve_remark"                />
+        <result property="createBy"                  column="create_by"                     />
+        <result property="createTime"                column="create_time"                   />
+        <result property="updateBy"                  column="update_by"                     />
+        <result property="updateTime"                column="update_time"                   />
+        <result property="remark"                    column="remark"                        />
+    </resultMap>
+
+    <sql id="selectBizDecisionBudgetPlanVo">
+        select plan_id, budget_year, plan_name, plan_status, sale_budget_amount, gross_profit_budget_amount,
+               collection_budget_amount, purchase_budget_amount, net_cash_budget_amount,
+               sale_monthly_plan_text, gross_profit_monthly_plan_text, collection_monthly_plan_text,
+               purchase_monthly_plan_text, net_cash_monthly_plan_text,
+               submit_by, submit_time, approve_by, approve_time, approve_remark,
+               create_by, create_time, update_by, update_time, remark
+        from biz_decision_budget_plan
+    </sql>
+
+    <select id="selectBizDecisionBudgetPlanByPlanId" parameterType="Long" resultMap="BizDecisionBudgetPlanResult">
+        <include refid="selectBizDecisionBudgetPlanVo"/>
+        where plan_id = #{planId}
+    </select>
+
+    <select id="selectBizDecisionBudgetPlanByBudgetYear" parameterType="Integer" resultMap="BizDecisionBudgetPlanResult">
+        <include refid="selectBizDecisionBudgetPlanVo"/>
+        where budget_year = #{budgetYear}
+        limit 1
+    </select>
+
+    <insert id="insertBizDecisionBudgetPlan" parameterType="BizDecisionBudgetPlan" useGeneratedKeys="true" keyProperty="planId">
+        insert into biz_decision_budget_plan
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="budgetYear != null">budget_year,</if>
+            <if test="planName != null and planName != ''">plan_name,</if>
+            <if test="planStatus != null and planStatus != ''">plan_status,</if>
+            <if test="saleBudgetAmount != null">sale_budget_amount,</if>
+            <if test="grossProfitBudgetAmount != null">gross_profit_budget_amount,</if>
+            <if test="collectionBudgetAmount != null">collection_budget_amount,</if>
+            <if test="purchaseBudgetAmount != null">purchase_budget_amount,</if>
+            <if test="netCashBudgetAmount != null">net_cash_budget_amount,</if>
+            <if test="saleMonthlyPlanText != null and saleMonthlyPlanText != ''">sale_monthly_plan_text,</if>
+            <if test="grossProfitMonthlyPlanText != null and grossProfitMonthlyPlanText != ''">gross_profit_monthly_plan_text,</if>
+            <if test="collectionMonthlyPlanText != null and collectionMonthlyPlanText != ''">collection_monthly_plan_text,</if>
+            <if test="purchaseMonthlyPlanText != null and purchaseMonthlyPlanText != ''">purchase_monthly_plan_text,</if>
+            <if test="netCashMonthlyPlanText != null and netCashMonthlyPlanText != ''">net_cash_monthly_plan_text,</if>
+            <if test="submitBy != null and submitBy != ''">submit_by,</if>
+            <if test="submitTime != null">submit_time,</if>
+            <if test="approveBy != null and approveBy != ''">approve_by,</if>
+            <if test="approveTime != null">approve_time,</if>
+            <if test="approveRemark != null and approveRemark != ''">approve_remark,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="budgetYear != null">#{budgetYear},</if>
+            <if test="planName != null and planName != ''">#{planName},</if>
+            <if test="planStatus != null and planStatus != ''">#{planStatus},</if>
+            <if test="saleBudgetAmount != null">#{saleBudgetAmount},</if>
+            <if test="grossProfitBudgetAmount != null">#{grossProfitBudgetAmount},</if>
+            <if test="collectionBudgetAmount != null">#{collectionBudgetAmount},</if>
+            <if test="purchaseBudgetAmount != null">#{purchaseBudgetAmount},</if>
+            <if test="netCashBudgetAmount != null">#{netCashBudgetAmount},</if>
+            <if test="saleMonthlyPlanText != null and saleMonthlyPlanText != ''">#{saleMonthlyPlanText},</if>
+            <if test="grossProfitMonthlyPlanText != null and grossProfitMonthlyPlanText != ''">#{grossProfitMonthlyPlanText},</if>
+            <if test="collectionMonthlyPlanText != null and collectionMonthlyPlanText != ''">#{collectionMonthlyPlanText},</if>
+            <if test="purchaseMonthlyPlanText != null and purchaseMonthlyPlanText != ''">#{purchaseMonthlyPlanText},</if>
+            <if test="netCashMonthlyPlanText != null and netCashMonthlyPlanText != ''">#{netCashMonthlyPlanText},</if>
+            <if test="submitBy != null and submitBy != ''">#{submitBy},</if>
+            <if test="submitTime != null">#{submitTime},</if>
+            <if test="approveBy != null and approveBy != ''">#{approveBy},</if>
+            <if test="approveTime != null">#{approveTime},</if>
+            <if test="approveRemark != null and approveRemark != ''">#{approveRemark},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateBizDecisionBudgetPlan" parameterType="BizDecisionBudgetPlan">
+        update biz_decision_budget_plan
+        <set>
+            <if test="budgetYear != null">budget_year = #{budgetYear},</if>
+            <if test="planName != null and planName != ''">plan_name = #{planName},</if>
+            <if test="planStatus != null and planStatus != ''">plan_status = #{planStatus},</if>
+            <if test="saleBudgetAmount != null">sale_budget_amount = #{saleBudgetAmount},</if>
+            <if test="grossProfitBudgetAmount != null">gross_profit_budget_amount = #{grossProfitBudgetAmount},</if>
+            <if test="collectionBudgetAmount != null">collection_budget_amount = #{collectionBudgetAmount},</if>
+            <if test="purchaseBudgetAmount != null">purchase_budget_amount = #{purchaseBudgetAmount},</if>
+            <if test="netCashBudgetAmount != null">net_cash_budget_amount = #{netCashBudgetAmount},</if>
+            <if test="saleMonthlyPlanText != null">sale_monthly_plan_text = #{saleMonthlyPlanText},</if>
+            <if test="grossProfitMonthlyPlanText != null">gross_profit_monthly_plan_text = #{grossProfitMonthlyPlanText},</if>
+            <if test="collectionMonthlyPlanText != null">collection_monthly_plan_text = #{collectionMonthlyPlanText},</if>
+            <if test="purchaseMonthlyPlanText != null">purchase_monthly_plan_text = #{purchaseMonthlyPlanText},</if>
+            <if test="netCashMonthlyPlanText != null">net_cash_monthly_plan_text = #{netCashMonthlyPlanText},</if>
+            <if test="submitBy != null">submit_by = #{submitBy},</if>
+            <if test="submitTime != null">submit_time = #{submitTime},</if>
+            <if test="submitBy == null">submit_by = null,</if>
+            <if test="submitTime == null">submit_time = null,</if>
+            <if test="approveBy != null">approve_by = #{approveBy},</if>
+            <if test="approveTime != null">approve_time = #{approveTime},</if>
+            <if test="approveRemark != null">approve_remark = #{approveRemark},</if>
+            <if test="approveBy == null">approve_by = null,</if>
+            <if test="approveTime == null">approve_time = null,</if>
+            <if test="approveRemark == null">approve_remark = null,</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where plan_id = #{planId}
+    </update>
+</mapper>

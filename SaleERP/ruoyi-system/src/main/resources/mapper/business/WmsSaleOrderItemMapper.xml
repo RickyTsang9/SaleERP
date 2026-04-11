@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsSaleOrderItemMapper">
+
+    <resultMap type="WmsSaleOrderItem" id="WmsSaleOrderItemResult">
+        <id     property="saleOrderItemId" column="sale_order_item_id" />
+        <result property="saleOrderId"     column="sale_order_id" />
+        <result property="productId"       column="product_id" />
+        <result property="locationId"      column="location_id" />
+        <result property="batchNo"         column="batch_no" />
+        <result property="quantity"        column="quantity" />
+        <result property="price"           column="price" />
+        <result property="amount"          column="amount" />
+        <result property="outboundQuantity" column="outbound_quantity" />
+        <result property="remainQuantity"   column="remain_quantity" />
+    </resultMap>
+
+    <sql id="selectWmsSaleOrderItemVo">
+        select item.sale_order_item_id, item.sale_order_id, item.product_id, item.location_id, item.batch_no, item.quantity, item.price, item.amount,
+               ifnull((
+                   select sum(outbound_item.quantity)
+                   from wms_outbound outbound
+                   left join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
+                   where outbound.status = 'audited'
+                     and (
+                         outbound.sale_order_id = item.sale_order_id
+                         or (
+                             outbound.sale_order_id is null
+                             and outbound.source_order_no = (
+                                 select sale_order.order_no
+                                 from wms_sale_order sale_order
+                                 where sale_order.sale_order_id = item.sale_order_id
+                             )
+                         )
+                     )
+                     and (
+                         outbound_item.sale_order_item_id = item.sale_order_item_id
+                         or (outbound_item.sale_order_item_id is null and outbound_item.product_id = item.product_id)
+                     )
+               ), 0) as outbound_quantity,
+               greatest(
+                   ifnull(item.quantity, 0) - ifnull((
+                       select sum(outbound_item.quantity)
+                       from wms_outbound outbound
+                       left join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
+                       where outbound.status = 'audited'
+                         and (
+                             outbound.sale_order_id = item.sale_order_id
+                             or (
+                                 outbound.sale_order_id is null
+                                 and outbound.source_order_no = (
+                                     select sale_order.order_no
+                                     from wms_sale_order sale_order
+                                     where sale_order.sale_order_id = item.sale_order_id
+                                 )
+                             )
+                         )
+                         and (
+                             outbound_item.sale_order_item_id = item.sale_order_item_id
+                             or (outbound_item.sale_order_item_id is null and outbound_item.product_id = item.product_id)
+                         )
+                   ), 0),
+                   0
+               ) as remain_quantity
+        from wms_sale_order_item item
+    </sql>
+
+    <select id="selectWmsSaleOrderItemById" parameterType="Long" resultMap="WmsSaleOrderItemResult">
+        <include refid="selectWmsSaleOrderItemVo"/>
+        where sale_order_item_id = #{saleOrderItemId}
+    </select>
+
+    <select id="selectWmsSaleOrderItemList" parameterType="WmsSaleOrderItem" resultMap="WmsSaleOrderItemResult">
+        <include refid="selectWmsSaleOrderItemVo"/>
+        <where>
+            <if test="saleOrderId != null">
+                and item.sale_order_id = #{saleOrderId}
+            </if>
+            <if test="productId != null">
+                and item.product_id = #{productId}
+            </if>
+        </where>
+        order by item.sale_order_item_id desc
+    </select>
+
+    <select id="selectWmsSaleOrderItemsByOrderId" parameterType="Long" resultMap="WmsSaleOrderItemResult">
+        <include refid="selectWmsSaleOrderItemVo"/>
+        where item.sale_order_id = #{saleOrderId}
+        order by item.sale_order_item_id asc
+    </select>
+
+    <insert id="insertWmsSaleOrderItem" parameterType="WmsSaleOrderItem" useGeneratedKeys="true" keyProperty="saleOrderItemId">
+        insert into wms_sale_order_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="saleOrderId != null">sale_order_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="price != null">price,</if>
+            <if test="amount != null">amount,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="saleOrderId != null">#{saleOrderId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="price != null">#{price},</if>
+            <if test="amount != null">#{amount},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsSaleOrderItem" parameterType="WmsSaleOrderItem">
+        update wms_sale_order_item
+        <set>
+            <if test="saleOrderId != null">sale_order_id = #{saleOrderId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="amount != null">amount = #{amount},</if>
+        </set>
+        where sale_order_item_id = #{saleOrderItemId}
+    </update>
+
+    <delete id="deleteWmsSaleOrderItemById" parameterType="Long">
+        delete from wms_sale_order_item where sale_order_item_id = #{saleOrderItemId}
+    </delete>
+
+    <delete id="deleteWmsSaleOrderItemByIds" parameterType="Long">
+        delete from wms_sale_order_item where sale_order_item_id in
+        <foreach collection="array" item="saleOrderItemId" open="(" separator="," close=")">
+            #{saleOrderItemId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteWmsSaleOrderItemBySaleOrderIds" parameterType="Long">
+        delete from wms_sale_order_item where sale_order_id in
+        <foreach collection="array" item="saleOrderId" open="(" separator="," close=")">
+            #{saleOrderId}
+        </foreach>
+    </delete>
+
+    <select id="selectSaleOrderIdsBySaleOrderItemIds" parameterType="Long" resultType="Long">
+        select distinct sale_order_id
+        from wms_sale_order_item
+        where sale_order_item_id in
+        <foreach collection="array" item="saleOrderItemId" open="(" separator="," close=")">
+            #{saleOrderItemId}
+        </foreach>
+    </select>
+</mapper>

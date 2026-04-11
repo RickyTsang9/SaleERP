@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsPurchaseReturnMapper">
+
+    <resultMap type="WmsPurchaseReturn" id="WmsPurchaseReturnResult">
+        <id     property="purchaseReturnId" column="purchase_return_id" />
+        <result property="returnNo"         column="return_no" />
+        <result property="returnType"       column="return_type" />
+        <result property="supplierId"       column="supplier_id" />
+        <result property="warehouseId"      column="warehouse_id" />
+        <result property="totalQty"         column="total_qty" />
+        <result property="totalAmount"      column="total_amount" />
+        <result property="status"           column="status" />
+        <result property="auditBy"          column="audit_by" />
+        <result property="auditTime"        column="audit_time" />
+        <result property="createBy"         column="create_by" />
+        <result property="createTime"       column="create_time" />
+        <result property="updateBy"         column="update_by" />
+        <result property="updateTime"       column="update_time" />
+        <result property="remark"           column="remark" />
+    </resultMap>
+
+    <sql id="selectWmsPurchaseReturnVo">
+        select purchase_return_id, return_no, return_type, supplier_id, warehouse_id, total_qty, total_amount,
+               status, audit_by, audit_time, create_by, create_time, update_by, update_time, remark
+        from wms_purchase_return
+    </sql>
+
+    <select id="selectWmsPurchaseReturnById" parameterType="Long" resultMap="WmsPurchaseReturnResult">
+        <include refid="selectWmsPurchaseReturnVo"/>
+        where purchase_return_id = #{purchaseReturnId}
+    </select>
+
+    <select id="selectWmsPurchaseReturnList" parameterType="WmsPurchaseReturn" resultMap="WmsPurchaseReturnResult">
+        <include refid="selectWmsPurchaseReturnVo"/>
+        <where>
+            <if test="returnNo != null and returnNo != ''">
+                and return_no like concat('%', #{returnNo}, '%')
+            </if>
+            <if test="returnType != null and returnType != ''">
+                and return_type = #{returnType}
+            </if>
+            <if test="supplierId != null">
+                and supplier_id = #{supplierId}
+            </if>
+            <if test="warehouseId != null">
+                and warehouse_id = #{warehouseId}
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertWmsPurchaseReturn" parameterType="WmsPurchaseReturn" useGeneratedKeys="true" keyProperty="purchaseReturnId">
+        insert into wms_purchase_return
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="returnNo != null and returnNo != ''">return_no,</if>
+            <if test="returnType != null">return_type,</if>
+            <if test="supplierId != null">supplier_id,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="totalQty != null">total_qty,</if>
+            <if test="totalAmount != null">total_amount,</if>
+            <if test="status != null">status,</if>
+            <if test="auditBy != null">audit_by,</if>
+            <if test="auditTime != null">audit_time,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="returnNo != null and returnNo != ''">#{returnNo},</if>
+            <if test="returnType != null">#{returnType},</if>
+            <if test="supplierId != null">#{supplierId},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="totalQty != null">#{totalQty},</if>
+            <if test="totalAmount != null">#{totalAmount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="auditBy != null">#{auditBy},</if>
+            <if test="auditTime != null">#{auditTime},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsPurchaseReturn" parameterType="WmsPurchaseReturn">
+        update wms_purchase_return
+        <set>
+            <if test="returnNo != null and returnNo != ''">return_no = #{returnNo},</if>
+            <if test="returnType != null">return_type = #{returnType},</if>
+            <if test="supplierId != null">supplier_id = #{supplierId},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="totalQty != null">total_qty = #{totalQty},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="auditBy != null">audit_by = #{auditBy},</if>
+            <if test="auditTime != null">audit_time = #{auditTime},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where purchase_return_id = #{purchaseReturnId}
+    </update>
+
+    <delete id="deleteWmsPurchaseReturnById" parameterType="Long">
+        delete from wms_purchase_return where purchase_return_id = #{purchaseReturnId}
+    </delete>
+
+    <delete id="deleteWmsPurchaseReturnByIds" parameterType="Long">
+        delete from wms_purchase_return where purchase_return_id in
+        <foreach collection="array" item="purchaseReturnId" open="(" separator="," close=")">
+            #{purchaseReturnId}
+        </foreach>
+    </delete>
+
+    <select id="selectMaxReturnNoByPrefix" parameterType="String" resultType="String">
+        select max(return_no) from wms_purchase_return where return_no like concat(#{noPrefix}, '%')
+    </select>
+
+    <update id="refreshTotalByPurchaseReturnId" parameterType="Long">
+        update wms_purchase_return
+        set total_qty = ifnull((select sum(quantity) from wms_purchase_return_item where purchase_return_id = #{purchaseReturnId}), 0),
+            total_amount = ifnull((select sum(amount) from wms_purchase_return_item where purchase_return_id = #{purchaseReturnId}), 0),
+            update_time = sysdate()
+        where purchase_return_id = #{purchaseReturnId}
+    </update>
+
+    <update id="updateWmsPurchaseReturnStatus">
+        update wms_purchase_return
+        set status = #{newStatus},
+            audit_by = #{auditBy},
+            audit_time = case when #{auditBy} is not null and #{auditBy} != '' then sysdate() else null end,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where purchase_return_id = #{purchaseReturnId}
+          and status = #{oldStatus}
+    </update>
+</mapper>

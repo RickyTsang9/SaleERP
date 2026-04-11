@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.CrmCustomerFollowMapper">
+    
+    <resultMap type="CrmCustomerFollow" id="CrmCustomerFollowResult">
+        <result property="followId"    column="follow_id"    />
+        <result property="customerId"    column="customer_id"    />
+        <result property="followType"    column="follow_type"    />
+        <result property="followTime"    column="follow_time"    />
+        <result property="followContent"    column="follow_content"    />
+        <result property="nextFollowTime"    column="next_follow_time"    />
+        <result property="status"    column="status"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectCrmCustomerFollowVo">
+        select follow_id, customer_id, follow_type, follow_time, follow_content, next_follow_time, status, create_by, create_time, update_by, update_time from crm_customer_follow
+    </sql>
+
+    <select id="selectCrmCustomerFollowList" parameterType="CrmCustomerFollow" resultMap="CrmCustomerFollowResult">
+        <include refid="selectCrmCustomerFollowVo"/>
+        <where>  
+            <if test="customerId != null "> and customer_id = #{customerId}</if>
+            <if test="followType != null  and followType != ''"> and follow_type = #{followType}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="todoType != null and todoType != ''">
+                <choose>
+                    <when test="todoType == 'processing'">
+                        and status = '0'
+                    </when>
+                    <when test="todoType == 'today'">
+                        and status = '0'
+                        and next_follow_time >= curdate()
+                        and next_follow_time &lt; date_add(curdate(), interval 1 day)
+                    </when>
+                    <when test="todoType == 'overdue'">
+                        and status = '0'
+                        and next_follow_time is not null
+                        and next_follow_time &lt; now()
+                    </when>
+                </choose>
+            </if>
+        </where>
+        order by
+            case
+                when status = '0' and next_follow_time is not null then 0
+                else 1
+            end,
+            next_follow_time asc,
+            follow_time desc,
+            follow_id desc
+    </select>
+
+    <select id="selectCrmCustomerFollowTodoSummary" parameterType="CrmCustomerFollow" resultType="java.util.HashMap">
+        select
+            sum(case when status = '0' then 1 else 0 end) as processing_count,
+            sum(case when status = '0' and next_follow_time >= curdate() and next_follow_time &lt; date_add(curdate(), interval 1 day) then 1 else 0 end) as today_count,
+            sum(case when status = '0' and next_follow_time is not null and next_follow_time &lt; now() then 1 else 0 end) as overdue_count
+        from crm_customer_follow
+        <where>
+            <if test="customerId != null "> and customer_id = #{customerId}</if>
+            <if test="followType != null  and followType != ''"> and follow_type = #{followType}</if>
+        </where>
+    </select>
+    
+    <select id="selectCrmCustomerFollowByFollowId" parameterType="Long" resultMap="CrmCustomerFollowResult">
+        <include refid="selectCrmCustomerFollowVo"/>
+        where follow_id = #{followId}
+    </select>
+        
+    <insert id="insertCrmCustomerFollow" parameterType="CrmCustomerFollow" useGeneratedKeys="true" keyProperty="followId">
+        insert into crm_customer_follow
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="customerId != null">customer_id,</if>
+            <if test="followType != null">follow_type,</if>
+            <if test="followTime != null">follow_time,</if>
+            <if test="followContent != null and followContent != ''">follow_content,</if>
+            <if test="nextFollowTime != null">next_follow_time,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="customerId != null">#{customerId},</if>
+            <if test="followType != null">#{followType},</if>
+            <if test="followTime != null">#{followTime},</if>
+            <if test="followContent != null and followContent != ''">#{followContent},</if>
+            <if test="nextFollowTime != null">#{nextFollowTime},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateCrmCustomerFollow" parameterType="CrmCustomerFollow">
+        update crm_customer_follow
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="customerId != null">customer_id = #{customerId},</if>
+            <if test="followType != null">follow_type = #{followType},</if>
+            <if test="followTime != null">follow_time = #{followTime},</if>
+            <if test="followContent != null and followContent != ''">follow_content = #{followContent},</if>
+            <if test="nextFollowTime != null">next_follow_time = #{nextFollowTime},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where follow_id = #{followId}
+    </update>
+
+    <delete id="deleteCrmCustomerFollowByFollowId" parameterType="Long">
+        delete from crm_customer_follow where follow_id = #{followId}
+    </delete>
+
+    <delete id="deleteCrmCustomerFollowByFollowIds" parameterType="String">
+        delete from crm_customer_follow where follow_id in 
+        <foreach item="followId" collection="array" open="(" separator="," close=")">
+            #{followId}
+        </foreach>
+    </delete>
+</mapper>

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.MdCustomerMapper">
+
+    <resultMap type="MdCustomer" id="MdCustomerResult">
+        <id     property="customerId"     column="customer_id"    />
+        <result property="customerCode"   column="customer_code"  />
+        <result property="customerName"   column="customer_name"  />
+        <result property="contactPerson"  column="contact_person" />
+        <result property="contactPhone"   column="contact_phone"  />
+        <result property="contactEmail"   column="contact_email"  />
+        <result property="address"        column="address"        />
+        <result property="creditLimit"    column="credit_limit"   />
+        <result property="paymentMethod"  column="payment_method" />
+        <result property="customerLevel"  column="customer_level" />
+        <result property="status"         column="status"         />
+        <result property="delFlag"        column="del_flag"       />
+        <result property="createBy"       column="create_by"      />
+        <result property="createTime"     column="create_time"    />
+        <result property="updateBy"       column="update_by"      />
+        <result property="updateTime"     column="update_time"    />
+        <result property="remark"         column="remark"         />
+    </resultMap>
+
+    <sql id="selectMdCustomerVo">
+        select c.customer_id, c.customer_code, c.customer_name, c.contact_person, c.contact_phone, c.contact_email, c.address,
+               c.credit_limit, c.payment_method, c.customer_level,
+               c.status, c.del_flag, c.create_by, c.create_time, c.update_by, c.update_time, c.remark
+        from md_customer c
+        left join sys_user su on su.user_name = c.create_by
+    </sql>
+
+    <select id="selectMdCustomerById" parameterType="Long" resultMap="MdCustomerResult">
+        <include refid="selectMdCustomerVo"/>
+        where c.customer_id = #{customerId}
+    </select>
+
+    <select id="selectMdCustomerList" parameterType="MdCustomer" resultMap="MdCustomerResult">
+        <include refid="selectMdCustomerVo"/>
+        <where>
+            <if test="customerCode != null and customerCode != ''">
+                and c.customer_code like concat('%', #{customerCode}, '%')
+            </if>
+            <if test="customerName != null and customerName != ''">
+                and c.customer_name like concat('%', #{customerName}, '%')
+            </if>
+            <if test="contactPerson != null and contactPerson != ''">
+                and c.contact_person like concat('%', #{contactPerson}, '%')
+            </if>
+            <if test="contactPhone != null and contactPhone != ''">
+                and c.contact_phone = #{contactPhone}
+            </if>
+            <if test="contactEmail != null and contactEmail != ''">
+                and c.contact_email = #{contactEmail}
+            </if>
+            <if test="paymentMethod != null and paymentMethod != ''">
+                and c.payment_method = #{paymentMethod}
+            </if>
+            <if test="customerLevel != null and customerLevel != ''">
+                and c.customer_level = #{customerLevel}
+            </if>
+            <if test="status != null and status != ''">
+                and c.status = #{status}
+            </if>
+            <if test="delFlag != null and delFlag != ''">
+                and c.del_flag = #{delFlag}
+            </if>
+            ${params.dataScope}
+        </where>
+    </select>
+
+    <insert id="insertMdCustomer" parameterType="MdCustomer" useGeneratedKeys="true" keyProperty="customerId">
+        insert into md_customer
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="customerCode != null and customerCode != ''">customer_code,</if>
+            <if test="customerName != null and customerName != ''">customer_name,</if>
+            <if test="contactPerson != null">contact_person,</if>
+            <if test="contactPhone != null">contact_phone,</if>
+            <if test="contactEmail != null">contact_email,</if>
+            <if test="address != null">address,</if>
+            <if test="creditLimit != null">credit_limit,</if>
+            <if test="paymentMethod != null">payment_method,</if>
+            <if test="customerLevel != null">customer_level,</if>
+            <if test="status != null">status,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="customerCode != null and customerCode != ''">#{customerCode},</if>
+            <if test="customerName != null and customerName != ''">#{customerName},</if>
+            <if test="contactPerson != null">#{contactPerson},</if>
+            <if test="contactPhone != null">#{contactPhone},</if>
+            <if test="contactEmail != null">#{contactEmail},</if>
+            <if test="address != null">#{address},</if>
+            <if test="creditLimit != null">#{creditLimit},</if>
+            <if test="paymentMethod != null">#{paymentMethod},</if>
+            <if test="customerLevel != null">#{customerLevel},</if>
+            <if test="status != null">#{status},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateMdCustomer" parameterType="MdCustomer">
+        update md_customer
+        <set>
+            <if test="customerCode != null and customerCode != ''">customer_code = #{customerCode},</if>
+            <if test="customerName != null and customerName != ''">customer_name = #{customerName},</if>
+            <if test="contactPerson != null">contact_person = #{contactPerson},</if>
+            <if test="contactPhone != null">contact_phone = #{contactPhone},</if>
+            <if test="contactEmail != null">contact_email = #{contactEmail},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="creditLimit != null">credit_limit = #{creditLimit},</if>
+            <if test="paymentMethod != null">payment_method = #{paymentMethod},</if>
+            <if test="customerLevel != null">customer_level = #{customerLevel},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where customer_id = #{customerId}
+    </update>
+
+    <delete id="deleteMdCustomerById" parameterType="Long">
+        delete from md_customer where customer_id = #{customerId}
+    </delete>
+
+    <delete id="deleteMdCustomerByIds" parameterType="Long">
+        delete from md_customer where customer_id in
+        <foreach collection="array" item="customerId" open="(" separator="," close=")">
+            #{customerId}
+        </foreach>
+    </delete>
+</mapper>

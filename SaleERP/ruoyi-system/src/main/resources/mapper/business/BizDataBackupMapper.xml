@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.BizDataBackupMapper">
+
+    <resultMap type="BizDataBackup" id="BizDataBackupResult">
+        <id     property="backupId"      column="backup_id"      />
+        <result property="backupName"    column="backup_name"    />
+        <result property="backupType"    column="backup_type"    />
+        <result property="backupStatus"  column="backup_status"  />
+        <result property="tableCount"    column="table_count"    />
+        <result property="recordCount"   column="record_count"   />
+        <result property="backupContent" column="backup_content" />
+        <result property="restoreStatus" column="restore_status" />
+        <result property="restoreBy"     column="restore_by"     />
+        <result property="restoreTime"   column="restore_time"   />
+        <result property="createBy"      column="create_by"      />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"      column="update_by"      />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"        column="remark"         />
+    </resultMap>
+
+    <sql id="selectBizDataBackupVo">
+        select backup_id, backup_name, backup_type, backup_status, table_count, record_count,
+               backup_content, restore_status, restore_by, restore_time, create_by, create_time, update_by, update_time, remark
+        from biz_data_backup
+    </sql>
+
+    <select id="selectBizDataBackupById" parameterType="Long" resultMap="BizDataBackupResult">
+        <include refid="selectBizDataBackupVo"/>
+        where backup_id = #{backupId}
+    </select>
+
+    <select id="selectBizDataBackupList" parameterType="BizDataBackup" resultMap="BizDataBackupResult">
+        <include refid="selectBizDataBackupVo"/>
+        <where>
+            <if test="backupName != null and backupName != ''">
+                and backup_name like concat('%', #{backupName}, '%')
+            </if>
+            <if test="backupType != null and backupType != ''">
+                and backup_type = #{backupType}
+            </if>
+            <if test="backupStatus != null and backupStatus != ''">
+                and backup_status = #{backupStatus}
+            </if>
+            <if test="restoreStatus != null and restoreStatus != ''">
+                and restore_status = #{restoreStatus}
+            </if>
+        </where>
+        order by backup_id desc
+    </select>
+
+    <insert id="insertBizDataBackup" parameterType="BizDataBackup" useGeneratedKeys="true" keyProperty="backupId">
+        insert into biz_data_backup
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="backupName != null and backupName != ''">backup_name,</if>
+            <if test="backupType != null and backupType != ''">backup_type,</if>
+            <if test="backupStatus != null and backupStatus != ''">backup_status,</if>
+            <if test="tableCount != null">table_count,</if>
+            <if test="recordCount != null">record_count,</if>
+            <if test="backupContent != null and backupContent != ''">backup_content,</if>
+            <if test="restoreStatus != null and restoreStatus != ''">restore_status,</if>
+            <if test="restoreBy != null and restoreBy != ''">restore_by,</if>
+            <if test="restoreTime != null">restore_time,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="backupName != null and backupName != ''">#{backupName},</if>
+            <if test="backupType != null and backupType != ''">#{backupType},</if>
+            <if test="backupStatus != null and backupStatus != ''">#{backupStatus},</if>
+            <if test="tableCount != null">#{tableCount},</if>
+            <if test="recordCount != null">#{recordCount},</if>
+            <if test="backupContent != null and backupContent != ''">#{backupContent},</if>
+            <if test="restoreStatus != null and restoreStatus != ''">#{restoreStatus},</if>
+            <if test="restoreBy != null and restoreBy != ''">#{restoreBy},</if>
+            <if test="restoreTime != null">#{restoreTime},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateBizDataBackup" parameterType="BizDataBackup">
+        update biz_data_backup
+        <set>
+            <if test="backupName != null and backupName != ''">backup_name = #{backupName},</if>
+            <if test="backupType != null and backupType != ''">backup_type = #{backupType},</if>
+            <if test="backupStatus != null and backupStatus != ''">backup_status = #{backupStatus},</if>
+            <if test="tableCount != null">table_count = #{tableCount},</if>
+            <if test="recordCount != null">record_count = #{recordCount},</if>
+            <if test="backupContent != null and backupContent != ''">backup_content = #{backupContent},</if>
+            <if test="restoreStatus != null and restoreStatus != ''">restore_status = #{restoreStatus},</if>
+            <if test="restoreBy != null and restoreBy != ''">restore_by = #{restoreBy},</if>
+            <if test="restoreTime != null">restore_time = #{restoreTime},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+        </set>
+        where backup_id = #{backupId}
+    </update>
+
+    <delete id="deleteBizDataBackupByIds" parameterType="Long">
+        delete from biz_data_backup where backup_id in
+        <foreach collection="array" item="backupId" open="(" separator="," close=")">
+            #{backupId}
+        </foreach>
+    </delete>
+</mapper>

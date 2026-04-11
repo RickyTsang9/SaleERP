@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.FinReceivableMapper">
+
+    <resultMap type="FinReceivable" id="FinReceivableResult">
+        <id     property="receivableId" column="receivable_id" />
+        <result property="saleOrderId"  column="sale_order_id" />
+        <result property="customerId"   column="customer_id" />
+        <result property="amountDue"    column="amount_due" />
+        <result property="amountPaid"   column="amount_paid" />
+        <result property="remainAmount" column="remain_amount" />
+        <result property="status"       column="status" />
+        <result property="dueDate"      column="due_date" />
+        <result property="overdueDays"  column="overdue_days" />
+        <result property="createBy"     column="create_by" />
+        <result property="createTime"   column="create_time" />
+        <result property="updateBy"     column="update_by" />
+        <result property="updateTime"   column="update_time" />
+        <result property="remark"       column="remark" />
+    </resultMap>
+
+    <sql id="selectFinReceivableVo">
+        select receivable_id, sale_order_id, customer_id, amount_due, amount_paid,
+               amount_due - ifnull(amount_paid, 0) as remain_amount,
+               status, due_date, 0 as overdue_days,
+               create_by, create_time, update_by, update_time, remark
+        from fin_receivable
+    </sql>
+
+    <select id="selectFinReceivableById" parameterType="Long" resultMap="FinReceivableResult">
+        <include refid="selectFinReceivableVo"/>
+        where receivable_id = #{receivableId}
+    </select>
+
+    <select id="selectFinReceivableBySaleOrderId" parameterType="Long" resultMap="FinReceivableResult">
+        <include refid="selectFinReceivableVo"/>
+        where sale_order_id = #{saleOrderId}
+    </select>
+
+    <select id="selectFinReceivableList" parameterType="FinReceivable" resultMap="FinReceivableResult">
+        <include refid="selectFinReceivableVo"/>
+        <where>
+            <if test="saleOrderId != null">
+                and sale_order_id = #{saleOrderId}
+            </if>
+            <if test="customerId != null">
+                and customer_id = #{customerId}
+            </if>
+            <choose>
+                <when test="params.overdueQuery != null and params.overdueQuery != ''">
+                    and status in ('unpaid', 'partial')
+                    and amount_due - ifnull(amount_paid, 0) &gt; 0
+                    and due_date is not null
+                    and date(due_date) &lt; curdate()
+                </when>
+                <otherwise>
+                    <if test="status != null and status != ''">
+                        and status = #{status}
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="params.beginDueDate != null and params.beginDueDate != ''">
+                and date_format(due_date, '%y%m%d') &gt;= date_format(#{params.beginDueDate}, '%y%m%d')
+            </if>
+            <if test="params.endDueDate != null and params.endDueDate != ''">
+                and date_format(due_date, '%y%m%d') &lt;= date_format(#{params.endDueDate}, '%y%m%d')
+            </if>
+        </where>
+        order by receivable_id desc
+    </select>
+
+    <select id="selectFinReceivableDueReminderList" parameterType="Integer" resultMap="FinReceivableResult">
+        select receivable_id, sale_order_id, customer_id, amount_due, amount_paid,
+               amount_due - ifnull(amount_paid, 0) as remain_amount,
+               status, due_date, 0 as overdue_days,
+               create_by, create_time, update_by, update_time, remark
+        from fin_receivable
+        where status in ('unpaid', 'partial')
+          and amount_due - ifnull(amount_paid, 0) &gt; 0
+          and due_date is not null
+          and date(due_date) &gt;= curdate()
+          and date(due_date) &lt;= date_add(curdate(), interval ifnull(#{remindDays}, 7) day)
+        order by due_date asc, receivable_id desc
+    </select>
+
+    <select id="selectFinReceivableOverdueList" resultMap="FinReceivableResult">
+        select receivable_id, sale_order_id, customer_id, amount_due, amount_paid,
+               amount_due - ifnull(amount_paid, 0) as remain_amount,
+               status, due_date, datediff(curdate(), date(due_date)) as overdue_days,
+               create_by, create_time, update_by, update_time, remark
+        from fin_receivable
+        where status in ('unpaid', 'partial')
+          and amount_due - ifnull(amount_paid, 0) &gt; 0
+          and due_date is not null
+          and date(due_date) &lt; curdate()
+        order by overdue_days desc, receivable_id desc
+    </select>
+
+    <select id="selectCustomerOutstandingAmount" parameterType="Long" resultType="java.math.BigDecimal">
+        select ifnull(sum(amount_due - ifnull(amount_paid, 0)), 0)
+        from fin_receivable
+        where customer_id = #{customerId}
+          and status in ('unpaid', 'partial')
+    </select>
+
+    <insert id="insertFinReceivable" parameterType="FinReceivable" useGeneratedKeys="true" keyProperty="receivableId">
+        insert into fin_receivable
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="saleOrderId != null">sale_order_id,</if>
+            <if test="customerId != null">customer_id,</if>
+            <if test="amountDue != null">amount_due,</if>
+            <if test="amountPaid != null">amount_paid,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="dueDate != null">due_date,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="saleOrderId != null">#{saleOrderId},</if>
+            <if test="customerId != null">#{customerId},</if>
+            <if test="amountDue != null">#{amountDue},</if>
+            <if test="amountPaid != null">#{amountPaid},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="dueDate != null">#{dueDate},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateFinReceivable" parameterType="FinReceivable">
+        update fin_receivable
+        <set>
+            <if test="saleOrderId != null">sale_order_id = #{saleOrderId},</if>
+            <if test="customerId != null">customer_id = #{customerId},</if>
+            <if test="amountDue != null">amount_due = #{amountDue},</if>
+            <if test="amountPaid != null">amount_paid = #{amountPaid},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="dueDate != null">due_date = #{dueDate},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where receivable_id = #{receivableId}
+    </update>
+
+    <update id="updateFinReceivableAdjustInfo" parameterType="FinReceivable">
+        update fin_receivable
+        set due_date = #{dueDate},
+            update_by = #{updateBy},
+            update_time = sysdate(),
+            remark = #{remark}
+        where receivable_id = #{receivableId}
+    </update>
+
+    <update id="updateFinReceivablePaidAmount">
+        update fin_receivable
+        set amount_paid = #{amountPaid},
+            status = #{status},
+            update_time = sysdate()
+        where receivable_id = #{receivableId}
+    </update>
+
+    <update id="updateFinReceivableAmounts">
+        update fin_receivable
+        set amount_due = #{amountDue},
+            amount_paid = #{amountPaid},
+            status = #{status},
+            update_time = sysdate()
+        where receivable_id = #{receivableId}
+    </update>
+
+    <delete id="deleteFinReceivableById" parameterType="Long">
+        delete from fin_receivable where receivable_id = #{receivableId}
+    </delete>
+
+    <delete id="deleteFinReceivableByIds" parameterType="Long">
+        delete from fin_receivable where receivable_id in
+        <foreach collection="array" item="receivableId" open="(" separator="," close=")">
+            #{receivableId}
+        </foreach>
+    </delete>
+</mapper>

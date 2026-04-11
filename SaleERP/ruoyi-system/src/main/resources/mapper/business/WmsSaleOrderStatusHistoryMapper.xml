@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsSaleOrderStatusHistoryMapper">
+
+    <resultMap type="WmsSaleOrderStatusHistory" id="WmsSaleOrderStatusHistoryResult">
+        <id     property="historyId"      column="history_id" />
+        <result property="saleOrderId"    column="sale_order_id" />
+        <result property="fromStatus"     column="from_status" />
+        <result property="toStatus"       column="to_status" />
+        <result property="operationType"  column="operation_type" />
+        <result property="auditRole"      column="audit_role" />
+        <result property="auditBy"        column="audit_by" />
+        <result property="auditComment"   column="audit_comment" />
+        <result property="operateTime"    column="operate_time" />
+        <result property="createBy"       column="create_by" />
+        <result property="createTime"     column="create_time" />
+        <result property="updateBy"       column="update_by" />
+        <result property="updateTime"     column="update_time" />
+        <result property="remark"         column="remark" />
+    </resultMap>
+
+    <select id="selectWmsSaleOrderStatusHistoryList" parameterType="Long" resultMap="WmsSaleOrderStatusHistoryResult">
+        select history_id, sale_order_id, from_status, to_status, operation_type, audit_role, audit_by, audit_comment,
+               operate_time, create_by, create_time, update_by, update_time, remark
+        from wms_sale_order_status_history
+        where sale_order_id = #{saleOrderId}
+        order by history_id desc
+    </select>
+
+    <insert id="insertWmsSaleOrderStatusHistory" parameterType="WmsSaleOrderStatusHistory" useGeneratedKeys="true" keyProperty="historyId">
+        insert into wms_sale_order_status_history
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="saleOrderId != null">sale_order_id,</if>
+            <if test="fromStatus != null and fromStatus != ''">from_status,</if>
+            <if test="toStatus != null and toStatus != ''">to_status,</if>
+            <if test="operationType != null and operationType != ''">operation_type,</if>
+            <if test="auditRole != null and auditRole != ''">audit_role,</if>
+            <if test="auditBy != null and auditBy != ''">audit_by,</if>
+            <if test="auditComment != null">audit_comment,</if>
+            <if test="operateTime != null">operate_time,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="saleOrderId != null">#{saleOrderId},</if>
+            <if test="fromStatus != null and fromStatus != ''">#{fromStatus},</if>
+            <if test="toStatus != null and toStatus != ''">#{toStatus},</if>
+            <if test="operationType != null and operationType != ''">#{operationType},</if>
+            <if test="auditRole != null and auditRole != ''">#{auditRole},</if>
+            <if test="auditBy != null and auditBy != ''">#{auditBy},</if>
+            <if test="auditComment != null">#{auditComment},</if>
+            <if test="operateTime != null">#{operateTime},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+</mapper>

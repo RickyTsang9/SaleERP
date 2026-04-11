@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsSaleOrderMapper">
+
+    <resultMap type="WmsSaleOrder" id="WmsSaleOrderResult">
+        <id     property="saleOrderId"   column="sale_order_id" />
+        <result property="orderNo"       column="order_no" />
+        <result property="customerId"    column="customer_id" />
+        <result property="warehouseId"   column="warehouse_id" />
+        <result property="totalQty"      column="total_qty" />
+        <result property="totalAmount"   column="total_amount" />
+        <result property="receivableAmount" column="receivable_amount" />
+        <result property="receivedAmount" column="received_amount" />
+        <result property="remainReceivableAmount" column="remain_receivable_amount" />
+        <result property="outboundQuantity" column="outbound_quantity" />
+        <result property="remainQuantity" column="remain_quantity" />
+        <result property="status"        column="status" />
+        <result property="paymentStatus" column="payment_status" />
+        <result property="auditBy"       column="audit_by" />
+        <result property="auditTime"     column="audit_time" />
+        <result property="managerAuditBy" column="manager_audit_by" />
+        <result property="managerAuditTime" column="manager_audit_time" />
+        <result property="managerAuditComment" column="manager_audit_comment" />
+        <result property="financeAuditComment" column="finance_audit_comment" />
+        <result property="createBy"      column="create_by" />
+        <result property="createTime"    column="create_time" />
+        <result property="updateBy"      column="update_by" />
+        <result property="updateTime"    column="update_time" />
+        <result property="remark"        column="remark" />
+    </resultMap>
+
+    <sql id="selectWmsSaleOrderVo">
+        select s.sale_order_id, s.order_no, s.customer_id, s.warehouse_id, s.total_qty, s.total_amount,
+               ifnull(receivable_summary.receivable_amount, 0) as receivable_amount,
+               ifnull(receivable_summary.received_amount, 0) as received_amount,
+               greatest(ifnull(receivable_summary.receivable_amount, 0) - ifnull(receivable_summary.received_amount, 0), 0) as remain_receivable_amount,
+               ifnull((
+                   select sum(outbound_item.quantity)
+                   from wms_outbound outbound
+                   left join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
+                   where outbound.status = 'audited'
+                     and (
+                         outbound.sale_order_id = s.sale_order_id
+                         or (outbound.sale_order_id is null and outbound.source_order_no = s.order_no)
+                     )
+               ), 0) as outbound_quantity,
+               greatest(
+                   ifnull(s.total_qty, 0) - ifnull((
+                       select sum(outbound_item.quantity)
+                       from wms_outbound outbound
+                       left join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
+                       where outbound.status = 'audited'
+                         and (
+                             outbound.sale_order_id = s.sale_order_id
+                             or (outbound.sale_order_id is null and outbound.source_order_no = s.order_no)
+                         )
+                   ), 0),
+                   0
+               ) as remain_quantity,
+               s.status,
+               case
+                   when ifnull(receivable_summary.receivable_amount, 0) &lt;= 0 then ifnull(s.payment_status, 'unpaid')
+                   when greatest(ifnull(receivable_summary.receivable_amount, 0) - ifnull(receivable_summary.received_amount, 0), 0) = 0 then 'paid'
+                   when ifnull(receivable_summary.received_amount, 0) &gt; 0 then 'partial'
+                   else 'unpaid'
+               end as payment_status,
+               s.audit_by, s.audit_time, s.manager_audit_by, s.manager_audit_time, s.manager_audit_comment, s.finance_audit_comment,
+               s.create_by, s.create_time, s.update_by, s.update_time, s.remark
+        from wms_sale_order s
+        left join (
+            select sale_order_id,
+                   sum(amount_due) as receivable_amount,
+                   sum(ifnull(amount_paid, 0)) as received_amount
+            from fin_receivable
+            group by sale_order_id
+        ) receivable_summary on receivable_summary.sale_order_id = s.sale_order_id
+        left join sys_user su on su.user_name = s.create_by
+    </sql>
+
+    <select id="selectWmsSaleOrderById" parameterType="Long" resultMap="WmsSaleOrderResult">
+        <include refid="selectWmsSaleOrderVo"/>
+        where s.sale_order_id = #{saleOrderId}
+    </select>
+
+    <select id="selectWmsSaleOrderList" parameterType="WmsSaleOrder" resultMap="WmsSaleOrderResult">
+        <include refid="selectWmsSaleOrderVo"/>
+        <where>
+            <if test="saleOrderId != null">
+                and s.sale_order_id = #{saleOrderId}
+            </if>
+            <if test="orderNo != null and orderNo != ''">
+                and s.order_no like concat('%', #{orderNo}, '%')
+            </if>
+            <if test="customerId != null">
+                and s.customer_id = #{customerId}
+            </if>
+            <if test="warehouseId != null">
+                and s.warehouse_id = #{warehouseId}
+            </if>
+            <if test="status != null and status != ''">
+                and s.status = #{status}
+            </if>
+            ${params.dataScope}
+        </where>
+        <if test="paymentStatus != null and paymentStatus != ''">
+            having payment_status = #{paymentStatus}
+        </if>
+        order by s.sale_order_id desc
+    </select>
+
+    <insert id="insertWmsSaleOrder" parameterType="WmsSaleOrder" useGeneratedKeys="true" keyProperty="saleOrderId">
+        insert into wms_sale_order
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="orderNo != null and orderNo != ''">order_no,</if>
+            <if test="customerId != null">customer_id,</if>
+            <if test="warehouseId != null">warehouse_id,</if>
+            <if test="totalQty != null">total_qty,</if>
+            <if test="totalAmount != null">total_amount,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="paymentStatus != null and paymentStatus != ''">payment_status,</if>
+            <if test="managerAuditBy != null and managerAuditBy != ''">manager_audit_by,</if>
+            <if test="managerAuditTime != null">manager_audit_time,</if>
+            <if test="managerAuditComment != null">manager_audit_comment,</if>
+            <if test="financeAuditComment != null">finance_audit_comment,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="orderNo != null and orderNo != ''">#{orderNo},</if>
+            <if test="customerId != null">#{customerId},</if>
+            <if test="warehouseId != null">#{warehouseId},</if>
+            <if test="totalQty != null">#{totalQty},</if>
+            <if test="totalAmount != null">#{totalAmount},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="paymentStatus != null and paymentStatus != ''">#{paymentStatus},</if>
+            <if test="managerAuditBy != null and managerAuditBy != ''">#{managerAuditBy},</if>
+            <if test="managerAuditTime != null">#{managerAuditTime},</if>
+            <if test="managerAuditComment != null">#{managerAuditComment},</if>
+            <if test="financeAuditComment != null">#{financeAuditComment},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsSaleOrder" parameterType="WmsSaleOrder">
+        update wms_sale_order
+        <set>
+            <if test="orderNo != null and orderNo != ''">order_no = #{orderNo},</if>
+            <if test="customerId != null">customer_id = #{customerId},</if>
+            <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
+            <if test="totalQty != null">total_qty = #{totalQty},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where sale_order_id = #{saleOrderId}
+    </update>
+
+    <update id="updateWmsSaleOrderStatus">
+        update wms_sale_order
+        set status = #{status},
+            audit_by = #{auditBy},
+            finance_audit_comment = #{financeAuditComment},
+            update_by = #{updateBy},
+            audit_time = case when #{auditBy} is null then null else sysdate() end,
+            update_time = sysdate()
+        where sale_order_id = #{saleOrderId}
+          and status = #{currentStatus}
+    </update>
+
+    <update id="updateWmsSaleOrderManagerAudit">
+        update wms_sale_order
+        set status = #{status},
+            manager_audit_by = #{managerAuditBy},
+            manager_audit_comment = #{managerAuditComment},
+            update_by = #{updateBy},
+            manager_audit_time = case when #{managerAuditBy} is null then null else sysdate() end,
+            update_time = sysdate()
+        where sale_order_id = #{saleOrderId}
+          and status = #{currentStatus}
+    </update>
+
+    <update id="rollbackWmsSaleOrderToSubmitted">
+        update wms_sale_order
+        set status = 'submitted',
+            manager_audit_by = null,
+            manager_audit_time = null,
+            manager_audit_comment = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where sale_order_id = #{saleOrderId}
+          and status = #{currentStatus}
+    </update>
+
+    <update id="rollbackWmsSaleOrderToManagerApproved">
+        update wms_sale_order
+        set status = 'manager_approved',
+            audit_by = null,
+            audit_time = null,
+            finance_audit_comment = null,
+            payment_status = 'unpaid',
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where sale_order_id = #{saleOrderId}
+          and status = #{currentStatus}
+    </update>
+
+    <update id="updateWmsSaleOrderPaymentStatus">
+        update wms_sale_order
+        set payment_status = #{paymentStatus},
+            update_time = sysdate()
+        where sale_order_id = #{saleOrderId}
+    </update>
+
+    <delete id="deleteWmsSaleOrderById" parameterType="Long">
+        delete from wms_sale_order where sale_order_id = #{saleOrderId}
+    </delete>
+
+    <delete id="deleteWmsSaleOrderByIds" parameterType="Long">
+        delete from wms_sale_order where sale_order_id in
+        <foreach collection="array" item="saleOrderId" open="(" separator="," close=")">
+            #{saleOrderId}
+        </foreach>
+    </delete>
+
+    <select id="selectMaxOrderNoByPrefix" parameterType="String" resultType="String">
+        select max(order_no) from wms_sale_order where order_no like concat(#{noPrefix}, '%')
+    </select>
+
+    <select id="selectWmsSaleOrderByOrderNo" parameterType="String" resultMap="WmsSaleOrderResult">
+        <include refid="selectWmsSaleOrderVo"/>
+        where s.order_no = #{orderNo}
+    </select>
+
+    <select id="selectCustomerPendingApprovalAmount" parameterType="Long" resultType="java.math.BigDecimal">
+        select ifnull(sum(total_amount), 0)
+        from wms_sale_order
+        where customer_id = #{customerId}
+          and status in ('submitted', 'manager_approved')
+    </select>
+
+    <update id="refreshTotalBySaleOrderId" parameterType="Long">
+        update wms_sale_order
+        set total_qty = ifnull((select sum(quantity) from wms_sale_order_item where sale_order_id = #{saleOrderId}), 0),
+            total_amount = ifnull((select sum(amount) from wms_sale_order_item where sale_order_id = #{saleOrderId}), 0),
+            update_time = sysdate()
+        where sale_order_id = #{saleOrderId}
+    </update>
+</mapper>

@@ -1,0 +1,35 @@
+# global
+.DS_Store
+Thumbs.db
+*.log
+
+# editor
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# backend
+SaleERP/.m2/
+SaleERP/**/target/
+SaleERP/**/logs/
+SaleERP/**/temp/
+SaleERP/**/bin/
+
+# frontend
+SaleERP-Vue3/node_modules/
+SaleERP-Vue3/dist/
+SaleERP-Vue3/.vite/
+SaleERP-Vue3/*.local
+SaleERP-Vue3/.codex-dev.log
+SaleERP-Vue3/debug.log
+SaleERP-Vue3/vite-live.err.log
+SaleERP-Vue3/vite-live.out.log
+
+# local environment overrides
+SaleERP/ruoyi-admin/src/main/resources/application-local.yml
+SaleERP/ruoyi-admin/src/main/resources/application-dev-local.yml
+SaleERP-Vue3/.env.local
+SaleERP-Vue3/.env.development.local
+SaleERP-Vue3/.env.production.local

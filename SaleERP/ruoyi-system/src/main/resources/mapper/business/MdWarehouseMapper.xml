@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.MdWarehouseMapper">
+
+    <resultMap type="MdWarehouse" id="MdWarehouseResult">
+        <id     property="warehouseId"   column="warehouse_id"   />
+        <result property="warehouseCode" column="warehouse_code" />
+        <result property="warehouseName" column="warehouse_name" />
+        <result property="contactName"   column="contact_name"   />
+        <result property="contactPhone"  column="contact_phone"  />
+        <result property="address"       column="address"        />
+        <result property="status"        column="status"         />
+        <result property="delFlag"       column="del_flag"       />
+        <result property="createBy"      column="create_by"      />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"      column="update_by"      />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"        column="remark"         />
+    </resultMap>
+
+    <sql id="selectMdWarehouseVo">
+        select warehouse_id, warehouse_code, warehouse_name, contact_name, contact_phone, address,
+               status, del_flag, create_by, create_time, update_by, update_time, remark
+        from md_warehouse
+    </sql>
+
+    <select id="selectMdWarehouseById" parameterType="Long" resultMap="MdWarehouseResult">
+        <include refid="selectMdWarehouseVo"/>
+        where warehouse_id = #{warehouseId}
+    </select>
+
+    <select id="selectMdWarehouseList" parameterType="MdWarehouse" resultMap="MdWarehouseResult">
+        <include refid="selectMdWarehouseVo"/>
+        <where>
+            <if test="warehouseCode != null and warehouseCode != ''">
+                and warehouse_code like concat('%', #{warehouseCode}, '%')
+            </if>
+            <if test="warehouseName != null and warehouseName != ''">
+                and warehouse_name like concat('%', #{warehouseName}, '%')
+            </if>
+            <if test="contactPhone != null and contactPhone != ''">
+                and contact_phone like concat('%', #{contactPhone}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+            <if test="delFlag != null and delFlag != ''">
+                and del_flag = #{delFlag}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertMdWarehouse" parameterType="MdWarehouse" useGeneratedKeys="true" keyProperty="warehouseId">
+        insert into md_warehouse
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code,</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name,</if>
+            <if test="contactName != null">contact_name,</if>
+            <if test="contactPhone != null">contact_phone,</if>
+            <if test="address != null">address,</if>
+            <if test="status != null">status,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="warehouseCode != null and warehouseCode != ''">#{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">#{warehouseName},</if>
+            <if test="contactName != null">#{contactName},</if>
+            <if test="contactPhone != null">#{contactPhone},</if>
+            <if test="address != null">#{address},</if>
+            <if test="status != null">#{status},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateMdWarehouse" parameterType="MdWarehouse">
+        update md_warehouse
+        <set>
+            <if test="warehouseCode != null and warehouseCode != ''">warehouse_code = #{warehouseCode},</if>
+            <if test="warehouseName != null and warehouseName != ''">warehouse_name = #{warehouseName},</if>
+            <if test="contactName != null">contact_name = #{contactName},</if>
+            <if test="contactPhone != null">contact_phone = #{contactPhone},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate(),
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where warehouse_id = #{warehouseId}
+    </update>
+
+    <delete id="deleteMdWarehouseById" parameterType="Long">
+        delete from md_warehouse where warehouse_id = #{warehouseId}
+    </delete>
+
+    <delete id="deleteMdWarehouseByIds" parameterType="Long">
+        delete from md_warehouse where warehouse_id in
+        <foreach collection="array" item="warehouseId" open="(" separator="," close=")">
+            #{warehouseId}
+        </foreach>
+    </delete>
+</mapper>

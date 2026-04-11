@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsSaleReturnItemMapper">
+
+    <resultMap type="WmsSaleReturnItem" id="WmsSaleReturnItemResult">
+        <id     property="saleReturnItemId" column="sale_return_item_id" />
+        <result property="saleReturnId"     column="sale_return_id" />
+        <result property="productId"        column="product_id" />
+        <result property="quantity"         column="quantity" />
+        <result property="price"            column="price" />
+        <result property="amount"           column="amount" />
+    </resultMap>
+
+    <sql id="selectWmsSaleReturnItemVo">
+        select sale_return_item_id, sale_return_id, product_id, quantity, price, amount
+        from wms_sale_return_item
+    </sql>
+
+    <select id="selectWmsSaleReturnItemById" parameterType="Long" resultMap="WmsSaleReturnItemResult">
+        <include refid="selectWmsSaleReturnItemVo"/>
+        where sale_return_item_id = #{saleReturnItemId}
+    </select>
+
+    <select id="selectWmsSaleReturnItemsByReturnId" parameterType="Long" resultMap="WmsSaleReturnItemResult">
+        <include refid="selectWmsSaleReturnItemVo"/>
+        where sale_return_id = #{saleReturnId}
+    </select>
+
+    <select id="selectWmsSaleReturnItemList" parameterType="WmsSaleReturnItem" resultMap="WmsSaleReturnItemResult">
+        <include refid="selectWmsSaleReturnItemVo"/>
+        <where>
+            <if test="saleReturnId != null">
+                and sale_return_id = #{saleReturnId}
+            </if>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertWmsSaleReturnItem" parameterType="WmsSaleReturnItem" useGeneratedKeys="true" keyProperty="saleReturnItemId">
+        insert into wms_sale_return_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="saleReturnId != null">sale_return_id,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="quantity != null">quantity,</if>
+            <if test="price != null">price,</if>
+            <if test="amount != null">amount,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="saleReturnId != null">#{saleReturnId},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="quantity != null">#{quantity},</if>
+            <if test="price != null">#{price},</if>
+            <if test="amount != null">#{amount},</if>
+        </trim>
+    </insert>
+
+    <update id="updateWmsSaleReturnItem" parameterType="WmsSaleReturnItem">
+        update wms_sale_return_item
+        <set>
+            <if test="saleReturnId != null">sale_return_id = #{saleReturnId},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="quantity != null">quantity = #{quantity},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="amount != null">amount = #{amount},</if>
+        </set>
+        where sale_return_item_id = #{saleReturnItemId}
+    </update>
+
+    <delete id="deleteWmsSaleReturnItemById" parameterType="Long">
+        delete from wms_sale_return_item where sale_return_item_id = #{saleReturnItemId}
+    </delete>
+
+    <delete id="deleteWmsSaleReturnItemByIds" parameterType="Long">
+        delete from wms_sale_return_item where sale_return_item_id in
+        <foreach collection="array" item="saleReturnItemId" open="(" separator="," close=")">
+            #{saleReturnItemId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteWmsSaleReturnItemBySaleReturnIds" parameterType="Long">
+        delete from wms_sale_return_item where sale_return_id in
+        <foreach collection="array" item="saleReturnId" open="(" separator="," close=")">
+            #{saleReturnId}
+        </foreach>
+    </delete>
+
+    <select id="selectSaleReturnIdsBySaleReturnItemIds" parameterType="Long" resultType="Long">
+        select distinct sale_return_id
+        from wms_sale_return_item
+        where sale_return_item_id in
+        <foreach collection="array" item="saleReturnItemId" open="(" separator="," close=")">
+            #{saleReturnItemId}
+        </foreach>
+    </select>
+</mapper>
