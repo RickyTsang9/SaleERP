@@ -71,10 +71,7 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         {
             wmsInbound.setInboundNo(generateInboundNo());
         }
-        if (StringUtils.isEmpty(wmsInbound.getStatus()))
-        {
-            wmsInbound.setStatus(STATUS_DRAFT);
-        }
+        wmsInbound.setStatus(STATUS_DRAFT);
         int insertRows = wmsInboundMapper.insertWmsInbound(wmsInbound);
         initializeLinkedPurchaseOrderItems(wmsInbound);
         return insertRows;
@@ -218,6 +215,10 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         if (databaseInbound == null)
         {
             throw new ServiceException("入库单不存在");
+        }
+        if (STATUS_CANCELLED.equals(databaseInbound.getStatus()))
+        {
+            throw new ServiceException("入库单已作废，无需重复作废");
         }
         if (STATUS_AUDITED.equals(databaseInbound.getStatus()))
         {

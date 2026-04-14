@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import com.ruoyi.business.mapper.MdSupplierMapper;
 import com.ruoyi.business.domain.MdSupplier;
 import com.ruoyi.business.service.IMdSupplierService;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.SecurityUtils;
 
 /**
@@ -90,6 +91,10 @@ public class MdSupplierServiceImpl implements IMdSupplierService
     @Override
     public int deleteMdSupplierBySupplierIds(Long[] supplierIds)
     {
+        for (Long supplierId : supplierIds)
+        {
+            validateSupplierCanBeDeleted(supplierId, true);
+        }
         return mdSupplierMapper.deleteMdSupplierBySupplierIds(supplierIds);
     }
 
@@ -102,6 +107,35 @@ public class MdSupplierServiceImpl implements IMdSupplierService
     @Override
     public int deleteMdSupplierBySupplierId(Long supplierId)
     {
+        validateSupplierCanBeDeleted(supplierId, false);
         return mdSupplierMapper.deleteMdSupplierBySupplierId(supplierId);
+    }
+
+    /**
+     * 校验供应商是否允许删除
+     * 
+     * @param supplierId 供应商主键
+     * @param batchDelete 是否批量删除
+     */
+    private void validateSupplierCanBeDeleted(Long supplierId, boolean batchDelete)
+    {
+        if (supplierId == null)
+        {
+            return;
+        }
+        MdSupplier databaseSupplier = mdSupplierMapper.selectMdSupplierBySupplierId(supplierId);
+        if (databaseSupplier == null)
+        {
+            return;
+        }
+        Integer referenceCount = mdSupplierMapper.selectSupplierReferenceCount(supplierId);
+        if (referenceCount != null && referenceCount.intValue() > 0)
+        {
+            if (batchDelete)
+            {
+                throw new ServiceException("供应商已被业务单据引用，不能删除，供应商名称：" + databaseSupplier.getSupplierName());
+            }
+            throw new ServiceException("供应商已被业务单据引用，不能删除");
+        }
     }
 }

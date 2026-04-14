@@ -38,6 +38,76 @@
       </el-col>
     </el-row>
 
+    <el-row :gutter="12" style="margin-top: 12px" v-if="hasManagementCockpitData">
+      <el-col :span="24">
+        <el-card>
+          <template #header>
+            <div class="dashboard-section-header">
+              <div class="dashboard-section-title-group">
+                <span>经营决议事项</span>
+                <el-tag size="small" :type="pendingExecutiveActionItemCount > 0 ? 'warning' : 'success'">
+                  {{ pendingExecutiveActionItemCount > 0 ? `待跟进${pendingExecutiveActionItemCount}项` : "事项已清空" }}
+                </el-tag>
+              </div>
+              <el-button v-if="canManageExecutiveActionItem" link type="primary" @click="openExecutiveActionItemDialog()">新增事项</el-button>
+            </div>
+          </template>
+          <div v-loading="executiveActionItemLoading">
+            <el-empty v-if="!executiveActionItemList.length" description="当前还没有经营决议事项，归档经营简报后会自动生成待跟进事项。" :image-size="88" />
+            <el-table v-else :data="executiveActionItemList" border size="small">
+              <el-table-column label="决议事项" align="left" min-width="260" show-overflow-tooltip>
+                <template #default="scope">
+                  <div class="executive-action-title">{{ scope.row.actionTitle }}</div>
+                  <div v-if="scope.row.briefTitleSnapshot" class="executive-action-brief-title">来源：{{ scope.row.briefTitleSnapshot }}</div>
+                </template>
+              </el-table-column>
+              <el-table-column label="负责人" align="center" prop="ownerName" min-width="100" />
+              <el-table-column label="到期日" align="center" min-width="120">
+                <template #default="scope">
+                  <span :class="{ 'executive-action-overdue-text': isExecutiveActionItemOverdue(scope.row) }">
+                    {{ scope.row.dueDate ? parseTime(scope.row.dueDate, '{y}-{m}-{d}') : '-' }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="优先级" align="center" width="100">
+                <template #default="scope">
+                  <el-tag size="small" :type="getExecutiveActionPriorityTagType(scope.row.priorityLevel)">
+                    {{ getExecutiveActionPriorityLabel(scope.row.priorityLevel) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" align="center" width="110">
+                <template #default="scope">
+                  <el-tag size="small" :type="getExecutiveActionStatusTagType(scope.row.actionStatus)">
+                    {{ getExecutiveActionStatusLabel(scope.row.actionStatus) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="进度备注" align="left" min-width="220" show-overflow-tooltip>
+                <template #default="scope">
+                  <span>{{ scope.row.progressRemark || '-' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" align="center" width="180">
+                <template #default="scope">
+                  <el-button v-if="canManageExecutiveActionItem" link type="primary" @click="openExecutiveActionItemDialog(scope.row)">编辑</el-button>
+                  <el-button
+                    v-if="canManageExecutiveActionItem && scope.row.actionStatus !== 'completed'"
+                    link
+                    type="success"
+                    @click="handleExecutiveActionItemComplete(scope.row)"
+                  >
+                    完成
+                  </el-button>
+                  <el-button v-if="canManageExecutiveActionItem" link type="danger" @click="handleExecutiveActionItemRemove(scope.row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="12" style="margin-top: 12px">
       <el-col :span="8">
         <el-card shadow="hover" class="dashboard-action-card" @click="handleDashboardShortcut('pendingSaleOrder')">
@@ -714,6 +784,7 @@
                 <el-input-number v-model="annualBudgetYear" :min="2020" :max="2099" controls-position="right" size="small" class="annual-budget-year-input" />
                 <el-button link type="primary" @click="loadAnnualBudgetPlanData">切换年度</el-button>
                 <el-button v-if="canManageAnnualBudgetPlan" link type="primary" @click="openAnnualBudgetPlanDialog">编辑预算</el-button>
+                <el-button v-if="canCreateAnnualBudgetPlanVersion" link type="primary" @click="openAnnualBudgetPlanVersionDialog">新建版本</el-button>
               </div>
             </div>
           </template>
@@ -724,12 +795,25 @@
                 <span class="annual-budget-meta-value">{{ annualBudgetPlanData.planName || `${annualBudgetYear}年度经营预算` }}</span>
               </div>
               <div class="annual-budget-meta-item">
+                <span class="annual-budget-meta-label">版本信息</span>
+                <span class="annual-budget-meta-value">
+                  {{ annualBudgetPlanData.versionLabel || `v${annualBudgetPlanData.versionNo || 1}` }}
+                  <el-tag size="small" :type="annualBudgetPlanEffectiveTagType" style="margin-left: 8px">
+                    {{ annualBudgetPlanEffectiveText }}
+                  </el-tag>
+                </span>
+              </div>
+              <div class="annual-budget-meta-item">
                 <span class="annual-budget-meta-label">提交信息</span>
                 <span class="annual-budget-meta-value">{{ annualBudgetPlanData.submitBy ? `${annualBudgetPlanData.submitBy} / ${parseTime(annualBudgetPlanData.submitTime)}` : "暂未提交" }}</span>
               </div>
               <div class="annual-budget-meta-item">
                 <span class="annual-budget-meta-label">审批信息</span>
                 <span class="annual-budget-meta-value">{{ annualBudgetPlanData.approveBy ? `${annualBudgetPlanData.approveBy} / ${parseTime(annualBudgetPlanData.approveTime)}` : "暂未审批" }}</span>
+              </div>
+              <div class="annual-budget-meta-item annual-budget-meta-item-wide">
+                <span class="annual-budget-meta-label">调整原因</span>
+                <span class="annual-budget-meta-value">{{ annualBudgetPlanData.adjustmentReason || "当前版本未填写调整原因" }}</span>
               </div>
             </div>
             <div class="annual-budget-summary-list">
@@ -773,6 +857,35 @@
                 </template>
               </el-table-column>
             </el-table>
+            <div class="annual-budget-history-title">版本历史</div>
+            <el-empty v-if="!annualBudgetPlanHistoryList.length" description="当前年度还没有预算版本记录。" :image-size="68" />
+            <el-table v-else :data="annualBudgetPlanHistoryList" border size="small">
+              <el-table-column label="版本" align="center" min-width="100">
+                <template #default="scope">
+                  <span>{{ scope.row.versionLabel || `v${scope.row.versionNo || 1}` }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" align="center" min-width="100">
+                <template #default="scope">
+                  <el-tag size="small" :type="scope.row.planStatus === 'approved' ? 'success' : (scope.row.planStatus === 'submitted' ? 'warning' : (scope.row.planStatus === 'rejected' ? 'danger' : 'info'))">
+                    {{ scope.row.planStatus === "approved" ? "已通过" : (scope.row.planStatus === "submitted" ? "待审批" : (scope.row.planStatus === "rejected" ? "已驳回" : "草稿")) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="是否生效" align="center" min-width="100">
+                <template #default="scope">
+                  <el-tag size="small" :type="scope.row.effectiveFlag === 'y' ? 'success' : 'info'">
+                    {{ scope.row.effectiveFlag === "y" ? "生效中" : "未生效" }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="调整原因" align="left" prop="adjustmentReason" min-width="240" show-overflow-tooltip />
+              <el-table-column label="审批信息" align="center" min-width="180">
+                <template #default="scope">
+                  <span>{{ scope.row.approveBy ? `${scope.row.approveBy} / ${parseTime(scope.row.approveTime, '{y}-{m}-{d}')}` : "-" }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
         </el-card>
       </el-col>
@@ -807,6 +920,69 @@
               <el-table-column label="操作" align="center" width="100">
                 <template #default="scope">
                   <el-button link type="primary" @click="openExecutiveBriefRecordPreview(scope.row)">查看详情</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="12" style="margin-top: 12px" v-if="hasManagementCockpitData">
+      <el-col :span="24">
+        <el-card>
+          <template #header>
+            <div class="dashboard-section-header">
+              <div class="dashboard-section-title-group">
+                <span>经营快照归档</span>
+                <el-tag size="small" type="info">{{ operationSnapshotList.length }}条快照</el-tag>
+              </div>
+              <div class="annual-budget-header-action">
+                <el-button v-if="canArchiveExecutiveBriefRecord" link type="primary" @click="archiveOperationSnapshot('daily')">归档日报</el-button>
+                <el-button v-if="canArchiveExecutiveBriefRecord" link type="primary" @click="archiveOperationSnapshot('weekly')">归档周报</el-button>
+                <el-button v-if="canArchiveExecutiveBriefRecord" link type="primary" @click="archiveOperationSnapshot('monthly')">归档月报</el-button>
+              </div>
+            </div>
+          </template>
+          <div v-loading="operationSnapshotLoading">
+            <el-empty v-if="!operationSnapshotList.length" description="当前还没有经营快照归档记录。" :image-size="88" />
+            <el-table v-else :data="operationSnapshotList" border size="small">
+              <el-table-column label="日期" align="center" width="110">
+                <template #default="scope">
+                  <span>{{ parseTime(scope.row.snapshotDate, '{y}-{m}-{d}') }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="类型" align="center" width="100">
+                <template #default="scope">
+                  <el-tag size="small" :type="getOperationSnapshotTypeTagType(scope.row.snapshotType)">
+                    {{ getOperationSnapshotTypeLabel(scope.row.snapshotType) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="快照标题" align="left" prop="snapshotTitle" min-width="180" show-overflow-tooltip />
+              <el-table-column label="销售额" align="right" min-width="120">
+                <template #default="scope">
+                  <span>￥{{ formatAmountValue(scope.row.saleAmount) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="毛利额" align="right" min-width="120">
+                <template #default="scope">
+                  <span>￥{{ formatAmountValue(scope.row.grossProfitAmount) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="回款率" align="center" min-width="100">
+                <template #default="scope">
+                  <span>{{ formatPercentValue(scope.row.collectionRate) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="逾期/预警/待办" align="center" min-width="150">
+                <template #default="scope">
+                  <span>{{ scope.row.overdueCount || 0 }} / {{ scope.row.stockWarningCount || 0 }} / {{ scope.row.pendingActionCount || 0 }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" align="center" width="100">
+                <template #default="scope">
+                  <el-button link type="primary" @click="openOperationSnapshotPreview(scope.row)">查看详情</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -1128,9 +1304,9 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="annualBudgetPlanDialogOpen" title="维护年度预算计划" width="1280px" append-to-body>
+    <el-dialog v-model="annualBudgetPlanDialogOpen" :title="annualBudgetPlanFormMode === 'createVersion' ? '新建预算版本' : '维护年度预算计划'" width="1280px" append-to-body>
       <el-alert
-        title="建议先录入年度总量，再一键均分到月度，最后按旺淡季和回款节奏微调每个月预算。"
+        :title="annualBudgetPlanFormMode === 'createVersion' ? '系统已带入当前生效版本的预算拆解，请补充版本标签和调整原因后继续微调。' : '建议先录入年度总量，再一键均分到月度，最后按旺淡季和回款节奏微调每个月预算。'"
         type="info"
         :closable="false"
         show-icon
@@ -1139,15 +1315,23 @@
         <el-row :gutter="12">
           <el-col :span="8">
             <el-form-item label="预算年度" prop="budgetYear">
-              <el-input-number v-model="annualBudgetPlanForm.budgetYear" :min="2020" :max="2099" controls-position="right" style="width: 100%" />
+              <el-input-number v-model="annualBudgetPlanForm.budgetYear" :min="2020" :max="2099" controls-position="right" style="width: 100%" :disabled="annualBudgetPlanFormMode === 'createVersion' || !!annualBudgetPlanForm.planId" />
             </el-form-item>
           </el-col>
-          <el-col :span="16">
+          <el-col :span="8">
             <el-form-item label="预算名称" prop="planName">
               <el-input v-model="annualBudgetPlanForm.planName" placeholder="请输入预算计划名称" />
             </el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item label="版本标签">
+              <el-input v-model="annualBudgetPlanForm.versionLabel" placeholder="请输入版本标签，例如 v2" />
+            </el-form-item>
+          </el-col>
         </el-row>
+        <el-form-item label="调整原因">
+          <el-input v-model="annualBudgetPlanForm.adjustmentReason" type="textarea" :rows="2" placeholder="请输入本次预算调整的背景、目标或主要变化" />
+        </el-form-item>
         <div class="annual-budget-form-action-row">
           <span class="annual-budget-form-action-text">先填写年度总量，再点击“按年度均分”，最后可逐月微调。</span>
           <el-button type="primary" plain @click="distributeAllAnnualBudgetPlanMetrics">按年度均分</el-button>
@@ -1215,7 +1399,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="annualBudgetPlanDialogOpen = false">取 消</el-button>
-          <el-button type="primary" :loading="annualBudgetPlanLoading" @click="submitAnnualBudgetPlanForm">保 存</el-button>
+          <el-button type="primary" :loading="annualBudgetPlanLoading" @click="submitAnnualBudgetPlanForm">{{ annualBudgetPlanFormMode === "createVersion" ? "创建版本" : "保 存" }}</el-button>
         </div>
       </template>
     </el-dialog>
@@ -1274,6 +1458,98 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="operationSnapshotDialogOpen" title="经营快照详情" width="760px" append-to-body>
+      <div class="executive-brief-dialog-meta">
+        快照日期：{{ operationSnapshotPreviewData.snapshotDate ? parseTime(operationSnapshotPreviewData.snapshotDate, '{y}-{m}-{d}') : "-" }}
+      </div>
+      <div class="annual-budget-summary-list">
+        <div class="annual-budget-summary-item">
+          <div class="annual-budget-summary-title">销售额</div>
+          <div class="annual-budget-summary-value">￥{{ formatAmountValue(operationSnapshotPreviewData.saleAmount) }}</div>
+        </div>
+        <div class="annual-budget-summary-item">
+          <div class="annual-budget-summary-title">毛利额</div>
+          <div class="annual-budget-summary-value">￥{{ formatAmountValue(operationSnapshotPreviewData.grossProfitAmount) }}</div>
+        </div>
+        <div class="annual-budget-summary-item">
+          <div class="annual-budget-summary-title">回款率</div>
+          <div class="annual-budget-summary-value">{{ formatPercentValue(operationSnapshotPreviewData.collectionRate) }}</div>
+        </div>
+        <div class="annual-budget-summary-item">
+          <div class="annual-budget-summary-title">逾期/预警/待办</div>
+          <div class="annual-budget-summary-value">{{ operationSnapshotPreviewData.overdueCount || 0 }} / {{ operationSnapshotPreviewData.stockWarningCount || 0 }} / {{ operationSnapshotPreviewData.pendingActionCount || 0 }}</div>
+        </div>
+      </div>
+      <div class="executive-brief-section">
+        <div class="executive-brief-section-title">经营结论</div>
+        <div class="executive-brief-section-body">
+          <div class="executive-brief-item">{{ operationSnapshotPreviewData.summaryContent || "暂无经营结论" }}</div>
+        </div>
+      </div>
+      <el-input type="textarea" :rows="12" :model-value="operationSnapshotPreviewData.plainTextContent || ''" readonly class="executive-brief-textarea" />
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="operationSnapshotDialogOpen = false">关 闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="executiveActionItemDialogOpen" :title="executiveActionItemDialogTitle" width="720px" append-to-body>
+      <el-form ref="executiveActionItemFormRef" :model="executiveActionItemForm" :rules="executiveActionItemRules" label-width="110px">
+        <el-form-item label="来源简报">
+          <el-input v-model="executiveActionItemForm.briefTitleSnapshot" placeholder="可选，留空表示手工新增事项" />
+        </el-form-item>
+        <el-form-item label="决议事项" prop="actionTitle">
+          <el-input v-model="executiveActionItemForm.actionTitle" type="textarea" :rows="3" placeholder="请输入需要推进的经营决议事项" />
+        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="负责人">
+              <el-input v-model="executiveActionItemForm.ownerName" placeholder="请输入负责人" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="到期日期">
+              <el-date-picker v-model="executiveActionItemForm.dueDate" type="date" value-format="YYYY-MM-DD" placeholder="请选择到期日期" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="事项状态">
+              <el-select v-model="executiveActionItemForm.actionStatus" placeholder="请选择事项状态" style="width: 100%">
+                <el-option label="待跟进" value="todo" />
+                <el-option label="执行中" value="in_progress" />
+                <el-option label="已完成" value="completed" />
+                <el-option label="已取消" value="canceled" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="优先级">
+              <el-select v-model="executiveActionItemForm.priorityLevel" placeholder="请选择优先级" style="width: 100%">
+                <el-option label="高" value="high" />
+                <el-option label="中" value="medium" />
+                <el-option label="低" value="low" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="进度备注">
+          <el-input v-model="executiveActionItemForm.progressRemark" type="textarea" :rows="3" placeholder="请输入最新进度说明" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="executiveActionItemForm.remark" type="textarea" :rows="2" placeholder="请输入补充说明" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="executiveActionItemDialogOpen = false">取 消</el-button>
+          <el-button type="primary" @click="submitExecutiveActionItemForm">保 存</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -1295,8 +1571,10 @@ import { listReceipt } from '@/api/business/receipt'
 import { listPayment } from '@/api/business/payment'
 import {
   getDecisionBudgetPlanCurrent,
+  listDecisionBudgetPlanHistory,
   addDecisionBudgetPlan,
   updateDecisionBudgetPlan,
+  createDecisionBudgetPlanVersion,
   submitDecisionBudgetPlan,
   approveDecisionBudgetPlan,
   rejectDecisionBudgetPlan
@@ -1306,8 +1584,21 @@ import {
   getExecutiveBriefRecord,
   addExecutiveBriefRecord
 } from '@/api/business/executiveBriefRecord'
+import {
+  listOperationSnapshot,
+  getOperationSnapshot,
+  addOperationSnapshot
+} from '@/api/business/operationSnapshot'
+import {
+  listExecutiveActionItem,
+  getExecutiveActionItem,
+  addExecutiveActionItem,
+  updateExecutiveActionItem,
+  delExecutiveActionItem
+} from '@/api/business/executiveActionItem'
 import { getConfigKey, listConfig, addConfig, updateConfig } from '@/api/system/config'
 import useUserStore from '@/store/modules/user'
+import { parseTime } from '@/utils/ruoyi'
 import { buildDashboardMessagePreviewContent } from '@/utils/dashboardMessage'
 
 const { proxy } = getCurrentInstance()
@@ -1348,9 +1639,21 @@ const annualBudgetPlanDialogOpen = ref(false)
 const annualBudgetPlanFormRef = ref(null)
 const annualBudgetApprovalDialogOpen = ref(false)
 const annualBudgetApprovalActionType = ref("approve")
+const annualBudgetPlanFormMode = ref("edit")
+const annualBudgetPlanSourceId = ref(undefined)
 const annualBudgetPlanData = ref({})
+const annualBudgetPlanHistoryList = ref([])
 const executiveBriefRecordLoading = ref(false)
 const executiveBriefRecordList = ref([])
+const operationSnapshotLoading = ref(false)
+const operationSnapshotList = ref([])
+const operationSnapshotDialogOpen = ref(false)
+const operationSnapshotPreviewData = ref({})
+const executiveActionItemLoading = ref(false)
+const executiveActionItemList = ref([])
+const executiveActionItemDialogOpen = ref(false)
+const executiveActionItemFormRef = ref(null)
+const executiveActionItemDialogTitle = ref("新增经营决议事项")
 const executiveBriefRecordDialogOpen = ref(false)
 const executiveBriefRecordPreviewData = ref({})
 const reconciliationQueryParams = ref({
@@ -1390,6 +1693,9 @@ const annualBudgetPlanForm = reactive({
   planId: undefined,
   budgetYear: new Date().getFullYear(),
   planName: "",
+  versionLabel: "v1",
+  adjustmentReason: "",
+  effectiveFlag: "n",
   saleBudgetAmount: 0,
   grossProfitBudgetAmount: 0,
   collectionBudgetAmount: 0,
@@ -1403,6 +1709,18 @@ const annualBudgetPlanForm = reactive({
 })
 const annualBudgetApprovalForm = reactive({
   approveRemark: ""
+})
+const executiveActionItemForm = reactive({
+  actionItemId: undefined,
+  briefId: undefined,
+  briefTitleSnapshot: "",
+  actionTitle: "",
+  ownerName: "",
+  dueDate: undefined,
+  actionStatus: "todo",
+  priorityLevel: "medium",
+  progressRemark: "",
+  remark: ""
 })
 const dashboardTargetRules = {
   saleTargetAmount: [{ required: true, message: "销售目标不能为空", trigger: "blur" }],
@@ -1419,6 +1737,9 @@ const decisionBudgetRules = {
 const annualBudgetPlanRules = {
   budgetYear: [{ required: true, message: "预算年度不能为空", trigger: "blur" }],
   planName: [{ required: true, message: "预算计划名称不能为空", trigger: "blur" }]
+}
+const executiveActionItemRules = {
+  actionTitle: [{ required: true, message: "决议事项不能为空", trigger: "blur" }]
 }
 
 // 统一经营看板的页面跳转地址，避免继续进入旧的 business 路由。
@@ -1651,6 +1972,13 @@ const canApproveAnnualBudgetPlan = computed(() => {
   return permissionCodeList.includes("business:report:approve")
 })
 
+// 判断当前预算计划是否允许基于已通过版本继续新建调整版本。
+const canCreateAnnualBudgetPlanVersion = computed(() => {
+  return canManageAnnualBudgetPlan.value
+    && !!annualBudgetPlanData.value.planId
+    && annualBudgetPlanData.value.planStatus === "approved"
+})
+
 // 判断当前用户是否具备经营简报归档权限。
 const canArchiveExecutiveBriefRecord = computed(() => {
   const permissionCodeList = userStore.permissions || []
@@ -1659,6 +1987,33 @@ const canArchiveExecutiveBriefRecord = computed(() => {
     return true
   }
   return permissionCodeList.includes("business:report:brief")
+})
+
+// 判断当前用户是否具备经营决议事项维护权限。
+const canManageExecutiveActionItem = computed(() => {
+  const permissionCodeList = userStore.permissions || []
+  if (permissionCodeList.includes("*:*:*"))
+  {
+    return true
+  }
+  return permissionCodeList.includes("business:report:edit")
+})
+
+// 统计当前仍待推进的经营决议事项数量，帮助管理层快速判断闭环压力。
+const pendingExecutiveActionItemCount = computed(() => {
+  return executiveActionItemList.value.filter(executiveActionItem => {
+    return executiveActionItem.actionStatus !== "completed" && executiveActionItem.actionStatus !== "canceled"
+  }).length
+})
+
+// 统一读取当前预算版本生效文字，帮助管理层区分“当前在编版本”和“正式生效版本”。
+const annualBudgetPlanEffectiveText = computed(() => {
+  return annualBudgetPlanData.value.effectiveFlag === "y" ? "当前生效版本" : "未生效版本"
+})
+
+// 统一读取当前预算版本生效标签样式。
+const annualBudgetPlanEffectiveTagType = computed(() => {
+  return annualBudgetPlanData.value.effectiveFlag === "y" ? "success" : "info"
 })
 
 // 统一读取年度预算计划状态文字。
@@ -2569,6 +2924,17 @@ function buildGrowthSummaryText(growthRateValue) {
   return "环比持平"
 }
 
+// 统一生成销售额摘要文案，避免当前月无销售时误显示为新增口径。
+function buildSaleAmountSummaryText(currentMonthSaleAmountValue, previousMonthSaleAmountValue, growthRateValue) {
+  const normalizedCurrentMonthSaleAmountValue = normalizeNumberValue(currentMonthSaleAmountValue)
+  const normalizedPreviousMonthSaleAmountValue = normalizeNumberValue(previousMonthSaleAmountValue)
+  if (normalizedCurrentMonthSaleAmountValue <= 0 && normalizedPreviousMonthSaleAmountValue <= 0)
+  {
+    return "本月暂无销售数据"
+  }
+  return `本月销售额${buildGrowthSummaryText(growthRateValue)}`
+}
+
 // 根据增长率返回标签颜色，帮助管理层快速区分增长和下滑。
 function getGrowthTagType(growthRateValue) {
   if (growthRateValue === undefined || growthRateValue === null)
@@ -3258,7 +3624,7 @@ function buildPayableAgingListFromRowList(payableRowList = []) {
   return agingBucketList
 }
 
-// 返回兼容模式下客户展示名称，优先使用主数据名称，缺失时回退历史编号提示。
+// 返回兼容模式下客户展示名称，优先使用主数据名称，缺失时回退到更友好的资料缺失提示。
 function getCustomerDisplayNameForCockpit(receivableRow, customerNameMap) {
   const customerId = getFirstDefinedValue(receivableRow, ["customerId", "customer_id"])
   const customerName = getFirstDefinedValue(receivableRow, ["customerName", "customer_name"]) || customerNameMap[customerId]
@@ -3266,10 +3632,10 @@ function getCustomerDisplayNameForCockpit(receivableRow, customerNameMap) {
   {
     return customerName
   }
-  return customerId ? `历史客户ID：${customerId}` : "历史客户资料缺失"
+  return "客户资料缺失"
 }
 
-// 返回兼容模式下供应商展示名称，优先使用主数据名称，缺失时回退历史编号提示。
+// 返回兼容模式下供应商展示名称，优先使用主数据名称，缺失时回退到更友好的资料缺失提示。
 function getSupplierDisplayNameForCockpit(payableRow, supplierNameMap) {
   const supplierId = getFirstDefinedValue(payableRow, ["supplierId", "supplier_id"])
   const supplierName = getFirstDefinedValue(payableRow, ["supplierName", "supplier_name"]) || supplierNameMap[supplierId]
@@ -3277,7 +3643,7 @@ function getSupplierDisplayNameForCockpit(payableRow, supplierNameMap) {
   {
     return supplierName
   }
-  return supplierId ? `历史供应商ID：${supplierId}` : "历史供应商资料缺失"
+  return "供应商资料缺失"
 }
 
 // 根据应收台账汇总高风险客户，帮助管理层快速锁定逾期最严重的客户。
@@ -3585,7 +3951,7 @@ function buildProductInfoMap(productRowList = []) {
     productInfoMap[productId] = {
       productId: productId,
       productCode: getFirstDefinedValue(productRow, ["productCode", "product_code"]),
-      productName: getFirstDefinedValue(productRow, ["productName", "product_name"]) || `历史商品ID：${productId}`,
+      productName: getFirstDefinedValue(productRow, ["productName", "product_name"]) || "商品资料缺失",
       categoryName: getFirstDefinedValue(productRow, ["categoryName", "category_name"]) || "未分类",
       costPrice: normalizeNumberValue(getFirstDefinedValue(productRow, ["costPrice", "cost_price"])),
       unitName: getFirstDefinedValue(productRow, ["unitName", "unit_name"]) || "件"
@@ -3606,7 +3972,7 @@ function buildCustomerDetailMap(customerRowList = []) {
     }
     customerDetailMap[customerId] = {
       customerId: customerId,
-      customerName: getFirstDefinedValue(customerRow, ["customerName", "customer_name"]) || `历史客户ID：${customerId}`,
+      customerName: getFirstDefinedValue(customerRow, ["customerName", "customer_name"]) || "客户资料缺失",
       customerLevel: getFirstDefinedValue(customerRow, ["customerLevel", "customer_level"]) || "未分级",
       address: getFirstDefinedValue(customerRow, ["address"]) || ""
     }
@@ -3671,7 +4037,7 @@ function buildReceivableCustomerSummaryMap(receivableRowList = [], customerDetai
 
     if (!groupedCustomerMap[customerId].customerName && groupedCustomerMap[customerId].customerId !== undefined)
     {
-      groupedCustomerMap[customerId].customerName = customerDetailMap[groupedCustomerMap[customerId].customerId]?.customerName || `历史客户ID：${groupedCustomerMap[customerId].customerId}`
+      groupedCustomerMap[customerId].customerName = customerDetailMap[groupedCustomerMap[customerId].customerId]?.customerName || "客户资料缺失"
     }
   }
   return groupedCustomerMap
@@ -3697,22 +4063,22 @@ function extractRegionNameFromAddress(addressValue) {
   return separatedRegionText || "未设置区域"
 }
 
-// 返回决策分析场景下的客户展示名称，优先使用主数据名称，缺失时保留明确的历史提示。
+// 返回决策分析场景下的客户展示名称，优先使用主数据名称，缺失时保留明确的资料缺失提示。
 function getCustomerDisplayNameForDecision(customerId, fallbackCustomerName, customerDetailMap = {}) {
   if (customerId !== undefined && customerId !== null && customerId !== "")
   {
-    return customerDetailMap[customerId]?.customerName || fallbackCustomerName || `历史客户ID：${customerId}`
+    return customerDetailMap[customerId]?.customerName || fallbackCustomerName || "客户资料缺失"
   }
-  return fallbackCustomerName || "历史客户资料缺失"
+  return fallbackCustomerName || "客户资料缺失"
 }
 
 // 返回决策分析场景下的商品展示名称，缺失主数据时仍保留明确提示。
 function getProductDisplayNameForDecision(productId, productInfoMap = {}) {
   if (productId !== undefined && productId !== null && productId !== "")
   {
-    return productInfoMap[productId]?.productName || `历史商品ID：${productId}`
+    return productInfoMap[productId]?.productName || "商品资料缺失"
   }
-  return "历史商品资料缺失"
+  return "商品资料缺失"
 }
 
 // 根据销售报表、销售单和应收台账生成客户利润分析，帮助管理层识别高价值客户和集中度风险。
@@ -4168,7 +4534,7 @@ function buildCashScenarioBaseData(receivableRowList = [], payableRowList = [], 
 // 根据当前经营指标生成管理层经营简报，帮助周会和月会快速形成结论。
 function buildExecutiveBriefData(managementOverview, riskOverview, customerProfitAnalysis, inventoryDecisionAnalysis, decisionBudgetOverview) {
   const concentrationData = customerProfitAnalysis.concentration || {}
-  const summaryText = `本月销售额 ${buildGrowthSummaryText(managementOverview.currentMonthSaleAmount > 0 ? managementOverview.saleGrowthRate : null)}，毛利率 ${formatRateValue(managementOverview.currentMonthGrossProfitRate)}，回款率 ${formatRateValue(managementOverview.currentMonthCollectionRate)}。`
+  const summaryText = `${buildSaleAmountSummaryText(managementOverview.currentMonthSaleAmount, managementOverview.previousMonthSaleAmount, managementOverview.saleGrowthRate)}，毛利率 ${formatRateValue(managementOverview.currentMonthGrossProfitRate)}，回款率 ${formatRateValue(managementOverview.currentMonthCollectionRate)}。`
   const highlightTextList = [
     `本月毛利额为 ￥${formatAmountValue(managementOverview.currentMonthGrossProfitAmount)}，采购额为 ￥${formatAmountValue(managementOverview.currentMonthPurchaseAmount)}。`,
     `前 3 大客户销售占比为 ${formatRateValue(concentrationData.top3ShareRate)}，高价值客户集中在 ${customerProfitAnalysis.topCustomerList?.[0]?.targetName || "暂无"}。`,
@@ -4741,6 +5107,11 @@ function createAnnualBudgetPlanEmptyData(budgetYearValue = annualBudgetYear.valu
     planId: undefined,
     budgetYear: budgetYearValue,
     planName: `${budgetYearValue}年度经营预算`,
+    versionNo: 1,
+    versionLabel: "v1",
+    basePlanId: undefined,
+    effectiveFlag: "n",
+    adjustmentReason: "",
     planStatus: "draft",
     saleBudgetAmount: 0,
     grossProfitBudgetAmount: 0,
@@ -4779,6 +5150,9 @@ function syncAnnualBudgetPlanFormFromData(annualBudgetPlanValue = {}) {
   annualBudgetPlanForm.planId = normalizedAnnualBudgetPlanValue.planId
   annualBudgetPlanForm.budgetYear = normalizedAnnualBudgetPlanValue.budgetYear
   annualBudgetPlanForm.planName = normalizedAnnualBudgetPlanValue.planName
+  annualBudgetPlanForm.versionLabel = normalizedAnnualBudgetPlanValue.versionLabel || `v${normalizedAnnualBudgetPlanValue.versionNo || 1}`
+  annualBudgetPlanForm.adjustmentReason = normalizedAnnualBudgetPlanValue.adjustmentReason || ""
+  annualBudgetPlanForm.effectiveFlag = normalizedAnnualBudgetPlanValue.effectiveFlag || "n"
   annualBudgetPlanForm.saleBudgetAmount = normalizeNumberValue(normalizedAnnualBudgetPlanValue.saleBudgetAmount)
   annualBudgetPlanForm.grossProfitBudgetAmount = normalizeNumberValue(normalizedAnnualBudgetPlanValue.grossProfitBudgetAmount)
   annualBudgetPlanForm.collectionBudgetAmount = normalizeNumberValue(normalizedAnnualBudgetPlanValue.collectionBudgetAmount)
@@ -4864,6 +5238,9 @@ function buildAnnualBudgetPlanPayload() {
     planId: annualBudgetPlanForm.planId,
     budgetYear: annualBudgetPlanForm.budgetYear,
     planName: annualBudgetPlanForm.planName,
+    versionLabel: annualBudgetPlanForm.versionLabel,
+    adjustmentReason: annualBudgetPlanForm.adjustmentReason,
+    effectiveFlag: annualBudgetPlanForm.effectiveFlag,
     saleBudgetAmount: annualBudgetPlanForm.saleBudgetAmount,
     grossProfitBudgetAmount: annualBudgetPlanForm.grossProfitBudgetAmount,
     collectionBudgetAmount: annualBudgetPlanForm.collectionBudgetAmount,
@@ -4874,6 +5251,19 @@ function buildAnnualBudgetPlanPayload() {
     collectionMonthlyPlanList: normalizeAnnualBudgetMonthlyList(annualBudgetPlanForm.collectionMonthlyPlanList),
     purchaseMonthlyPlanList: normalizeAnnualBudgetMonthlyList(annualBudgetPlanForm.purchaseMonthlyPlanList),
     netCashMonthlyPlanList: normalizeAnnualBudgetMonthlyList(annualBudgetPlanForm.netCashMonthlyPlanList)
+  }
+}
+
+// 查询当前年度预算版本历史，帮助管理层比较不同调整版的审批与生效情况。
+async function loadAnnualBudgetPlanHistoryList() {
+  try
+  {
+    const response = await listDecisionBudgetPlanHistory(annualBudgetYear.value)
+    annualBudgetPlanHistoryList.value = response.data || response || []
+  }
+  catch (error)
+  {
+    annualBudgetPlanHistoryList.value = []
   }
 }
 
@@ -4902,11 +5292,37 @@ async function loadAnnualBudgetPlanData() {
   {
     annualBudgetPlanLoading.value = false
   }
+  await loadAnnualBudgetPlanHistoryList()
 }
 
 // 打开年度预算维护弹窗，并回显当前年度预算计划。
 function openAnnualBudgetPlanDialog() {
+  annualBudgetPlanFormMode.value = "edit"
+  annualBudgetPlanSourceId.value = annualBudgetPlanData.value.planId
   syncAnnualBudgetPlanFormFromData(annualBudgetPlanData.value)
+  annualBudgetPlanDialogOpen.value = true
+  setTimeout(() => {
+    annualBudgetPlanFormRef.value?.clearValidate()
+  }, 0)
+}
+
+// 基于当前已通过预算快速创建新版本，避免反复手工录入全年拆解数据。
+function openAnnualBudgetPlanVersionDialog() {
+  annualBudgetPlanFormMode.value = "createVersion"
+  annualBudgetPlanSourceId.value = annualBudgetPlanData.value.planId
+  syncAnnualBudgetPlanFormFromData({
+    ...annualBudgetPlanData.value,
+    planId: undefined,
+    effectiveFlag: "n",
+    adjustmentReason: "",
+    versionLabel: `v${Number(annualBudgetPlanData.value.versionNo || 1) + 1}`,
+    planStatus: "draft",
+    submitBy: undefined,
+    submitTime: undefined,
+    approveBy: undefined,
+    approveTime: undefined,
+    approveRemark: undefined
+  })
   annualBudgetPlanDialogOpen.value = true
   setTimeout(() => {
     annualBudgetPlanFormRef.value?.clearValidate()
@@ -4928,7 +5344,11 @@ async function submitAnnualBudgetPlanForm() {
   try
   {
     const annualBudgetPlanPayload = buildAnnualBudgetPlanPayload()
-    if (annualBudgetPlanPayload.planId)
+    if (annualBudgetPlanFormMode.value === "createVersion" && annualBudgetPlanSourceId.value)
+    {
+      await createDecisionBudgetPlanVersion(annualBudgetPlanSourceId.value, annualBudgetPlanPayload)
+    }
+    else if (annualBudgetPlanPayload.planId)
     {
       await updateDecisionBudgetPlan(annualBudgetPlanPayload)
     }
@@ -4939,7 +5359,7 @@ async function submitAnnualBudgetPlanForm() {
     annualBudgetYear.value = annualBudgetPlanPayload.budgetYear
     await loadAnnualBudgetPlanData()
     annualBudgetPlanDialogOpen.value = false
-    proxy.$modal.msgSuccess("年度预算计划保存成功")
+    proxy.$modal.msgSuccess(annualBudgetPlanFormMode.value === "createVersion" ? "预算新版本已创建" : "年度预算计划保存成功")
   }
   finally
   {
@@ -5006,6 +5426,236 @@ async function submitAnnualBudgetApproval() {
   }
 }
 
+// 查询经营决议事项列表，方便管理层直接在看板查看闭环执行情况。
+async function loadExecutiveActionItemList() {
+  executiveActionItemLoading.value = true
+  try
+  {
+    const response = await listExecutiveActionItem({
+      pageNum: 1,
+      pageSize: 8
+    })
+    executiveActionItemList.value = response.rows || []
+  }
+  catch (error)
+  {
+    executiveActionItemList.value = []
+  }
+  finally
+  {
+    executiveActionItemLoading.value = false
+  }
+}
+
+// 重置经营决议事项表单，避免新增和编辑之间互相污染。
+function resetExecutiveActionItemForm() {
+  executiveActionItemForm.actionItemId = undefined
+  executiveActionItemForm.briefId = undefined
+  executiveActionItemForm.briefTitleSnapshot = ""
+  executiveActionItemForm.actionTitle = ""
+  executiveActionItemForm.ownerName = ""
+  executiveActionItemForm.dueDate = undefined
+  executiveActionItemForm.actionStatus = "todo"
+  executiveActionItemForm.priorityLevel = "medium"
+  executiveActionItemForm.progressRemark = ""
+  executiveActionItemForm.remark = ""
+  executiveActionItemFormRef.value?.clearValidate()
+}
+
+// 打开经营决议事项弹窗，支持新增和编辑两种场景。
+async function openExecutiveActionItemDialog(executiveActionItemRow) {
+  resetExecutiveActionItemForm()
+  if (!executiveActionItemRow?.actionItemId)
+  {
+    executiveActionItemDialogTitle.value = "新增经营决议事项"
+    executiveActionItemDialogOpen.value = true
+    return
+  }
+  executiveActionItemLoading.value = true
+  try
+  {
+    const response = await getExecutiveActionItem(executiveActionItemRow.actionItemId)
+    const executiveActionItemData = response.data || response || {}
+    executiveActionItemForm.actionItemId = executiveActionItemData.actionItemId
+    executiveActionItemForm.briefId = executiveActionItemData.briefId
+    executiveActionItemForm.briefTitleSnapshot = executiveActionItemData.briefTitleSnapshot || ""
+    executiveActionItemForm.actionTitle = executiveActionItemData.actionTitle || ""
+    executiveActionItemForm.ownerName = executiveActionItemData.ownerName || ""
+    executiveActionItemForm.dueDate = executiveActionItemData.dueDate ? parseTime(executiveActionItemData.dueDate, "{y}-{m}-{d}") : undefined
+    executiveActionItemForm.actionStatus = executiveActionItemData.actionStatus || "todo"
+    executiveActionItemForm.priorityLevel = executiveActionItemData.priorityLevel || "medium"
+    executiveActionItemForm.progressRemark = executiveActionItemData.progressRemark || ""
+    executiveActionItemForm.remark = executiveActionItemData.remark || ""
+    executiveActionItemDialogTitle.value = "编辑经营决议事项"
+    executiveActionItemDialogOpen.value = true
+  }
+  finally
+  {
+    executiveActionItemLoading.value = false
+  }
+}
+
+// 提交经营决议事项表单，把管理建议真正沉淀为可跟踪的执行事项。
+async function submitExecutiveActionItemForm() {
+  if (!executiveActionItemFormRef.value)
+  {
+    return
+  }
+  const validateResult = await executiveActionItemFormRef.value.validate().catch(() => false)
+  if (!validateResult)
+  {
+    return
+  }
+  executiveActionItemLoading.value = true
+  try
+  {
+    const executiveActionItemPayload = {
+      actionItemId: executiveActionItemForm.actionItemId,
+      briefId: executiveActionItemForm.briefId,
+      briefTitleSnapshot: executiveActionItemForm.briefTitleSnapshot,
+      actionTitle: executiveActionItemForm.actionTitle,
+      ownerName: executiveActionItemForm.ownerName,
+      dueDate: executiveActionItemForm.dueDate,
+      actionStatus: executiveActionItemForm.actionStatus,
+      priorityLevel: executiveActionItemForm.priorityLevel,
+      progressRemark: executiveActionItemForm.progressRemark,
+      remark: executiveActionItemForm.remark
+    }
+    if (executiveActionItemPayload.actionItemId)
+    {
+      await updateExecutiveActionItem(executiveActionItemPayload)
+    }
+    else
+    {
+      await addExecutiveActionItem(executiveActionItemPayload)
+    }
+    await loadExecutiveActionItemList()
+    executiveActionItemDialogOpen.value = false
+    proxy.$modal.msgSuccess(executiveActionItemPayload.actionItemId ? "经营决议事项已更新" : "经营决议事项已新增")
+  }
+  finally
+  {
+    executiveActionItemLoading.value = false
+  }
+}
+
+// 快速将事项标记为已完成，帮助管理层在看板里直接关闭已落地动作。
+async function handleExecutiveActionItemComplete(executiveActionItemRow) {
+  executiveActionItemLoading.value = true
+  try
+  {
+    await updateExecutiveActionItem({
+      actionItemId: executiveActionItemRow.actionItemId,
+      briefId: executiveActionItemRow.briefId,
+      briefTitleSnapshot: executiveActionItemRow.briefTitleSnapshot,
+      actionTitle: executiveActionItemRow.actionTitle,
+      ownerName: executiveActionItemRow.ownerName,
+      dueDate: executiveActionItemRow.dueDate ? parseTime(executiveActionItemRow.dueDate, "{y}-{m}-{d}") : undefined,
+      actionStatus: "completed",
+      priorityLevel: executiveActionItemRow.priorityLevel,
+      progressRemark: executiveActionItemRow.progressRemark || "已按计划完成。",
+      remark: executiveActionItemRow.remark
+    })
+    await loadExecutiveActionItemList()
+    proxy.$modal.msgSuccess("经营决议事项已标记完成")
+  }
+  finally
+  {
+    executiveActionItemLoading.value = false
+  }
+}
+
+// 删除经营决议事项，避免历史误录事项继续干扰管理层判断。
+async function handleExecutiveActionItemRemove(executiveActionItemRow) {
+  await proxy.$modal.confirm(`是否确认删除事项“${executiveActionItemRow.actionTitle}”？`)
+  executiveActionItemLoading.value = true
+  try
+  {
+    await delExecutiveActionItem(executiveActionItemRow.actionItemId)
+    await loadExecutiveActionItemList()
+    proxy.$modal.msgSuccess("经营决议事项已删除")
+  }
+  finally
+  {
+    executiveActionItemLoading.value = false
+  }
+}
+
+// 返回经营决议事项状态文案。
+function getExecutiveActionStatusLabel(actionStatus) {
+  if (actionStatus === "in_progress")
+  {
+    return "执行中"
+  }
+  if (actionStatus === "completed")
+  {
+    return "已完成"
+  }
+  if (actionStatus === "canceled")
+  {
+    return "已取消"
+  }
+  return "待跟进"
+}
+
+// 返回经营决议事项状态标签类型。
+function getExecutiveActionStatusTagType(actionStatus) {
+  if (actionStatus === "in_progress")
+  {
+    return "warning"
+  }
+  if (actionStatus === "completed")
+  {
+    return "success"
+  }
+  if (actionStatus === "canceled")
+  {
+    return "info"
+  }
+  return "danger"
+}
+
+// 返回经营决议事项优先级文案。
+function getExecutiveActionPriorityLabel(priorityLevel) {
+  if (priorityLevel === "high")
+  {
+    return "高"
+  }
+  if (priorityLevel === "low")
+  {
+    return "低"
+  }
+  return "中"
+}
+
+// 返回经营决议事项优先级标签类型。
+function getExecutiveActionPriorityTagType(priorityLevel) {
+  if (priorityLevel === "high")
+  {
+    return "danger"
+  }
+  if (priorityLevel === "low")
+  {
+    return "info"
+  }
+  return "warning"
+}
+
+// 判断经营决议事项是否已经逾期，方便管理层快速识别需要优先催办的动作。
+function isExecutiveActionItemOverdue(executiveActionItemRow) {
+  if (!executiveActionItemRow?.dueDate)
+  {
+    return false
+  }
+  if (executiveActionItemRow.actionStatus === "completed" || executiveActionItemRow.actionStatus === "canceled")
+  {
+    return false
+  }
+  const dueDateTime = new Date(executiveActionItemRow.dueDate).getTime()
+  const todayDateTime = new Date(parseTime(new Date(), "{y}-{m}-{d}")).getTime()
+  return !Number.isNaN(dueDateTime) && dueDateTime < todayDateTime
+}
+
 // 查询经营简报归档列表，帮助管理层追踪历次经营结论沉淀。
 async function loadExecutiveBriefRecordList() {
   executiveBriefRecordLoading.value = true
@@ -5054,8 +5704,11 @@ async function archiveCurrentExecutiveBrief() {
   try
   {
     await addExecutiveBriefRecord(buildExecutiveBriefRecordPayload())
+    await addOperationSnapshot(buildOperationSnapshotPayload("weekly"))
     await loadExecutiveBriefRecordList()
-    proxy.$modal.msgSuccess("经营简报已归档")
+    await loadOperationSnapshotList()
+    await loadExecutiveActionItemList()
+    proxy.$modal.msgSuccess("经营简报与周经营快照已归档")
   }
   finally
   {
@@ -5075,6 +5728,130 @@ async function openExecutiveBriefRecordPreview(executiveBriefRecordRow) {
   finally
   {
     executiveBriefRecordLoading.value = false
+  }
+}
+
+// 统一读取经营快照类型文字，帮助管理层区分日报、周报和月报沉淀。
+function getOperationSnapshotTypeLabel(snapshotType) {
+  if (snapshotType === "daily")
+  {
+    return "日报"
+  }
+  if (snapshotType === "monthly")
+  {
+    return "月报"
+  }
+  return "周报"
+}
+
+// 统一读取经营快照类型标签样式。
+function getOperationSnapshotTypeTagType(snapshotType) {
+  if (snapshotType === "daily")
+  {
+    return "success"
+  }
+  if (snapshotType === "monthly")
+  {
+    return "warning"
+  }
+  return "primary"
+}
+
+// 查询经营快照归档列表，帮助管理层查看日报、周报和月报的沉淀轨迹。
+async function loadOperationSnapshotList() {
+  operationSnapshotLoading.value = true
+  try
+  {
+    const response = await listOperationSnapshot({
+      pageNum: 1,
+      pageSize: 6
+    })
+    operationSnapshotList.value = response.rows || []
+  }
+  catch (error)
+  {
+    operationSnapshotList.value = []
+  }
+  finally
+  {
+    operationSnapshotLoading.value = false
+  }
+}
+
+// 组装经营快照纯文本，方便管理层直接把阶段性经营结果同步到周会材料。
+function buildOperationSnapshotPlainText(snapshotType) {
+  const operationSnapshotTextLineList = [
+    `快照类型：${getOperationSnapshotTypeLabel(snapshotType)}`,
+    `快照日期：${parseTime(new Date(), "{y}-{m}-{d}")}`,
+    `销售额：￥${formatAmountValue(managementOverviewData.value.currentMonthSaleAmount)}`,
+    `毛利额：￥${formatAmountValue(managementOverviewData.value.currentMonthGrossProfitAmount)}`,
+    `回款率：${formatPercentValue(managementOverviewData.value.currentMonthCollectionRate)}`,
+    `逾期笔数：${dashboardData.value.overdueCount || 0}`,
+    `库存预警：${dashboardData.value.stockWarningCount || 0}`,
+    `经营待办：${pendingExecutiveActionItemCount.value}`
+  ]
+  if (executiveBriefData.value.summaryText)
+  {
+    operationSnapshotTextLineList.push("")
+    operationSnapshotTextLineList.push("经营结论")
+    operationSnapshotTextLineList.push(executiveBriefData.value.summaryText)
+  }
+  operationSnapshotTextLineList.push("")
+  operationSnapshotTextLineList.push("经营简报摘录")
+  operationSnapshotTextLineList.push(buildExecutiveBriefPlainText())
+  return operationSnapshotTextLineList.join("\n")
+}
+
+// 组装经营快照参数，把当前驾驶舱关键指标沉淀为日报、周报或月报快照。
+function buildOperationSnapshotPayload(snapshotType) {
+  return {
+    snapshotTitle: `${parseTime(new Date(), "{y}-{m}-{d}")}${getOperationSnapshotTypeLabel(snapshotType)}经营快照`,
+    snapshotDate: parseTime(new Date(), "{y}-{m}-{d} 00:00:00"),
+    snapshotType: snapshotType,
+    saleAmount: managementOverviewData.value.currentMonthSaleAmount || 0,
+    grossProfitAmount: managementOverviewData.value.currentMonthGrossProfitAmount || 0,
+    collectionRate: managementOverviewData.value.currentMonthCollectionRate || 0,
+    overdueCount: dashboardData.value.overdueCount || 0,
+    stockWarningCount: dashboardData.value.stockWarningCount || 0,
+    pendingActionCount: pendingExecutiveActionItemCount.value || 0,
+    summaryContent: executiveBriefData.value.summaryText || "暂无经营结论",
+    plainTextContent: buildOperationSnapshotPlainText(snapshotType),
+    sourceMode: "dashboard"
+  }
+}
+
+// 把当前经营结果归档为快照，支持管理层按日报、周报、月报节奏沉淀经营过程。
+async function archiveOperationSnapshot(snapshotType) {
+  if (!hasManagementCockpitData.value)
+  {
+    proxy.$modal.msgWarning("当前还没有可归档的经营快照")
+    return
+  }
+  operationSnapshotLoading.value = true
+  try
+  {
+    await addOperationSnapshot(buildOperationSnapshotPayload(snapshotType))
+    await loadOperationSnapshotList()
+    proxy.$modal.msgSuccess(`${getOperationSnapshotTypeLabel(snapshotType)}已归档`)
+  }
+  finally
+  {
+    operationSnapshotLoading.value = false
+  }
+}
+
+// 打开经营快照详情，便于管理层回看当期核心经营指标和摘要。
+async function openOperationSnapshotPreview(operationSnapshotRow) {
+  operationSnapshotLoading.value = true
+  try
+  {
+    const response = await getOperationSnapshot(operationSnapshotRow.snapshotId)
+    operationSnapshotPreviewData.value = response.data || response || {}
+    operationSnapshotDialogOpen.value = true
+  }
+  finally
+  {
+    operationSnapshotLoading.value = false
   }
 }
 
@@ -5409,18 +6186,16 @@ function handleReconciliationAction(reconciliationRow) {
   })
 }
 
-// 返回对账中心对象名称，旧环境只返回编号时也给出明确的历史对象提示。
+// 返回对账中心对象名称，旧环境只返回编号时也给出明确但不暴露内部编号的提示。
 function getReconciliationTargetName(reconciliationRow) {
   const targetName = reconciliationRow?.targetName
   if (!targetName)
   {
-    return reconciliationRow?.reconcileType === "receivable" ? "历史客户资料缺失" : "历史供应商资料缺失"
+    return reconciliationRow?.reconcileType === "receivable" ? "客户资料缺失" : "供应商资料缺失"
   }
   if (/^\d+$/.test(String(targetName)))
   {
-    return reconciliationRow?.reconcileType === "receivable"
-      ? `历史客户ID：${targetName}`
-      : `历史供应商ID：${targetName}`
+    return reconciliationRow?.reconcileType === "receivable" ? "客户资料缺失" : "供应商资料缺失"
   }
   return targetName
 }
@@ -5578,6 +6353,18 @@ async function getData() {
   {
     const response = await getDashboard()
     dashboardData.value = response.data || response || {}
+  }
+  catch (error)
+  {
+    dashboardData.value = {}
+    await nextTick()
+    initCharts({})
+    managementCockpitLoading.value = false
+    return
+  }
+
+  try
+  {
     if (!hasRemoteManagementCockpitData(dashboardData.value))
     {
       await hydrateManagementCockpitFallbackData()
@@ -5586,15 +6373,16 @@ async function getData() {
     {
       await loadDecisionSupportData()
     }
-    initCharts(dashboardData.value)
   }
   catch (error)
   {
-    dashboardData.value = {}
-    initCharts({})
+    // 管理驾驶舱扩展数据异常时保留首页基础数据，避免顶部指标和消息中心被整体清空。
+    console.error("经营看板扩展数据加载失败：", error)
   }
   finally
   {
+    await nextTick()
+    initCharts(dashboardData.value)
     managementCockpitLoading.value = false
   }
 }
@@ -5653,6 +6441,8 @@ onMounted(() => {
   loadDecisionBudgetConfig()
   loadAnnualBudgetPlanData()
   loadExecutiveBriefRecordList()
+  loadOperationSnapshotList()
+  loadExecutiveActionItemList()
   getReconciliationData()
   getInvoiceTaxData()
   getCashFlowForecastData()
@@ -6117,6 +6907,10 @@ onBeforeUnmount(() => {
   background: #f5f7fa;
 }
 
+.annual-budget-meta-item-wide {
+  grid-column: span 3;
+}
+
 .annual-budget-meta-label {
   display: block;
   color: #909399;
@@ -6161,6 +6955,13 @@ onBeforeUnmount(() => {
   margin-top: 8px;
   color: #909399;
   font-size: 12px;
+}
+
+.annual-budget-history-title {
+  margin: 16px 0 12px;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .annual-budget-action-row {
@@ -6464,6 +7265,23 @@ onBeforeUnmount(() => {
   margin-top: 16px;
 }
 
+.executive-action-title {
+  color: #303133;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.executive-action-brief-title {
+  margin-top: 4px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.executive-action-overdue-text {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
 .message-preview-content {
   max-height: 320px;
   overflow-y: auto;
@@ -6486,6 +7304,10 @@ onBeforeUnmount(() => {
   .annual-budget-summary-list,
   .annual-budget-meta-row {
     grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .annual-budget-meta-item-wide {
+    grid-column: span 1;
   }
 
   .inventory-decision-card-list,

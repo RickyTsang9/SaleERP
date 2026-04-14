@@ -23,13 +23,23 @@ export function decodeDashboardMessageContent(messageContent) {
   }
 }
 
+// 统一隐藏消息正文里的历史对象内部编号，避免管理层直接看到技术字段。
+export function normalizeDashboardMessageContent(messageContent) {
+  if (typeof messageContent !== 'string') {
+    return messageContent
+  }
+  return messageContent
+    .replace(/历史客户id：\d+/gi, '客户资料缺失')
+    .replace(/历史供应商id：\d+/gi, '供应商资料缺失')
+}
+
 // 统一组装首页和经营看板的消息详情正文，保证公告预览内容稳定可读。
 export function buildDashboardMessagePreviewContent(messageItem) {
   if (!messageItem) {
     return '当前消息暂无更多详情'
   }
   if (messageItem.message_content) {
-    return decodeDashboardMessageContent(messageItem.message_content)
+    return normalizeDashboardMessageContent(decodeDashboardMessageContent(messageItem.message_content))
   }
   return messageItem.message_title || '当前消息暂无更多详情'
 }

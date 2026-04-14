@@ -166,6 +166,7 @@
 
 <script setup name="Config">
 import { listConfig, getConfig, delConfig, addConfig, updateConfig, refreshCache } from "@/api/system/config"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_yes_no } = proxy.useDict("sys_yes_no")

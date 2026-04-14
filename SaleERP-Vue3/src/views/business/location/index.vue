@@ -154,6 +154,7 @@
 import { listLocation, getLocation, addLocation, updateLocation, delLocation } from "@/api/business/location"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
@@ -244,19 +245,19 @@ async function ensureWarehouseOptionLoaded(warehouseIdList) {
     } catch (error) {
       // 兼容历史库位引用旧仓库编号时的名称回显。
     }
-    appendUniqueSelectOption(warehouseList.value, { warehouseId, warehouseName: `历史仓库ID：${warehouseId}` }, "warehouseId")
+    appendUniqueSelectOption(warehouseList.value, { warehouseId, warehouseName: "仓库资料缺失" }, "warehouseId")
   }
 }
 
-// 构造仓库下拉选项，当前值不在远程结果中时补充历史仓库编号占位。
+// 构造仓库下拉选项，当前值不在远程结果中时补充资料缺失兜底。
 function buildWarehouseSelectOptionList() {
-  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", "历史仓库ID：")
+  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", () => "仓库资料缺失")
 }
 
-// 返回仓库名称，旧数据缺少主数据时保留明确的历史仓库提示。
+// 返回仓库名称，旧数据缺少主数据时保留明确的资料缺失提示。
 function getWarehouseName(warehouseId) {
   const warehouse = warehouseList.value.find(warehouseItem => warehouseItem.warehouseId === warehouseId)
-  return warehouse ? warehouse.warehouseName : (warehouseId ? `历史仓库ID：${warehouseId}` : "")
+  return warehouse ? warehouse.warehouseName : (warehouseId ? "仓库资料缺失" : "")
 }
 
 // 查询库位列表，并按当前页数据补齐仓库名称显示。
@@ -377,9 +378,20 @@ function handleExport() {
   }, `location_${new Date().getTime()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute()
+// 初始化页面筛选条件和下拉数据，保证从仓库页重复跳转时库位列表会正确刷新。
+async function initializePage() {
+  initializeQueryParamsFromRoute()
+  await initBasicData()
+  await getList()
+}
 
-initBasicData().then(() => {
-  getList()
+// 监听同一路由下的查询参数变化，避免切换仓库后列表仍停留在旧筛选结果。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
 })
+
+initializePage()
 </script>

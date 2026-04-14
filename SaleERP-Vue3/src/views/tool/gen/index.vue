@@ -189,7 +189,8 @@ onActivated(() => {
   const time = route.query.t
   if (time != null && time != uniqueId.value) {
     uniqueId.value = time
-    queryParams.value.pageNum = Number(route.query.pageNum)
+    const routePageNumber = Number(route.query.pageNum)
+    queryParams.value.pageNum = Number.isFinite(routePageNumber) && routePageNumber > 0 ? routePageNumber : 1
     dateRange.value = []
     proxy.resetForm("queryForm")
     getList()

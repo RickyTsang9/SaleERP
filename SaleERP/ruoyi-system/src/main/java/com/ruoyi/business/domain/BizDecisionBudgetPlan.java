@@ -28,6 +28,21 @@ public class BizDecisionBudgetPlan extends BaseEntity
     /** 预算计划名称 */
     private String planName;
 
+    /** 版本号 */
+    private Integer versionNo;
+
+    /** 版本标签 */
+    private String versionLabel;
+
+    /** 基线计划ID */
+    private Long basePlanId;
+
+    /** 是否为当前生效版本（y是 n否） */
+    private String effectiveFlag;
+
+    /** 调整原因 */
+    private String adjustmentReason;
+
     /** 计划状态（draft草稿 submitted待审批 approved已通过 rejected已驳回） */
     private String planStatus;
 
@@ -126,6 +141,56 @@ public class BizDecisionBudgetPlan extends BaseEntity
     public void setPlanName(String planName)
     {
         this.planName = planName;
+    }
+
+    public Integer getVersionNo()
+    {
+        return versionNo;
+    }
+
+    public void setVersionNo(Integer versionNo)
+    {
+        this.versionNo = versionNo;
+    }
+
+    public String getVersionLabel()
+    {
+        return versionLabel;
+    }
+
+    public void setVersionLabel(String versionLabel)
+    {
+        this.versionLabel = versionLabel;
+    }
+
+    public Long getBasePlanId()
+    {
+        return basePlanId;
+    }
+
+    public void setBasePlanId(Long basePlanId)
+    {
+        this.basePlanId = basePlanId;
+    }
+
+    public String getEffectiveFlag()
+    {
+        return effectiveFlag;
+    }
+
+    public void setEffectiveFlag(String effectiveFlag)
+    {
+        this.effectiveFlag = effectiveFlag;
+    }
+
+    public String getAdjustmentReason()
+    {
+        return adjustmentReason;
+    }
+
+    public void setAdjustmentReason(String adjustmentReason)
+    {
+        this.adjustmentReason = adjustmentReason;
     }
 
     public String getPlanStatus()
@@ -345,6 +410,11 @@ public class BizDecisionBudgetPlan extends BaseEntity
             .append("planId", getPlanId())
             .append("budgetYear", getBudgetYear())
             .append("planName", getPlanName())
+            .append("versionNo", getVersionNo())
+            .append("versionLabel", getVersionLabel())
+            .append("basePlanId", getBasePlanId())
+            .append("effectiveFlag", getEffectiveFlag())
+            .append("adjustmentReason", getAdjustmentReason())
             .append("planStatus", getPlanStatus())
             .append("saleBudgetAmount", getSaleBudgetAmount())
             .append("grossProfitBudgetAmount", getGrossProfitBudgetAmount())

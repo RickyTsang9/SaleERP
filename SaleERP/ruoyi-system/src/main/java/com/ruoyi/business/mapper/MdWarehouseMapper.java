@@ -13,6 +13,8 @@ public interface MdWarehouseMapper
 
     public int updateMdWarehouse(MdWarehouse mdWarehouse);
 
+    public int selectWarehouseReferenceCount(Long warehouseId);
+
     public int deleteMdWarehouseById(Long warehouseId);
 
     public int deleteMdWarehouseByIds(Long[] warehouseIds);

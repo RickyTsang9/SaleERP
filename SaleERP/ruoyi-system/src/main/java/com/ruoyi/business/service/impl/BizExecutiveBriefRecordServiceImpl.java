@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import com.ruoyi.business.domain.BizExecutiveBriefRecord;
 import com.ruoyi.business.mapper.BizExecutiveBriefRecordMapper;
+import com.ruoyi.business.service.IBizExecutiveActionItemService;
 import com.ruoyi.business.service.IBizExecutiveBriefRecordService;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
@@ -43,6 +44,9 @@ public class BizExecutiveBriefRecordServiceImpl implements IBizExecutiveBriefRec
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private IBizExecutiveActionItemService bizExecutiveActionItemService;
 
     /**
      * 查询经营简报归档
@@ -107,7 +111,13 @@ public class BizExecutiveBriefRecordServiceImpl implements IBizExecutiveBriefRec
             : normalizedExecutiveBriefRecord.getSourceMode());
         normalizedExecutiveBriefRecord.setCreateBy(operatorName);
         normalizedExecutiveBriefRecord.setUpdateBy(operatorName);
-        return bizExecutiveBriefRecordMapper.insertBizExecutiveBriefRecord(normalizedExecutiveBriefRecord);
+        int insertRowCount = bizExecutiveBriefRecordMapper.insertBizExecutiveBriefRecord(normalizedExecutiveBriefRecord);
+        if (insertRowCount > 0)
+        {
+            // 简报归档后同步生成经营决议事项，帮助管理层把建议动作沉淀为可跟踪的执行台账。
+            bizExecutiveActionItemService.createBizExecutiveActionItemsFromBriefRecord(normalizedExecutiveBriefRecord, operatorName);
+        }
+        return insertRowCount;
     }
 
     /**

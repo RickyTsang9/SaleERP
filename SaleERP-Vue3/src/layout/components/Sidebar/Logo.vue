@@ -15,6 +15,7 @@
 
 <script setup>
 import logo from '@/assets/logo/logo.png'
+import defaultSettings from '@/settings'
 import useSettingsStore from '@/store/modules/settings'
 import variables from '@/assets/styles/variables.module.scss'
 
@@ -25,8 +26,8 @@ defineProps({
   }
 })
 
-const title = import.meta.env.VITE_APP_TITLE
 const settingsStore = useSettingsStore()
+const title = computed(() => settingsStore.title || defaultSettings.title)
 const sideTheme = computed(() => settingsStore.sideTheme)
 
 // 获取Logo背景色

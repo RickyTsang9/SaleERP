@@ -59,6 +59,7 @@
 
 <script setup name="Online">
 import { forceLogout, list as initData } from "@/api/monitor/online"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 

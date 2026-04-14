@@ -416,6 +416,7 @@ import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
@@ -593,14 +594,8 @@ function convertRouteNumberValue(routeValue) {
 
 // 根据首页传入的参数初始化出库单筛选条件。
 function initializeQueryParamsFromRoute() {
-  if (route.query.saleOrderId)
-  {
-    queryParams.value.saleOrderId = convertRouteNumberValue(route.query.saleOrderId)
-  }
-  if (route.query.status)
-  {
-    queryParams.value.status = route.query.status
-  }
+  queryParams.value.saleOrderId = convertRouteNumberValue(route.query.saleOrderId)
+  queryParams.value.status = route.query.status || undefined
 }
 
 // 初始化出库单依赖的远程下拉数据，避免页面初始阶段一次性加载过多基础资料。
@@ -712,7 +707,7 @@ function ensureCustomerOptionLoaded(customerId) {
   }).catch(() => {
     appendUniqueSelectOption(customerList.value, {
       customerId: customerId,
-      customerName: `历史客户ID：${customerId}`
+      customerName: "客户资料缺失"
     }, "customerId")
   })
 }
@@ -730,7 +725,7 @@ function ensureWarehouseOptionLoaded(warehouseId) {
   }).catch(() => {
     appendUniqueSelectOption(warehouseList.value, {
       warehouseId: warehouseId,
-      warehouseName: `历史仓库ID：${warehouseId}`
+      warehouseName: "仓库资料缺失"
     }, "warehouseId")
   })
 }
@@ -748,7 +743,7 @@ function ensureProductOptionLoaded(productId) {
   }).catch(() => {
     appendUniqueSelectOption(productList.value, {
       productId: productId,
-      productName: `历史商品ID：${productId}`
+      productName: "商品资料缺失"
     }, "productId")
   })
 }
@@ -766,7 +761,7 @@ function ensureLocationOptionLoaded(locationId) {
   }).catch(() => {
     appendUniqueSelectOption(locationList.value, {
       locationId: locationId,
-      locationName: `历史库位ID：${locationId}`
+      locationName: "库位资料缺失"
     }, "locationId")
   })
 }
@@ -791,24 +786,24 @@ function ensureOutboundItemReferenceOptionsLoaded(outboundItemRowList) {
   ]).catch(() => {})
 }
 
-// 组合客户下拉选项，兼容历史出库单中的旧客户编号回显。
+// 组合客户下拉选项，兼容历史出库单中客户主数据缺失时的兜底回显。
 function buildCustomerSelectOptionList() {
-  return buildSelectOptionList(customerList.value, [queryParams.value.customerId, form.value.customerId], "customerId", "customerName", "历史客户ID：")
+  return buildSelectOptionList(customerList.value, [queryParams.value.customerId, form.value.customerId], "customerId", "customerName", () => "客户资料缺失")
 }
 
-// 组合仓库下拉选项，兼容历史出库单中的旧仓库编号回显。
+// 组合仓库下拉选项，兼容历史出库单中主数据缺失时的兜底回显。
 function buildWarehouseSelectOptionList() {
-  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", "历史仓库ID：")
+  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", () => "仓库资料缺失")
 }
 
-// 组合商品下拉选项，兼容历史出库明细中的旧商品编号回显。
+// 组合商品下拉选项，兼容历史出库明细中主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, [outboundItemForm.value.productId], "productId", "productName", "历史商品ID：")
+  return buildSelectOptionList(productList.value, [outboundItemForm.value.productId], "productId", "productName", () => "商品资料缺失")
 }
 
-// 组合库位下拉选项，兼容历史出库明细中的旧库位编号回显。
+// 组合库位下拉选项，兼容历史出库明细中主数据缺失时的兜底回显。
 function buildLocationSelectOptionList() {
-  return buildSelectOptionList(locationList.value, [outboundItemForm.value.locationId], "locationId", "locationName", "历史库位ID：")
+  return buildSelectOptionList(locationList.value, [outboundItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据来源销售单号和销售单编号生成可读的来源销售单展示内容。
@@ -817,33 +812,33 @@ function getSaleOrderDisplayName(saleOrderNo, saleOrderId) {
     return saleOrderNo
   }
   if (saleOrderId) {
-    return `历史销售单ID：${saleOrderId}`
+    return "销售单资料缺失"
   }
   return "未关联销售单"
 }
 
-// 根据客户编号返回客户名称，减少出库单列表中的纯编号展示。
+// 根据客户编号返回客户名称，减少出库单列表中的内部编号展示。
 function getCustomerName(customerId) {
   const customer = customerList.value.find(customerItem => customerItem.customerId === customerId)
-  return customer ? customer.customerName : (customerId ? `历史客户ID：${customerId}` : "未关联客户")
+  return customer ? customer.customerName : (customerId ? "客户资料缺失" : "未关联客户")
 }
 
 // 根据仓库编号返回仓库名称，统一出库单页面展示口径。
 function getWarehouseName(warehouseId) {
   const warehouse = warehouseList.value.find(warehouseItem => warehouseItem.warehouseId === warehouseId)
-  return warehouse ? warehouse.warehouseName : (warehouseId ? `历史仓库ID：${warehouseId}` : "")
+  return warehouse ? warehouse.warehouseName : (warehouseId ? "仓库资料缺失" : "")
 }
 
 // 根据商品编号返回商品名称，帮助用户在出库明细中快速确认商品。
 function getProductName(productId) {
   const product = productList.value.find(productItem => productItem.productId === productId)
-  return product ? product.productName : (productId ? `历史商品ID：${productId}` : "")
+  return product ? product.productName : (productId ? "商品资料缺失" : "")
 }
 
 // 根据库位编号返回库位名称，统一出库明细展示口径。
 function getLocationName(locationId) {
   const location = locationList.value.find(locationItem => locationItem.locationId === locationId)
-  return location ? location.locationName : (locationId ? `历史库位ID：${locationId}` : "")
+  return location ? location.locationName : (locationId ? "库位资料缺失" : "")
 }
 
 // 返回出库类型中文名称，减少列表中的英文编码展示。
@@ -1260,6 +1255,14 @@ async function initializePage() {
     handleAdd()
   }
 }
+
+// 监听路由参数变化，保证从销售订单重复跳转到当前页面时筛选条件和自动新建出库逻辑同步刷新。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
 
 initializePage()
 </script>

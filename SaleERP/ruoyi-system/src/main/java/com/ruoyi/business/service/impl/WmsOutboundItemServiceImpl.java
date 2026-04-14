@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.business.domain.WmsOutbound;
 import com.ruoyi.business.domain.WmsOutboundItem;
 import com.ruoyi.business.domain.WmsSaleOrderItem;
@@ -55,6 +56,7 @@ public class WmsOutboundItemServiceImpl implements IWmsOutboundItemService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int insertWmsOutboundItem(WmsOutboundItem wmsOutboundItem)
     {
         WmsOutbound databaseOutbound = validateOutboundEditable(wmsOutboundItem.getOutboundId());
@@ -69,6 +71,7 @@ public class WmsOutboundItemServiceImpl implements IWmsOutboundItemService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateWmsOutboundItem(WmsOutboundItem wmsOutboundItem)
     {
         WmsOutboundItem databaseOutboundItem = wmsOutboundItemMapper.selectWmsOutboundItemById(wmsOutboundItem.getOutboundItemId());
@@ -94,6 +97,7 @@ public class WmsOutboundItemServiceImpl implements IWmsOutboundItemService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsOutboundItemById(Long outboundItemId)
     {
         WmsOutboundItem databaseOutboundItem = wmsOutboundItemMapper.selectWmsOutboundItemById(outboundItemId);
@@ -115,6 +119,7 @@ public class WmsOutboundItemServiceImpl implements IWmsOutboundItemService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsOutboundItemByIds(Long[] outboundItemIds)
     {
         List<Long> outboundIdList = wmsOutboundItemMapper.selectOutboundIdsByOutboundItemIds(outboundItemIds);

@@ -13,6 +13,8 @@ public interface MdCustomerMapper
 
     public int updateMdCustomer(MdCustomer mdCustomer);
 
+    public int selectCustomerReferenceCount(Long customerId);
+
     public int deleteMdCustomerById(Long customerId);
 
     public int deleteMdCustomerByIds(Long[] customerIds);

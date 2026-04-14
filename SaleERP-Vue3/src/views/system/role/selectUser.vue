@@ -62,6 +62,7 @@
 
 <script setup name="SelectUser">
 import { authUserSelectAll, unallocatedUserList } from "@/api/system/role"
+import { parseTime } from "@/utils/ruoyi"
 
 const props = defineProps({
   roleId: {

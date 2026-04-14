@@ -76,10 +76,15 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
     @Override
     public int insertWmsPurchaseOrder(WmsPurchaseOrder wmsPurchaseOrder)
     {
+        validatePurchaseOrderBeforeSave(wmsPurchaseOrder);
+        wmsPurchaseOrder.setStatus(STATUS_PENDING_AUDIT);
         wmsPurchaseOrder.setCreateTime(DateUtils.getNowDate());
-        try {
+        try
+        {
             wmsPurchaseOrder.setCreateBy(SecurityUtils.getUsername());
-        } catch (Exception e) {
+        }
+        catch (Exception exception)
+        {
             // ignore
         }
         int rows = wmsPurchaseOrderMapper.insertWmsPurchaseOrder(wmsPurchaseOrder);
@@ -106,11 +111,15 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         {
             throw new ServiceException("仅待审核状态采购订单允许修改");
         }
+        validatePurchaseOrderBeforeSave(wmsPurchaseOrder);
         wmsPurchaseOrder.setStatus(databasePurchaseOrder.getStatus());
         wmsPurchaseOrder.setUpdateTime(DateUtils.getNowDate());
-        try {
+        try
+        {
             wmsPurchaseOrder.setUpdateBy(SecurityUtils.getUsername());
-        } catch (Exception e) {
+        }
+        catch (Exception exception)
+        {
             // ignore
         }
         wmsPurchaseOrderMapper.deleteWmsPurchaseOrderItemByPurchaseOrderId(wmsPurchaseOrder.getPurchaseOrderId());
@@ -136,11 +145,8 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         {
             throw new ServiceException("仅待审核状态采购订单允许提交");
         }
-        if (databasePurchaseOrder.getWmsPurchaseOrderItemList() == null || databasePurchaseOrder.getWmsPurchaseOrderItemList().isEmpty())
-        {
-            throw new ServiceException("采购明细不能为空");
-        }
-        return 1;
+        validatePurchaseOrderBeforeSave(databasePurchaseOrder);
+        throw new ServiceException("采购订单保存后直接进入待审核，不需要重复提交");
     }
 
     /**
@@ -191,9 +197,14 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         {
             throw new ServiceException("采购订单不存在");
         }
-        if (STATUS_AUDITED.equals(databasePurchaseOrder.getStatus()))
+        if (STATUS_CANCELLED.equals(databasePurchaseOrder.getStatus()))
         {
-            throw new ServiceException("已审核采购订单不允许作废");
+            throw new ServiceException("采购订单已作废，无需重复作废");
+        }
+        if (!STATUS_PENDING_AUDIT.equals(databasePurchaseOrder.getStatus())
+            && !STATUS_PARTIALLY_INBOUND.equals(databasePurchaseOrder.getStatus()))
+        {
+            throw new ServiceException("仅待审核或部分入库状态采购订单允许作废");
         }
         String updateUsername = SecurityUtils.getUsername();
         int updateCount = wmsPurchaseOrderMapper.updateWmsPurchaseOrderStatus(
@@ -340,6 +351,116 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
                 wmsPurchaseOrderMapper.batchWmsPurchaseOrderItem(list);
             }
         }
+    }
+
+    /**
+     * 保存采购订单前校验主单和明细数据，并重算总数量与总金额
+     * 
+     * @param wmsPurchaseOrder 采购订单
+     */
+    private void validatePurchaseOrderBeforeSave(WmsPurchaseOrder wmsPurchaseOrder)
+    {
+        if (wmsPurchaseOrder == null)
+        {
+            throw new ServiceException("采购订单不存在");
+        }
+        if (wmsPurchaseOrder.getSupplierId() == null)
+        {
+            throw new ServiceException("供应商不能为空");
+        }
+        if (wmsPurchaseOrder.getPurchaseDate() == null)
+        {
+            throw new ServiceException("采购日期不能为空");
+        }
+        validatePurchaseOrderItemList(wmsPurchaseOrder.getWmsPurchaseOrderItemList());
+        wmsPurchaseOrder.setTotalQuantity(calculatePurchaseOrderTotalQuantity(wmsPurchaseOrder.getWmsPurchaseOrderItemList()));
+        wmsPurchaseOrder.setTotalAmount(calculatePurchaseOrderTotalAmount(wmsPurchaseOrder.getWmsPurchaseOrderItemList()));
+    }
+
+    /**
+     * 校验采购订单明细是否完整
+     * 
+     * @param wmsPurchaseOrderItemList 采购订单明细列表
+     */
+    private void validatePurchaseOrderItemList(List<WmsPurchaseOrderItem> wmsPurchaseOrderItemList)
+    {
+        if (wmsPurchaseOrderItemList == null || wmsPurchaseOrderItemList.isEmpty())
+        {
+            throw new ServiceException("采购明细不能为空");
+        }
+        for (int purchaseOrderItemIndex = 0; purchaseOrderItemIndex < wmsPurchaseOrderItemList.size(); purchaseOrderItemIndex++)
+        {
+            WmsPurchaseOrderItem wmsPurchaseOrderItem = wmsPurchaseOrderItemList.get(purchaseOrderItemIndex);
+            if (wmsPurchaseOrderItem.getProductId() == null)
+            {
+                throw new ServiceException("第" + (purchaseOrderItemIndex + 1) + "行采购明细商品不能为空");
+            }
+            if (wmsPurchaseOrderItem.getQuantity() == null || wmsPurchaseOrderItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+            {
+                throw new ServiceException("第" + (purchaseOrderItemIndex + 1) + "行采购数量必须大于0");
+            }
+            if (wmsPurchaseOrderItem.getPrice() == null || wmsPurchaseOrderItem.getPrice().compareTo(BigDecimal.ZERO) < 0)
+            {
+                throw new ServiceException("第" + (purchaseOrderItemIndex + 1) + "行采购单价不能小于0");
+            }
+            wmsPurchaseOrderItem.setAmount(calculatePurchaseOrderItemAmount(wmsPurchaseOrderItem));
+        }
+    }
+
+    /**
+     * 根据采购订单明细重新计算总数量
+     * 
+     * @param wmsPurchaseOrderItemList 采购订单明细列表
+     * @return 总数量
+     */
+    private BigDecimal calculatePurchaseOrderTotalQuantity(List<WmsPurchaseOrderItem> wmsPurchaseOrderItemList)
+    {
+        BigDecimal totalQuantityValue = BigDecimal.ZERO;
+        if (wmsPurchaseOrderItemList == null || wmsPurchaseOrderItemList.isEmpty())
+        {
+            return totalQuantityValue;
+        }
+        for (WmsPurchaseOrderItem wmsPurchaseOrderItem : wmsPurchaseOrderItemList)
+        {
+            if (wmsPurchaseOrderItem.getQuantity() != null)
+            {
+                totalQuantityValue = totalQuantityValue.add(wmsPurchaseOrderItem.getQuantity());
+            }
+        }
+        return totalQuantityValue;
+    }
+
+    /**
+     * 根据采购订单明细重新计算总金额
+     * 
+     * @param wmsPurchaseOrderItemList 采购订单明细列表
+     * @return 总金额
+     */
+    private BigDecimal calculatePurchaseOrderTotalAmount(List<WmsPurchaseOrderItem> wmsPurchaseOrderItemList)
+    {
+        BigDecimal totalAmountValue = BigDecimal.ZERO;
+        if (wmsPurchaseOrderItemList == null || wmsPurchaseOrderItemList.isEmpty())
+        {
+            return totalAmountValue;
+        }
+        for (WmsPurchaseOrderItem wmsPurchaseOrderItem : wmsPurchaseOrderItemList)
+        {
+            totalAmountValue = totalAmountValue.add(calculatePurchaseOrderItemAmount(wmsPurchaseOrderItem));
+        }
+        return totalAmountValue;
+    }
+
+    /**
+     * 计算采购明细金额
+     * 
+     * @param wmsPurchaseOrderItem 采购订单明细
+     * @return 金额
+     */
+    private BigDecimal calculatePurchaseOrderItemAmount(WmsPurchaseOrderItem wmsPurchaseOrderItem)
+    {
+        BigDecimal quantityValue = wmsPurchaseOrderItem.getQuantity() == null ? BigDecimal.ZERO : wmsPurchaseOrderItem.getQuantity();
+        BigDecimal priceValue = wmsPurchaseOrderItem.getPrice() == null ? BigDecimal.ZERO : wmsPurchaseOrderItem.getPrice();
+        return quantityValue.multiply(priceValue);
     }
 
     private void ensurePayableCreated(WmsPurchaseOrder databasePurchaseOrder, String createUsername)

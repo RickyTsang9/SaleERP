@@ -62,10 +62,7 @@ public class WmsInventoryCheckServiceImpl implements IWmsInventoryCheckService
         {
             wmsInventoryCheck.setCheckNo(generateCheckNo());
         }
-        if (StringUtils.isEmpty(wmsInventoryCheck.getStatus()))
-        {
-            wmsInventoryCheck.setStatus(STATUS_DRAFT);
-        }
+        wmsInventoryCheck.setStatus(STATUS_DRAFT);
         return wmsInventoryCheckMapper.insertWmsInventoryCheck(wmsInventoryCheck);
     }
 
@@ -207,6 +204,10 @@ public class WmsInventoryCheckServiceImpl implements IWmsInventoryCheckService
         if (databaseInventoryCheck == null)
         {
             throw new ServiceException("盘点单不存在");
+        }
+        if (STATUS_CANCELLED.equals(databaseInventoryCheck.getStatus()))
+        {
+            throw new ServiceException("盘点单已作废，无需重复作废");
         }
         if (STATUS_AUDITED.equals(databaseInventoryCheck.getStatus()))
         {

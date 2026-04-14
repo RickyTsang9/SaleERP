@@ -96,6 +96,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where supplier_id = #{supplierId}
     </update>
 
+    <select id="selectSupplierReferenceCount" parameterType="Long" resultType="int">
+        select
+            (select count(1) from wms_purchase_order where supplier_id = #{supplierId})
+            + (select count(1) from wms_purchase_return where supplier_id = #{supplierId})
+            + (select count(1) from wms_inbound where supplier_id = #{supplierId})
+            + (select count(1) from fin_payable where supplier_id = #{supplierId})
+            + (select count(1) from fin_payment where supplier_id = #{supplierId})
+    </select>
+
     <delete id="deleteMdSupplierBySupplierId" parameterType="Long">
         update md_supplier set del_flag = '2' where supplier_id = #{supplierId}
     </delete>

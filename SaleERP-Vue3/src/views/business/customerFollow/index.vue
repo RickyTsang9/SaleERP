@@ -258,6 +258,7 @@
 import { listCustomerFollow, getCustomerFollow, delCustomerFollow, addCustomerFollow, updateCustomerFollow } from "@/api/business/customerFollow";
 import { listCustomer, getCustomer } from "@/api/business/customer";
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect";
+import { parseTime } from "@/utils/ruoyi";
 
 const { proxy } = getCurrentInstance();
 const route = useRoute();
@@ -360,21 +361,21 @@ async function ensureCustomerOptionLoaded(customerIdList) {
         continue;
       }
     } catch (error) {
-      // 保留历史客户编号兜底回显，避免旧跟进记录显示空白。
+      // 主数据缺失时保留友好提示，避免旧跟进记录显示空白。
     }
-    appendUniqueSelectOption(customerList.value, { customerId, customerName: `历史客户ID：${customerId}` }, "customerId");
+    appendUniqueSelectOption(customerList.value, { customerId, customerName: "客户资料缺失" }, "customerId");
   }
 }
 
-// 构造客户下拉选项，当前值未命中远程结果时补充历史客户编号占位。
+// 构造客户下拉选项，当前值未命中远程结果时补充资料缺失占位。
 function buildCustomerSelectOptionList() {
-  return buildSelectOptionList(customerList.value, [queryParams.value.customerId, form.value.customerId], "customerId", "customerName", "历史客户ID：");
+  return buildSelectOptionList(customerList.value, [queryParams.value.customerId, form.value.customerId], "customerId", "customerName", "客户资料缺失");
 }
 
-// 返回客户名称，历史跟进记录缺主数据时保留明确的编号提示。
+// 返回客户名称，历史跟进记录缺主数据时统一提示资料缺失。
 function getCustomerName(customerId) {
   const customer = customerList.value.find(customerItem => customerItem.customerId === customerId);
-  return customer ? customer.customerName : (customerId ? `历史客户ID：${customerId}` : "");
+  return customer ? customer.customerName : (customerId ? "客户资料缺失" : "");
 }
 
 // 返回跟进状态名称，统一列表和弹窗口径。
@@ -705,11 +706,22 @@ function handleExport() {
   }, `customerFollow_${new Date().getTime()}.xlsx`);
 }
 
-initializeQueryParamsFromRoute();
+// 初始化页面筛选条件和数据，保证从客户页重复跳转时列表和待办卡片会同步刷新。
+async function initializePage() {
+  initializeQueryParamsFromRoute();
+  await initBasicData();
+  await refreshPageData();
+}
 
-initBasicData().then(() => {
-  refreshPageData();
+// 监听同一路由下的查询参数变化，避免地址栏客户已切换但页面仍停留在旧跟进记录。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return;
+  }
+  initializePage();
 });
+
+initializePage();
 </script>
 
 <style scoped>

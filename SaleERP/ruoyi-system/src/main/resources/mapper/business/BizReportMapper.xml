@@ -100,7 +100,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                concat('应收到期提醒：', ifnull(so.order_no, concat('历史销售单id：', cast(fr.sale_order_id as char)))) as message_title,
                fr.due_date as message_time,
                concat('销售单号：', ifnull(so.order_no, concat('历史销售单id：', cast(fr.sale_order_id as char))),
-                      '，客户：', ifnull(mc.customer_name, concat('历史客户id：', cast(fr.customer_id as char))),
+                      '，客户：', ifnull(mc.customer_name, '客户资料缺失'),
                       '，预计到期：', date_format(fr.due_date, '%Y-%m-%d')) as message_content,
                'receivable' as message_type, 'sale_order' as business_type, cast(fr.sale_order_id as char) as business_id
         from fin_receivable fr
@@ -164,7 +164,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectReconciliationList" parameterType="java.util.Map" resultType="java.util.HashMap">
         select 'receivable' as reconcileType,
                cast(fr.customer_id as char) as targetId,
-               ifnull(mc.customer_name, concat('历史客户id：', cast(fr.customer_id as char))) as targetName,
+               ifnull(mc.customer_name, '客户资料缺失') as targetName,
                ifnull(sum(fr.amount_due), 0) as dueAmount,
                ifnull(sum(fr.amount_paid), 0) as paidAmount,
                ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as remainAmount
@@ -180,7 +180,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         union all
         select 'payable' as reconcileType,
                cast(fp.supplier_id as char) as targetId,
-               ifnull(ms.supplier_name, concat('历史供应商id：', cast(fp.supplier_id as char))) as targetName,
+               ifnull(ms.supplier_name, '供应商资料缺失') as targetName,
                ifnull(sum(fp.amount_due), 0) as dueAmount,
                ifnull(sum(fp.amount_paid), 0) as paidAmount,
                ifnull(sum(fp.remain_amount), 0) as remainAmount
@@ -419,7 +419,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectTopOverdueCustomerList" resultType="java.util.HashMap">
         select cast(fr.customer_id as char) as targetId,
-               ifnull(mc.customer_name, concat('历史客户id：', cast(fr.customer_id as char))) as targetName,
+               ifnull(mc.customer_name, '客户资料缺失') as targetName,
                ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as remainAmount,
                max(datediff(curdate(), date(fr.due_date))) as overdueDays,
                count(1) as recordCount
@@ -435,7 +435,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectTopDueSupplierList" parameterType="java.util.Map" resultType="java.util.HashMap">
         select cast(fp.supplier_id as char) as targetId,
-               ifnull(ms.supplier_name, concat('历史供应商id：', cast(fp.supplier_id as char))) as targetName,
+               ifnull(ms.supplier_name, '供应商资料缺失') as targetName,
                ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as remainAmount,
                min(datediff(date(fp.due_date), curdate())) as dueInDays,
                count(1) as recordCount

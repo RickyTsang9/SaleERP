@@ -78,10 +78,15 @@ public class WmsTransferServiceImpl implements IWmsTransferService
     @Override
     public int insertWmsTransfer(WmsTransfer wmsTransfer)
     {
+        validateTransferBeforeSave(wmsTransfer);
+        wmsTransfer.setStatus(STATUS_PENDING_AUDIT);
         wmsTransfer.setCreateTime(DateUtils.getNowDate());
-        try {
+        try
+        {
             wmsTransfer.setCreateBy(SecurityUtils.getUsername());
-        } catch (Exception e) {
+        }
+        catch (Exception exception)
+        {
             // ignore
         }
         int rows = wmsTransferMapper.insertWmsTransfer(wmsTransfer);
@@ -108,11 +113,15 @@ public class WmsTransferServiceImpl implements IWmsTransferService
         {
             throw new ServiceException("仅待审核状态库存调拨允许修改");
         }
+        validateTransferBeforeSave(wmsTransfer);
         wmsTransfer.setStatus(databaseTransfer.getStatus());
         wmsTransfer.setUpdateTime(DateUtils.getNowDate());
-        try {
+        try
+        {
             wmsTransfer.setUpdateBy(SecurityUtils.getUsername());
-        } catch (Exception e) {
+        }
+        catch (Exception exception)
+        {
             // ignore
         }
         wmsTransferMapper.deleteWmsTransferItemByTransferId(wmsTransfer.getTransferId());
@@ -138,11 +147,8 @@ public class WmsTransferServiceImpl implements IWmsTransferService
         {
             throw new ServiceException("仅待审核状态库存调拨允许提交");
         }
-        if (databaseTransfer.getWmsTransferItemList() == null || databaseTransfer.getWmsTransferItemList().isEmpty())
-        {
-            throw new ServiceException("调拨明细不能为空");
-        }
-        return 1;
+        validateTransferBeforeSave(databaseTransfer);
+        throw new ServiceException("库存调拨保存后直接进入待审核，不需要重复提交");
     }
 
     /**
@@ -274,6 +280,10 @@ public class WmsTransferServiceImpl implements IWmsTransferService
         {
             throw new ServiceException("库存调拨不存在");
         }
+        if (STATUS_CANCELLED.equals(databaseTransfer.getStatus()))
+        {
+            throw new ServiceException("库存调拨已作废，无需重复作废");
+        }
         if (STATUS_AUDITED.equals(databaseTransfer.getStatus()))
         {
             throw new ServiceException("已审核库存调拨不允许作废");
@@ -359,6 +369,81 @@ public class WmsTransferServiceImpl implements IWmsTransferService
                 wmsTransferMapper.batchWmsTransferItem(list);
             }
         }
+    }
+
+    /**
+     * 保存库存调拨前校验主单和明细数据，并重算总数量
+     * 
+     * @param wmsTransfer 库存调拨
+     */
+    private void validateTransferBeforeSave(WmsTransfer wmsTransfer)
+    {
+        if (wmsTransfer == null)
+        {
+            throw new ServiceException("库存调拨不存在");
+        }
+        if (wmsTransfer.getOutWarehouseId() == null || wmsTransfer.getInWarehouseId() == null)
+        {
+            throw new ServiceException("调入调出仓库不能为空");
+        }
+        if (wmsTransfer.getOutWarehouseId().equals(wmsTransfer.getInWarehouseId()))
+        {
+            throw new ServiceException("调入仓库不能与调出仓库相同");
+        }
+        if (wmsTransfer.getTransferDate() == null)
+        {
+            throw new ServiceException("调拨日期不能为空");
+        }
+        validateTransferItemList(wmsTransfer.getWmsTransferItemList());
+        wmsTransfer.setTotalQuantity(calculateTransferTotalQuantity(wmsTransfer.getWmsTransferItemList()));
+    }
+
+    /**
+     * 校验库存调拨明细是否完整
+     * 
+     * @param wmsTransferItemList 库存调拨明细列表
+     */
+    private void validateTransferItemList(List<WmsTransferItem> wmsTransferItemList)
+    {
+        if (wmsTransferItemList == null || wmsTransferItemList.isEmpty())
+        {
+            throw new ServiceException("调拨明细不能为空");
+        }
+        for (int transferItemIndex = 0; transferItemIndex < wmsTransferItemList.size(); transferItemIndex++)
+        {
+            WmsTransferItem wmsTransferItem = wmsTransferItemList.get(transferItemIndex);
+            if (wmsTransferItem.getProductId() == null)
+            {
+                throw new ServiceException("第" + (transferItemIndex + 1) + "行调拨明细商品不能为空");
+            }
+            if (wmsTransferItem.getQuantity() == null || wmsTransferItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+            {
+                throw new ServiceException("第" + (transferItemIndex + 1) + "行调拨数量必须大于0");
+            }
+        }
+    }
+
+    /**
+     * 根据调拨明细重新计算总数量
+     * 
+     * @param wmsTransferItemList 库存调拨明细列表
+     * @return 总数量
+     */
+    private BigDecimal calculateTransferTotalQuantity(List<WmsTransferItem> wmsTransferItemList)
+    {
+        BigDecimal totalQuantityValue = BigDecimal.ZERO;
+        if (wmsTransferItemList == null || wmsTransferItemList.isEmpty())
+        {
+            return totalQuantityValue;
+        }
+        for (WmsTransferItem wmsTransferItem : wmsTransferItemList)
+        {
+            if (wmsTransferItem.getQuantity() != null)
+            {
+                totalQuantityValue = totalQuantityValue.add(wmsTransferItem.getQuantity());
+            }
+        }
+        return totalQuantityValue;
     }
 
     private WmsStock getOrCreateInStock(Long inWarehouseId, Long productId, WmsStock sourceStock)

@@ -199,6 +199,7 @@
 
 <script setup name="Operlog">
 import { list, delOperlog, cleanOperlog } from "@/api/monitor/operlog"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_oper_type, sys_common_status } = proxy.useDict("sys_oper_type", "sys_common_status")

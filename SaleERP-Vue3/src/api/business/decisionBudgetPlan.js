@@ -8,6 +8,14 @@ export function getDecisionBudgetPlanCurrent(budgetYear) {
   })
 }
 
+// 查询指定年度预算版本列表
+export function listDecisionBudgetPlanHistory(budgetYear) {
+  return request({
+    url: '/business/decisionBudgetPlan/history/' + budgetYear,
+    method: 'get'
+  })
+}
+
 // 新增年度预算计划
 export function addDecisionBudgetPlan(data) {
   return request({
@@ -22,6 +30,15 @@ export function updateDecisionBudgetPlan(data) {
   return request({
     url: '/business/decisionBudgetPlan',
     method: 'put',
+    data: data
+  })
+}
+
+// 基于当前预算计划创建新版本
+export function createDecisionBudgetPlanVersion(planId, data) {
+  return request({
+    url: '/business/decisionBudgetPlan/createVersion/' + planId,
+    method: 'post',
     data: data
   })
 }

@@ -189,6 +189,10 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
         {
             throw new ServiceException("销售退货单不存在");
         }
+        if (STATUS_CANCELLED.equals(databaseSaleReturn.getStatus()))
+        {
+            throw new ServiceException("销售退货单已作废，无需重复作废");
+        }
         if (STATUS_AUDITED.equals(databaseSaleReturn.getStatus()))
         {
             throw new ServiceException("已审核销售退货单不允许作废");
@@ -203,17 +207,52 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsSaleReturnById(Long saleReturnId)
     {
+        WmsSaleReturn databaseSaleReturn = wmsSaleReturnMapper.selectWmsSaleReturnById(saleReturnId);
+        if (databaseSaleReturn == null)
+        {
+            return 0;
+        }
+        validateSaleReturnCanBeDeleted(databaseSaleReturn, false);
         wmsSaleReturnItemMapper.deleteWmsSaleReturnItemBySaleReturnIds(new Long[] { saleReturnId });
         return wmsSaleReturnMapper.deleteWmsSaleReturnById(saleReturnId);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsSaleReturnByIds(Long[] saleReturnIds)
     {
+        for (Long saleReturnId : saleReturnIds)
+        {
+            WmsSaleReturn databaseSaleReturn = wmsSaleReturnMapper.selectWmsSaleReturnById(saleReturnId);
+            if (databaseSaleReturn == null)
+            {
+                continue;
+            }
+            validateSaleReturnCanBeDeleted(databaseSaleReturn, true);
+        }
         wmsSaleReturnItemMapper.deleteWmsSaleReturnItemBySaleReturnIds(saleReturnIds);
         return wmsSaleReturnMapper.deleteWmsSaleReturnByIds(saleReturnIds);
+    }
+
+    /**
+     * 校验销售退货单是否允许删除
+     *
+     * @param databaseSaleReturn 数据库中的销售退货单
+     * @param batchDelete 是否批量删除
+     */
+    private void validateSaleReturnCanBeDeleted(WmsSaleReturn databaseSaleReturn, boolean batchDelete)
+    {
+        if (!STATUS_DRAFT.equals(databaseSaleReturn.getStatus()))
+        {
+            if (batchDelete)
+            {
+                throw new ServiceException("仅草稿状态销售退货单允许删除，退货单号：" + databaseSaleReturn.getReturnNo());
+            }
+            throw new ServiceException("仅草稿状态销售退货单允许删除");
+        }
     }
 
     private String generateSaleReturnNo()

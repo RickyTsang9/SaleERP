@@ -13,6 +13,8 @@ public interface MdProductMapper
 
     public int updateMdProduct(MdProduct mdProduct);
 
+    public int selectProductReferenceCount(Long productId);
+
     public int deleteMdProductById(Long productId);
 
     public int deleteMdProductByIds(Long[] productIds);

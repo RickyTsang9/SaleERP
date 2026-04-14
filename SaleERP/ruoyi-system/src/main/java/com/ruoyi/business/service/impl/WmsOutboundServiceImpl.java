@@ -93,10 +93,7 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
         {
             wmsOutbound.setOutboundNo(generateOutboundNo());
         }
-        if (StringUtils.isEmpty(wmsOutbound.getStatus()))
-        {
-            wmsOutbound.setStatus(STATUS_DRAFT);
-        }
+        wmsOutbound.setStatus(STATUS_DRAFT);
         int insertRows = wmsOutboundMapper.insertWmsOutbound(wmsOutbound);
         initializeLinkedSaleOrderItems(wmsOutbound);
         return insertRows;
@@ -255,6 +252,10 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
         if (databaseOutbound == null)
         {
             throw new ServiceException("出库单不存在");
+        }
+        if (STATUS_CANCELLED.equals(databaseOutbound.getStatus()))
+        {
+            throw new ServiceException("出库单已作废，无需重复作废");
         }
         if (STATUS_AUDITED.equals(databaseOutbound.getStatus()))
         {

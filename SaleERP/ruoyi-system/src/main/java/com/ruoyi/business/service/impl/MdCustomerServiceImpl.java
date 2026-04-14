@@ -45,12 +45,17 @@ public class MdCustomerServiceImpl implements IMdCustomerService
     @Override
     public int deleteMdCustomerById(Long customerId)
     {
+        validateCustomerCanBeDeleted(customerId, false);
         return mdCustomerMapper.deleteMdCustomerById(customerId);
     }
 
     @Override
     public int deleteMdCustomerByIds(Long[] customerIds)
     {
+        for (Long customerId : customerIds)
+        {
+            validateCustomerCanBeDeleted(customerId, true);
+        }
         return mdCustomerMapper.deleteMdCustomerByIds(customerIds);
     }
 
@@ -115,5 +120,33 @@ public class MdCustomerServiceImpl implements IMdCustomerService
             successMsg.insert(0, "恭喜您，数据已全部导入成功！共 " + successNum + " 条，数据如下：");
         }
         return successMsg.toString();
+    }
+
+    /**
+     * 校验客户是否允许删除
+     *
+     * @param customerId 客户编号
+     * @param batchDelete 是否批量删除
+     */
+    private void validateCustomerCanBeDeleted(Long customerId, boolean batchDelete)
+    {
+        if (customerId == null)
+        {
+            return;
+        }
+        MdCustomer databaseCustomer = mdCustomerMapper.selectMdCustomerById(customerId);
+        if (databaseCustomer == null)
+        {
+            return;
+        }
+        Integer referenceCount = mdCustomerMapper.selectCustomerReferenceCount(customerId);
+        if (referenceCount != null && referenceCount.intValue() > 0)
+        {
+            if (batchDelete)
+            {
+                throw new ServiceException("客户已被业务单据引用，不能删除，客户名称：" + databaseCustomer.getCustomerName());
+            }
+            throw new ServiceException("客户已被业务单据引用，不能删除");
+        }
     }
 }

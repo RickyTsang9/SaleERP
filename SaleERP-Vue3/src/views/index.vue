@@ -45,7 +45,7 @@
       </el-col>
       <el-col :span="6">
         <el-card shadow="hover" class="metric-card bg-info" @click="navigateTo(businessRoutePathMap.receipt)">
-          <div class="metric-icon"><el-icon><BankCard /></el-icon></div>
+          <div class="metric-icon"><el-icon><CreditCard /></el-icon></div>
           <div class="metric-content">
             <div class="metric-title">已收总额</div>
             <div class="metric-value">￥{{ dashboardData.totalReceivedAmount }}</div>
@@ -602,7 +602,7 @@ onBeforeUnmount(() => {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
-    ::v-deep .el-card__body {
+    :deep(.el-card__body) {
       display: flex;
       align-items: center;
       width: 100%;

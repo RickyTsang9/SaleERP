@@ -44,6 +44,14 @@ public interface MdSupplierMapper
     public int updateMdSupplier(MdSupplier mdSupplier);
 
     /**
+     * 查询供应商被业务单据引用数量
+     *
+     * @param supplierId 供应商主键
+     * @return 引用数量
+     */
+    public int selectSupplierReferenceCount(Long supplierId);
+
+    /**
      * 删除供应商
      * 
      * @param supplierId 供应商主键

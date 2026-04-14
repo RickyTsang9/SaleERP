@@ -91,6 +91,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where location_id = #{locationId}
     </update>
 
+    <select id="selectLocationReferenceCount" parameterType="Long" resultType="int">
+        select
+            (select count(1) from wms_stock where location_id = #{locationId})
+            + (select count(1) from wms_stock_log where location_id = #{locationId})
+            + (select count(1) from wms_sale_order_item where location_id = #{locationId})
+            + (select count(1) from wms_outbound_item where location_id = #{locationId})
+            + (select count(1) from wms_inbound_item where location_id = #{locationId})
+            + (select count(1) from wms_inventory_check_item where location_id = #{locationId})
+    </select>
+
     <delete id="deleteMdLocationById" parameterType="Long">
         delete from md_location where location_id = #{locationId}
     </delete>

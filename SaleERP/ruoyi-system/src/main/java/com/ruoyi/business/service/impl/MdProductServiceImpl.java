@@ -45,12 +45,17 @@ public class MdProductServiceImpl implements IMdProductService
     @Override
     public int deleteMdProductById(Long productId)
     {
+        validateProductCanBeDeleted(productId, false);
         return mdProductMapper.deleteMdProductById(productId);
     }
 
     @Override
     public int deleteMdProductByIds(Long[] productIds)
     {
+        for (Long productId : productIds)
+        {
+            validateProductCanBeDeleted(productId, true);
+        }
         return mdProductMapper.deleteMdProductByIds(productIds);
     }
 
@@ -115,5 +120,33 @@ public class MdProductServiceImpl implements IMdProductService
             successMsg.insert(0, "恭喜您，数据已全部导入成功！共 " + successNum + " 条，数据如下：");
         }
         return successMsg.toString();
+    }
+
+    /**
+     * 校验商品是否允许删除
+     *
+     * @param productId 商品编号
+     * @param batchDelete 是否批量删除
+     */
+    private void validateProductCanBeDeleted(Long productId, boolean batchDelete)
+    {
+        if (productId == null)
+        {
+            return;
+        }
+        MdProduct databaseProduct = mdProductMapper.selectMdProductById(productId);
+        if (databaseProduct == null)
+        {
+            return;
+        }
+        Integer referenceCount = mdProductMapper.selectProductReferenceCount(productId);
+        if (referenceCount != null && referenceCount.intValue() > 0)
+        {
+            if (batchDelete)
+            {
+                throw new ServiceException("商品已被业务单据或库存引用，不能删除，商品名称：" + databaseProduct.getProductName());
+            }
+            throw new ServiceException("商品已被业务单据或库存引用，不能删除");
+        }
     }
 }

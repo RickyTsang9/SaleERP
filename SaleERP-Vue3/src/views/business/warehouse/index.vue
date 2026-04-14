@@ -128,6 +128,7 @@
 
 <script setup name="BusinessWarehouse">
 import { listWarehouse, getWarehouse, addWarehouse, updateWarehouse, delWarehouse } from "@/api/business/warehouse"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")

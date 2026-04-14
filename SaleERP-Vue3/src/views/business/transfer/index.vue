@@ -200,6 +200,7 @@ import { listTransfer, getTransfer, delTransfer, addTransfer, updateTransfer, au
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 
@@ -286,7 +287,7 @@ async function loadWarehouseOptionList(searchKeyword) {
       pageSize: 20,
       warehouseName: normalizedKeyword
     })
-    warehouseList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "warehouseId", "warehouseName", "历史仓库ID：")
+    warehouseList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "warehouseId", "warehouseName", () => "仓库资料缺失")
   } finally {
     warehouseListLoading.value = false
   }
@@ -302,7 +303,7 @@ async function loadProductOptionList(searchKeyword) {
       pageSize: 20,
       productName: normalizedKeyword
     })
-    productList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "productId", "productName", "历史商品ID：")
+    productList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "productId", "productName", () => "商品资料缺失")
   } finally {
     productListLoading.value = false
   }
@@ -319,7 +320,7 @@ async function ensureWarehouseOptionLoaded(warehouseIdList) {
       const response = await getWarehouse(warehouseId)
       appendUniqueSelectOption(warehouseList.value, response.data, "warehouseId")
     } catch (error) {
-      appendUniqueSelectOption(warehouseList.value, { warehouseId, warehouseName: `历史仓库ID：${warehouseId}` }, "warehouseId")
+      appendUniqueSelectOption(warehouseList.value, { warehouseId, warehouseName: "仓库资料缺失" }, "warehouseId")
     }
   }
 }
@@ -335,7 +336,7 @@ async function ensureProductOptionLoaded(productIdList) {
       const response = await getProduct(productId)
       appendUniqueSelectOption(productList.value, response.data, "productId")
     } catch (error) {
-      appendUniqueSelectOption(productList.value, { productId, productName: `历史商品ID：${productId}` }, "productId")
+      appendUniqueSelectOption(productList.value, { productId, productName: "商品资料缺失" }, "productId")
     }
   }
 }
@@ -362,32 +363,32 @@ async function ensureTransferItemReferenceOptionsLoaded(targetTransferItemList =
   await ensureProductOptionLoaded(productIdList)
 }
 
-// 构造仓库下拉选项，并兼容历史仓库编号回显。
+// 构造仓库下拉选项，并兼容主数据缺失时的兜底回显。
 function buildWarehouseSelectOptionList() {
-  return buildSelectOptionList(warehouseList.value, [queryParams.value.outWarehouseId, queryParams.value.inWarehouseId, form.value.outWarehouseId, form.value.inWarehouseId], "warehouseId", "warehouseName", "历史仓库ID：")
+  return buildSelectOptionList(warehouseList.value, [queryParams.value.outWarehouseId, queryParams.value.inWarehouseId, form.value.outWarehouseId, form.value.inWarehouseId], "warehouseId", "warehouseName", () => "仓库资料缺失")
 }
 
-// 构造商品下拉选项，并兼容历史商品编号回显。
+// 构造商品下拉选项，并兼容主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, wmsTransferItemList.value.map(transferItem => transferItem.productId), "productId", "productName", "历史商品ID：")
+  return buildSelectOptionList(productList.value, wmsTransferItemList.value.map(transferItem => transferItem.productId), "productId", "productName", () => "商品资料缺失")
 }
 
-// 通过仓库编号返回仓库名称，未命中主数据时显示历史编号。
+// 通过仓库编号返回仓库名称，未命中主数据时显示资料缺失提示。
 function getWarehouseName(warehouseId) {
   if (warehouseId === undefined || warehouseId === null || warehouseId === "") {
     return "-"
   }
   const warehouse = warehouseList.value.find(warehouseItem => warehouseItem.warehouseId === warehouseId)
-  return warehouse?.warehouseName || `历史仓库ID：${warehouseId}`
+  return warehouse?.warehouseName || "仓库资料缺失"
 }
 
-// 通过商品编号返回商品名称，未命中主数据时显示历史编号。
+// 通过商品编号返回商品名称，未命中主数据时显示资料缺失提示。
 function getProductName(productId) {
   if (productId === undefined || productId === null || productId === "") {
     return "-"
   }
   const product = productList.value.find(productItem => productItem.productId === productId)
-  return product?.productName || `历史商品ID：${productId}`
+  return product?.productName || "商品资料缺失"
 }
 
 // 返回库存调拨状态中文名称，提升列表可读性。
@@ -661,7 +662,20 @@ function handleExport() {
   }, `transfer_${new Date().getTime()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute()
-initBasicData()
-getList()
+// 初始化页面筛选条件和基础资料，保证重复跳转到调拨页时列表会按最新地址参数刷新。
+async function initializePage() {
+  initializeQueryParamsFromRoute()
+  await initBasicData()
+  await getList()
+}
+
+// 监听同一路由下的查询参数变化，避免库存调拨页继续显示旧的仓库或单号筛选结果。
+watch(() => proxy?.$route?.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>

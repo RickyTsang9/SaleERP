@@ -130,6 +130,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where customer_id = #{customerId}
     </update>
 
+    <select id="selectCustomerReferenceCount" parameterType="Long" resultType="int">
+        select
+            (select count(1) from crm_customer_follow where customer_id = #{customerId})
+            + (select count(1) from wms_sale_order where customer_id = #{customerId})
+            + (select count(1) from wms_sale_return where customer_id = #{customerId})
+            + (select count(1) from wms_outbound where customer_id = #{customerId})
+            + (select count(1) from fin_receivable where customer_id = #{customerId})
+            + (select count(1) from fin_receipt where customer_id = #{customerId})
+    </select>
+
     <delete id="deleteMdCustomerById" parameterType="Long">
         delete from md_customer where customer_id = #{customerId}
     </delete>

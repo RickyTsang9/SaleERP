@@ -282,6 +282,7 @@ import { listCustomer, getCustomer } from "@/api/business/customer"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 
@@ -388,7 +389,7 @@ async function loadCustomerOptionList(searchKeyword) {
       pageSize: 20,
       customerName: normalizedKeyword
     })
-    customerList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "customerId", "customerName", "历史客户ID：")
+  customerList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "customerId", "customerName", () => "客户资料缺失")
   } finally {
     customerListLoading.value = false
   }
@@ -404,7 +405,7 @@ async function loadWarehouseOptionList(searchKeyword) {
       pageSize: 20,
       warehouseName: normalizedKeyword
     })
-    warehouseList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "warehouseId", "warehouseName", "历史仓库ID：")
+    warehouseList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "warehouseId", "warehouseName", () => "仓库资料缺失")
   } finally {
     warehouseListLoading.value = false
   }
@@ -420,7 +421,7 @@ async function loadProductOptionList(searchKeyword) {
       pageSize: 20,
       productName: normalizedKeyword
     })
-    productList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "productId", "productName", "历史商品ID：")
+    productList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "productId", "productName", () => "商品资料缺失")
   } finally {
     productListLoading.value = false
   }
@@ -437,7 +438,7 @@ async function ensureCustomerOptionLoaded(customerIdList) {
       const response = await getCustomer(customerId)
       appendUniqueSelectOption(customerList.value, response.data, "customerId")
     } catch (error) {
-      appendUniqueSelectOption(customerList.value, { customerId, customerName: `历史客户ID：${customerId}` }, "customerId")
+      appendUniqueSelectOption(customerList.value, { customerId, customerName: "客户资料缺失" }, "customerId")
     }
   }
 }
@@ -453,7 +454,7 @@ async function ensureWarehouseOptionLoaded(warehouseIdList) {
       const response = await getWarehouse(warehouseId)
       appendUniqueSelectOption(warehouseList.value, response.data, "warehouseId")
     } catch (error) {
-      appendUniqueSelectOption(warehouseList.value, { warehouseId, warehouseName: `历史仓库ID：${warehouseId}` }, "warehouseId")
+      appendUniqueSelectOption(warehouseList.value, { warehouseId, warehouseName: "仓库资料缺失" }, "warehouseId")
     }
   }
 }
@@ -469,7 +470,7 @@ async function ensureProductOptionLoaded(productIdList) {
       const response = await getProduct(productId)
       appendUniqueSelectOption(productList.value, response.data, "productId")
     } catch (error) {
-      appendUniqueSelectOption(productList.value, { productId, productName: `历史商品ID：${productId}` }, "productId")
+      appendUniqueSelectOption(productList.value, { productId, productName: "商品资料缺失" }, "productId")
     }
   }
 }
@@ -501,46 +502,46 @@ async function ensureSaleReturnItemReferenceOptionsLoaded(targetSaleReturnItemLi
   await ensureProductOptionLoaded(productIdList)
 }
 
-// 构造客户下拉列表，并对历史数据补充兜底占位。
+// 构造客户下拉列表，并对主数据缺失场景补充兜底占位。
 function buildCustomerSelectOptionList() {
-  return buildSelectOptionList(customerList.value, [queryParams.value.customerId, form.value.customerId], "customerId", "customerName", "历史客户ID：")
+  return buildSelectOptionList(customerList.value, [queryParams.value.customerId, form.value.customerId], "customerId", "customerName", () => "客户资料缺失")
 }
 
-// 构造仓库下拉列表，并保证历史编号可以稳定回显。
+// 构造仓库下拉列表，并保证主数据缺失时可以稳定回显。
 function buildWarehouseSelectOptionList() {
-  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", "历史仓库ID：")
+  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", () => "仓库资料缺失")
 }
 
-// 构造商品下拉列表，并兼容历史商品编号。
+// 构造商品下拉列表，并兼容主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, [saleReturnItemForm.value.productId], "productId", "productName", "历史商品ID：")
+  return buildSelectOptionList(productList.value, [saleReturnItemForm.value.productId], "productId", "productName", () => "商品资料缺失")
 }
 
-// 通过客户编号返回客户名称，未命中主数据时显示历史编号。
+// 通过客户编号返回客户名称，未命中主数据时显示资料缺失提示。
 function getCustomerName(customerId) {
   if (customerId === undefined || customerId === null || customerId === "") {
     return "-"
   }
   const customer = customerList.value.find(customerItem => customerItem.customerId === customerId)
-  return customer?.customerName || `历史客户ID：${customerId}`
+  return customer?.customerName || "客户资料缺失"
 }
 
-// 通过仓库编号返回仓库名称，未命中主数据时显示历史编号。
+// 通过仓库编号返回仓库名称，未命中主数据时显示资料缺失提示。
 function getWarehouseName(warehouseId) {
   if (warehouseId === undefined || warehouseId === null || warehouseId === "") {
     return "-"
   }
   const warehouse = warehouseList.value.find(warehouseItem => warehouseItem.warehouseId === warehouseId)
-  return warehouse?.warehouseName || `历史仓库ID：${warehouseId}`
+  return warehouse?.warehouseName || "仓库资料缺失"
 }
 
-// 通过商品编号返回商品名称，未命中主数据时显示历史编号。
+// 通过商品编号返回商品名称，未命中主数据时显示资料缺失提示。
 function getProductName(productId) {
   if (productId === undefined || productId === null || productId === "") {
     return "-"
   }
   const product = productList.value.find(productItem => productItem.productId === productId)
-  return product?.productName || `历史商品ID：${productId}`
+  return product?.productName || "商品资料缺失"
 }
 
 // 将销售退货状态编码转换为中文文案。
@@ -858,7 +859,20 @@ function handleExport() {
   }, `saleReturn_${new Date().getTime()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute()
-initBasicData()
-getList()
+// 初始化页面筛选条件和基础资料，保证重复跳转到销售退货页时筛选结果会按最新参数刷新。
+async function initializePage() {
+  initializeQueryParamsFromRoute()
+  await initBasicData()
+  await getList()
+}
+
+// 监听同一路由下的查询参数变化，避免销售退货页仍保留上一次跳转的筛选状态。
+watch(() => proxy?.$route?.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>

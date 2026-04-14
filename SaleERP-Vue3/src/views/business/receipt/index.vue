@@ -101,6 +101,7 @@ import { listReceipt } from "@/api/business/receipt"
 import { listCustomer, getCustomer } from "@/api/business/customer"
 import { getSaleOrder } from "@/api/business/saleOrder"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
@@ -142,18 +143,9 @@ const { queryParams } = toRefs(data)
 
 // 根据首页或其他业务页传入的参数初始化回款流水筛选条件，保证落地页即开即用。
 function initializeQueryParamsFromRoute() {
-  if (route.query.receivableId)
-  {
-    queryParams.value.receivableId = route.query.receivableId
-  }
-  if (route.query.saleOrderId)
-  {
-    queryParams.value.saleOrderId = route.query.saleOrderId
-  }
-  if (route.query.customerId)
-  {
-    queryParams.value.customerId = Number(route.query.customerId)
-  }
+  queryParams.value.receivableId = route.query.receivableId || undefined
+  queryParams.value.saleOrderId = route.query.saleOrderId || undefined
+  queryParams.value.customerId = route.query.customerId ? Number(route.query.customerId) : undefined
 }
 
 // 初始化客户远程下拉数据，避免页面初始阶段一次性加载过多基础资料。
@@ -200,7 +192,7 @@ function syncCustomerOption(customerId, customerName) {
 
 // 判断当前客户名称是否已经是可直接展示给用户的正式名称。
 function isDirectCustomerNameResolved(customerName) {
-  return !!customerName && !customerName.startsWith("历史客户ID：") && !customerName.endsWith("（历史单据）")
+  return !!customerName && customerName !== "客户资料缺失" && !customerName.startsWith("历史客户ID：") && !customerName.endsWith("（历史单据）")
 }
 
 // 兼容已缓存的历史映射后缀，保证页面展示和筛选回显都保持简洁可读。
@@ -211,7 +203,7 @@ function normalizeCustomerDisplayName(customerName) {
 // 按销售单来源回补历史回款记录的客户名称，减少页面出现裸客户编号。
 function ensureCustomerOptionLoadedBySaleOrder(customerId, saleOrderId) {
   if (!saleOrderId) {
-    syncCustomerOption(customerId, `历史客户ID：${customerId}`)
+    syncCustomerOption(customerId, "客户资料缺失")
     return Promise.resolve()
   }
   const cachedCustomerName = saleOrderCustomerNameMap.value[saleOrderId]
@@ -222,7 +214,7 @@ function ensureCustomerOptionLoadedBySaleOrder(customerId, saleOrderId) {
   return getSaleOrder(saleOrderId).then(response => {
     const resolvedCustomerId = response.data?.customerId
     if (resolvedCustomerId === undefined || resolvedCustomerId === null || resolvedCustomerId === "") {
-      syncCustomerOption(customerId, `历史客户ID：${customerId}`)
+      syncCustomerOption(customerId, "客户资料缺失")
       return
     }
     return getCustomer(resolvedCustomerId).then(customerResponse => {
@@ -230,10 +222,10 @@ function ensureCustomerOptionLoadedBySaleOrder(customerId, saleOrderId) {
       saleOrderCustomerNameMap.value[saleOrderId] = resolvedCustomerName
       syncCustomerOption(customerId, resolvedCustomerName)
     }).catch(() => {
-      syncCustomerOption(customerId, `历史客户ID：${customerId}`)
+      syncCustomerOption(customerId, "客户资料缺失")
     })
   }).catch(() => {
-    syncCustomerOption(customerId, `历史客户ID：${customerId}`)
+    syncCustomerOption(customerId, "客户资料缺失")
   })
 }
 
@@ -260,9 +252,9 @@ function ensureReceiptReferenceOptionsLoaded(receiptRowList) {
   Promise.all((receiptRowList || []).map(receiptRow => ensureCustomerOptionLoaded(receiptRow.customerId, receiptRow.saleOrderId))).catch(() => {})
 }
 
-// 组合客户下拉选项，兼容历史回款记录中仍在使用的旧客户编号回显。
+// 组合客户下拉选项，兼容历史回款记录中主数据缺失时的兜底回显。
 function buildCustomerSelectOptionList() {
-  return buildSelectOptionList(customerList.value, [queryParams.value.customerId], "customerId", "customerName", "历史客户ID：")
+  return buildSelectOptionList(customerList.value, [queryParams.value.customerId], "customerId", "customerName", () => "客户资料缺失")
 }
 
 // 根据客户编号和来源销售单返回客户名称，优先展示回补后的正式客户名称。
@@ -275,7 +267,7 @@ function getCustomerName(customerId, saleOrderId) {
   if (saleOrderCustomerName) {
     return saleOrderCustomerName
   }
-  return customerId ? `历史客户ID：${customerId}` : ""
+  return customerId ? "客户资料缺失" : ""
 }
 
 // 返回回款方式中文名称，兼容历史记录中的中文值和代码值展示。
@@ -349,7 +341,20 @@ function handleExport() {
   }, `receipt_${new Date().getTime()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute()
-initBasicData()
-getList()
+// 初始化页面筛选条件和客户下拉，保证从应收或销售单重复跳转时回款流水会立即刷新。
+async function initializePage() {
+  initializeQueryParamsFromRoute()
+  await initBasicData()
+  await getList()
+}
+
+// 监听同一路由下的查询参数变化，避免回款流水仍然停留在旧的单据或客户筛选条件。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>

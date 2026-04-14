@@ -46,17 +46,14 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
     /** 驳回状态 */
     private static final String PLAN_STATUS_REJECTED = "rejected";
 
+    /** 生效标记 */
+    private static final String EFFECTIVE_FLAG_YES = "y";
+
+    /** 非生效标记 */
+    private static final String EFFECTIVE_FLAG_NO = "n";
+
     /** 月份数量 */
     private static final int MONTH_COUNT = 12;
-
-    /** 预算键列表 */
-    private static final String[] DECISION_BUDGET_KEY_ARRAY = {
-        "saleBudgetAmount",
-        "grossProfitBudgetAmount",
-        "collectionBudgetAmount",
-        "purchaseBudgetAmount",
-        "netCashBudgetAmount"
-    };
 
     /** 配置键列表 */
     private static final String[] DECISION_BUDGET_CONFIG_KEY_ARRAY = {
@@ -107,17 +104,40 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
     public BizDecisionBudgetPlan selectCurrentBizDecisionBudgetPlan(Integer budgetYear)
     {
         int validBudgetYear = budgetYear == null ? LocalDate.now().getYear() : budgetYear.intValue();
-        // 二期预算表未初始化时直接回退到默认空计划，避免经营看板整页报错。
         if (!hasDecisionBudgetPlanTable())
         {
             return buildEmptyBizDecisionBudgetPlan(validBudgetYear);
         }
-        BizDecisionBudgetPlan bizDecisionBudgetPlan = bizDecisionBudgetPlanMapper.selectBizDecisionBudgetPlanByBudgetYear(validBudgetYear);
+        BizDecisionBudgetPlan bizDecisionBudgetPlan =
+            bizDecisionBudgetPlanMapper.selectBizDecisionBudgetPlanByBudgetYear(validBudgetYear);
         if (bizDecisionBudgetPlan == null)
         {
             return buildEmptyBizDecisionBudgetPlan(validBudgetYear);
         }
         return convertBizDecisionBudgetPlanForDisplay(bizDecisionBudgetPlan);
+    }
+
+    /**
+     * 查询指定年度预算版本列表
+     * 
+     * @param budgetYear 预算年度
+     * @return 年度预算版本列表
+     */
+    @Override
+    public List<BizDecisionBudgetPlan> selectBizDecisionBudgetPlanVersionList(Integer budgetYear)
+    {
+        int validBudgetYear = budgetYear == null ? LocalDate.now().getYear() : budgetYear.intValue();
+        if (!hasDecisionBudgetPlanTable())
+        {
+            return new ArrayList<BizDecisionBudgetPlan>();
+        }
+        List<BizDecisionBudgetPlan> budgetPlanVersionList =
+            bizDecisionBudgetPlanMapper.selectBizDecisionBudgetPlanVersionListByBudgetYear(validBudgetYear);
+        for (BizDecisionBudgetPlan currentDecisionBudgetPlan : budgetPlanVersionList)
+        {
+            convertBizDecisionBudgetPlanForDisplay(currentDecisionBudgetPlan);
+        }
+        return budgetPlanVersionList;
     }
 
     /**
@@ -131,8 +151,12 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
     public int insertBizDecisionBudgetPlan(BizDecisionBudgetPlan bizDecisionBudgetPlan, String operatorName)
     {
         validateDecisionBudgetPlanTableReady();
-        validateBudgetYearUnique(bizDecisionBudgetPlan.getBudgetYear(), null);
+        validateBudgetYearCreatable(bizDecisionBudgetPlan.getBudgetYear());
         BizDecisionBudgetPlan normalizedDecisionBudgetPlan = normalizeBizDecisionBudgetPlanForSave(bizDecisionBudgetPlan);
+        normalizedDecisionBudgetPlan.setVersionNo(1);
+        normalizedDecisionBudgetPlan.setVersionLabel(getDefaultVersionLabel(1));
+        normalizedDecisionBudgetPlan.setBasePlanId(null);
+        normalizedDecisionBudgetPlan.setEffectiveFlag(EFFECTIVE_FLAG_NO);
         normalizedDecisionBudgetPlan.setPlanStatus(PLAN_STATUS_DRAFT);
         normalizedDecisionBudgetPlan.setCreateBy(operatorName);
         normalizedDecisionBudgetPlan.setUpdateBy(operatorName);
@@ -161,8 +185,16 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
             throw new ServiceException("预算计划不存在");
         }
         validatePlanEditable(databaseDecisionBudgetPlan);
-        validateBudgetYearUnique(bizDecisionBudgetPlan.getBudgetYear(), bizDecisionBudgetPlan.getPlanId());
+        validateBudgetYearUnchanged(databaseDecisionBudgetPlan, bizDecisionBudgetPlan);
         BizDecisionBudgetPlan normalizedDecisionBudgetPlan = normalizeBizDecisionBudgetPlanForSave(bizDecisionBudgetPlan);
+        normalizedDecisionBudgetPlan.setPlanId(databaseDecisionBudgetPlan.getPlanId());
+        normalizedDecisionBudgetPlan.setVersionNo(databaseDecisionBudgetPlan.getVersionNo());
+        normalizedDecisionBudgetPlan.setVersionLabel(resolveVersionLabel(
+            bizDecisionBudgetPlan.getVersionLabel(), databaseDecisionBudgetPlan.getVersionNo()));
+        normalizedDecisionBudgetPlan.setBasePlanId(databaseDecisionBudgetPlan.getBasePlanId());
+        normalizedDecisionBudgetPlan.setEffectiveFlag(StringUtils.isEmpty(databaseDecisionBudgetPlan.getEffectiveFlag())
+            ? EFFECTIVE_FLAG_NO
+            : databaseDecisionBudgetPlan.getEffectiveFlag());
         normalizedDecisionBudgetPlan.setPlanStatus(PLAN_STATUS_DRAFT);
         normalizedDecisionBudgetPlan.setSubmitBy(null);
         normalizedDecisionBudgetPlan.setSubmitTime(null);
@@ -171,6 +203,48 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
         normalizedDecisionBudgetPlan.setApproveRemark(null);
         normalizedDecisionBudgetPlan.setUpdateBy(operatorName);
         return bizDecisionBudgetPlanMapper.updateBizDecisionBudgetPlan(normalizedDecisionBudgetPlan);
+    }
+
+    /**
+     * 基于现有预算计划创建新版本
+     * 
+     * @param sourcePlanId 来源预算计划ID
+     * @param bizDecisionBudgetPlan 新版本信息
+     * @param operatorName 操作人
+     * @return 新版本预算计划
+     */
+    @Override
+    public BizDecisionBudgetPlan createVersionBizDecisionBudgetPlan(Long sourcePlanId,
+        BizDecisionBudgetPlan bizDecisionBudgetPlan, String operatorName)
+    {
+        validateDecisionBudgetPlanTableReady();
+        BizDecisionBudgetPlan sourceDecisionBudgetPlan = getRequiredBizDecisionBudgetPlan(sourcePlanId);
+        validatePlanVersionCreatable(sourceDecisionBudgetPlan);
+        BizDecisionBudgetPlan sourceDisplayDecisionBudgetPlan =
+            convertBizDecisionBudgetPlanForDisplay(sourceDecisionBudgetPlan);
+        BizDecisionBudgetPlan newVersionDecisionBudgetPlan =
+            copyBizDecisionBudgetPlanForNewVersion(sourceDisplayDecisionBudgetPlan);
+        Integer nextVersionNo = getNextVersionNo(sourceDecisionBudgetPlan.getBudgetYear());
+        newVersionDecisionBudgetPlan.setPlanId(null);
+        newVersionDecisionBudgetPlan.setVersionNo(nextVersionNo);
+        newVersionDecisionBudgetPlan.setVersionLabel(resolveVersionLabel(
+            bizDecisionBudgetPlan == null ? null : bizDecisionBudgetPlan.getVersionLabel(), nextVersionNo));
+        newVersionDecisionBudgetPlan.setBasePlanId(sourceDecisionBudgetPlan.getPlanId());
+        newVersionDecisionBudgetPlan.setEffectiveFlag(EFFECTIVE_FLAG_NO);
+        newVersionDecisionBudgetPlan.setAdjustmentReason(resolveAdjustmentReason(
+            bizDecisionBudgetPlan == null ? null : bizDecisionBudgetPlan.getAdjustmentReason(), nextVersionNo));
+        newVersionDecisionBudgetPlan.setPlanStatus(PLAN_STATUS_DRAFT);
+        newVersionDecisionBudgetPlan.setSubmitBy(null);
+        newVersionDecisionBudgetPlan.setSubmitTime(null);
+        newVersionDecisionBudgetPlan.setApproveBy(null);
+        newVersionDecisionBudgetPlan.setApproveTime(null);
+        newVersionDecisionBudgetPlan.setApproveRemark(null);
+        newVersionDecisionBudgetPlan.setCreateBy(operatorName);
+        newVersionDecisionBudgetPlan.setUpdateBy(operatorName);
+        BizDecisionBudgetPlan normalizedDecisionBudgetPlan =
+            normalizeBizDecisionBudgetPlanForSave(newVersionDecisionBudgetPlan);
+        bizDecisionBudgetPlanMapper.insertBizDecisionBudgetPlan(normalizedDecisionBudgetPlan);
+        return convertBizDecisionBudgetPlanForDisplay(normalizedDecisionBudgetPlan);
     }
 
     /**
@@ -207,7 +281,10 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
         validateDecisionBudgetPlanTableReady();
         BizDecisionBudgetPlan databaseDecisionBudgetPlan = getRequiredBizDecisionBudgetPlan(planId);
         validatePlanSubmitted(databaseDecisionBudgetPlan);
+        bizDecisionBudgetPlanMapper.resetBizDecisionBudgetPlanEffectiveFlagByBudgetYear(
+            databaseDecisionBudgetPlan.getBudgetYear(), operatorName);
         databaseDecisionBudgetPlan.setPlanStatus(PLAN_STATUS_APPROVED);
+        databaseDecisionBudgetPlan.setEffectiveFlag(EFFECTIVE_FLAG_YES);
         databaseDecisionBudgetPlan.setApproveBy(operatorName);
         databaseDecisionBudgetPlan.setApproveTime(new Date());
         databaseDecisionBudgetPlan.setApproveRemark(approveRemark);
@@ -232,6 +309,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
         BizDecisionBudgetPlan databaseDecisionBudgetPlan = getRequiredBizDecisionBudgetPlan(planId);
         validatePlanSubmitted(databaseDecisionBudgetPlan);
         databaseDecisionBudgetPlan.setPlanStatus(PLAN_STATUS_REJECTED);
+        databaseDecisionBudgetPlan.setEffectiveFlag(EFFECTIVE_FLAG_NO);
         databaseDecisionBudgetPlan.setApproveBy(operatorName);
         databaseDecisionBudgetPlan.setApproveTime(new Date());
         databaseDecisionBudgetPlan.setApproveRemark(approveRemark);
@@ -247,7 +325,8 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      */
     private BizDecisionBudgetPlan getRequiredBizDecisionBudgetPlan(Long planId)
     {
-        BizDecisionBudgetPlan databaseDecisionBudgetPlan = bizDecisionBudgetPlanMapper.selectBizDecisionBudgetPlanByPlanId(planId);
+        BizDecisionBudgetPlan databaseDecisionBudgetPlan =
+            bizDecisionBudgetPlanMapper.selectBizDecisionBudgetPlanByPlanId(planId);
         if (databaseDecisionBudgetPlan == null)
         {
             throw new ServiceException("预算计划不存在");
@@ -268,6 +347,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
 
     /**
      * 判断年度预算表是否存在
+     * 
      * @return 是否存在
      */
     private boolean hasDecisionBudgetPlanTable()
@@ -279,27 +359,41 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
     }
 
     /**
-     * 校验预算年度唯一性
+     * 校验预算年度是否允许直接新建
      * 
      * @param budgetYear 预算年度
-     * @param currentPlanId 当前计划ID
      */
-    private void validateBudgetYearUnique(Integer budgetYear, Long currentPlanId)
+    private void validateBudgetYearCreatable(Integer budgetYear)
     {
         if (budgetYear == null)
         {
             throw new ServiceException("预算年度不能为空");
         }
-        BizDecisionBudgetPlan existingDecisionBudgetPlan = bizDecisionBudgetPlanMapper.selectBizDecisionBudgetPlanByBudgetYear(budgetYear);
-        if (existingDecisionBudgetPlan == null)
+        List<BizDecisionBudgetPlan> budgetPlanVersionList =
+            bizDecisionBudgetPlanMapper.selectBizDecisionBudgetPlanVersionListByBudgetYear(budgetYear);
+        if (budgetPlanVersionList != null && !budgetPlanVersionList.isEmpty())
         {
-            return;
+            throw new ServiceException("该年度预算计划已存在，请基于现有版本新建预算版本");
         }
-        if (currentPlanId != null && currentPlanId.longValue() == existingDecisionBudgetPlan.getPlanId().longValue())
+    }
+
+    /**
+     * 校验预算年度是否被修改
+     * 
+     * @param databaseDecisionBudgetPlan 数据库中的预算计划
+     * @param inputDecisionBudgetPlan 页面提交的预算计划
+     */
+    private void validateBudgetYearUnchanged(BizDecisionBudgetPlan databaseDecisionBudgetPlan,
+        BizDecisionBudgetPlan inputDecisionBudgetPlan)
+    {
+        if (inputDecisionBudgetPlan.getBudgetYear() == null)
         {
-            return;
+            throw new ServiceException("预算年度不能为空");
         }
-        throw new ServiceException("该年度预算计划已存在，请直接编辑当前计划");
+        if (!databaseDecisionBudgetPlan.getBudgetYear().equals(inputDecisionBudgetPlan.getBudgetYear()))
+        {
+            throw new ServiceException("预算计划年度不允许修改，请新建其他年度预算或基于当前版本调整");
+        }
     }
 
     /**
@@ -316,7 +410,21 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
         }
         if (PLAN_STATUS_APPROVED.equals(planStatus))
         {
-            throw new ServiceException("预算计划已审批通过，如需调整请重新规划新年度预算");
+            throw new ServiceException("预算计划已审批通过，如需调整请新建预算版本");
+        }
+    }
+
+    /**
+     * 校验预算计划是否允许生成新版本
+     * 
+     * @param bizDecisionBudgetPlan 预算计划
+     */
+    private void validatePlanVersionCreatable(BizDecisionBudgetPlan bizDecisionBudgetPlan)
+    {
+        String planStatus = StringUtils.defaultString(bizDecisionBudgetPlan.getPlanStatus(), PLAN_STATUS_DRAFT);
+        if (!PLAN_STATUS_APPROVED.equals(planStatus))
+        {
+            throw new ServiceException("只有审批通过的预算计划才能新建预算版本");
         }
     }
 
@@ -345,6 +453,11 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
         BizDecisionBudgetPlan bizDecisionBudgetPlan = new BizDecisionBudgetPlan();
         bizDecisionBudgetPlan.setBudgetYear(budgetYear);
         bizDecisionBudgetPlan.setPlanName(budgetYear + "年度经营预算");
+        bizDecisionBudgetPlan.setVersionNo(1);
+        bizDecisionBudgetPlan.setVersionLabel(getDefaultVersionLabel(1));
+        bizDecisionBudgetPlan.setBasePlanId(null);
+        bizDecisionBudgetPlan.setEffectiveFlag(EFFECTIVE_FLAG_NO);
+        bizDecisionBudgetPlan.setAdjustmentReason(null);
         bizDecisionBudgetPlan.setPlanStatus(PLAN_STATUS_DRAFT);
         bizDecisionBudgetPlan.setSaleBudgetAmount(BigDecimal.ZERO);
         bizDecisionBudgetPlan.setGrossProfitBudgetAmount(BigDecimal.ZERO);
@@ -357,6 +470,109 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
         bizDecisionBudgetPlan.setPurchaseMonthlyPlanList(buildZeroMonthlyBudgetList());
         bizDecisionBudgetPlan.setNetCashMonthlyPlanList(buildZeroMonthlyBudgetList());
         return bizDecisionBudgetPlan;
+    }
+
+    /**
+     * 复制预算计划作为新版本基础数据
+     * 
+     * @param sourceDecisionBudgetPlan 来源预算计划
+     * @return 新版本基础数据
+     */
+    private BizDecisionBudgetPlan copyBizDecisionBudgetPlanForNewVersion(BizDecisionBudgetPlan sourceDecisionBudgetPlan)
+    {
+        BizDecisionBudgetPlan newDecisionBudgetPlan = new BizDecisionBudgetPlan();
+        newDecisionBudgetPlan.setBudgetYear(sourceDecisionBudgetPlan.getBudgetYear());
+        newDecisionBudgetPlan.setPlanName(sourceDecisionBudgetPlan.getPlanName());
+        newDecisionBudgetPlan.setSaleBudgetAmount(sourceDecisionBudgetPlan.getSaleBudgetAmount());
+        newDecisionBudgetPlan.setGrossProfitBudgetAmount(sourceDecisionBudgetPlan.getGrossProfitBudgetAmount());
+        newDecisionBudgetPlan.setCollectionBudgetAmount(sourceDecisionBudgetPlan.getCollectionBudgetAmount());
+        newDecisionBudgetPlan.setPurchaseBudgetAmount(sourceDecisionBudgetPlan.getPurchaseBudgetAmount());
+        newDecisionBudgetPlan.setNetCashBudgetAmount(sourceDecisionBudgetPlan.getNetCashBudgetAmount());
+        newDecisionBudgetPlan.setSaleMonthlyPlanList(copyMonthlyBudgetList(sourceDecisionBudgetPlan.getSaleMonthlyPlanList()));
+        newDecisionBudgetPlan.setGrossProfitMonthlyPlanList(copyMonthlyBudgetList(sourceDecisionBudgetPlan.getGrossProfitMonthlyPlanList()));
+        newDecisionBudgetPlan.setCollectionMonthlyPlanList(copyMonthlyBudgetList(sourceDecisionBudgetPlan.getCollectionMonthlyPlanList()));
+        newDecisionBudgetPlan.setPurchaseMonthlyPlanList(copyMonthlyBudgetList(sourceDecisionBudgetPlan.getPurchaseMonthlyPlanList()));
+        newDecisionBudgetPlan.setNetCashMonthlyPlanList(copyMonthlyBudgetList(sourceDecisionBudgetPlan.getNetCashMonthlyPlanList()));
+        newDecisionBudgetPlan.setRemark(sourceDecisionBudgetPlan.getRemark());
+        return newDecisionBudgetPlan;
+    }
+
+    /**
+     * 复制月度预算列表
+     * 
+     * @param sourceMonthlyBudgetList 原始月度预算列表
+     * @return 新月度预算列表
+     */
+    private List<BigDecimal> copyMonthlyBudgetList(List<BigDecimal> sourceMonthlyBudgetList)
+    {
+        List<BigDecimal> copiedMonthlyBudgetList = new ArrayList<BigDecimal>();
+        if (sourceMonthlyBudgetList == null)
+        {
+            return copiedMonthlyBudgetList;
+        }
+        for (BigDecimal currentMonthlyBudgetAmount : sourceMonthlyBudgetList)
+        {
+            copiedMonthlyBudgetList.add(currentMonthlyBudgetAmount == null
+                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+                : currentMonthlyBudgetAmount.setScale(2, RoundingMode.HALF_UP));
+        }
+        return copiedMonthlyBudgetList;
+    }
+
+    /**
+     * 获取下一版本号
+     * 
+     * @param budgetYear 预算年度
+     * @return 下一版本号
+     */
+    private Integer getNextVersionNo(Integer budgetYear)
+    {
+        Integer maxVersionNo = bizDecisionBudgetPlanMapper.selectBizDecisionBudgetPlanMaxVersionNoByBudgetYear(budgetYear);
+        if (maxVersionNo == null || maxVersionNo.intValue() < 1)
+        {
+            return 1;
+        }
+        return maxVersionNo.intValue() + 1;
+    }
+
+    /**
+     * 获取默认版本标签
+     * 
+     * @param versionNo 版本号
+     * @return 默认版本标签
+     */
+    private String getDefaultVersionLabel(Integer versionNo)
+    {
+        int validVersionNo = versionNo == null || versionNo.intValue() < 1 ? 1 : versionNo.intValue();
+        return "v" + validVersionNo;
+    }
+
+    /**
+     * 解析版本标签
+     * 
+     * @param versionLabel 页面输入的版本标签
+     * @param versionNo 版本号
+     * @return 版本标签
+     */
+    private String resolveVersionLabel(String versionLabel, Integer versionNo)
+    {
+        return StringUtils.isEmpty(versionLabel) ? getDefaultVersionLabel(versionNo) : versionLabel;
+    }
+
+    /**
+     * 解析调整原因
+     * 
+     * @param adjustmentReason 页面输入的调整原因
+     * @param versionNo 版本号
+     * @return 调整原因
+     */
+    private String resolveAdjustmentReason(String adjustmentReason, Integer versionNo)
+    {
+        if (!StringUtils.isEmpty(adjustmentReason))
+        {
+            return adjustmentReason;
+        }
+        return "基于上一版本创建预算调整版（" + getDefaultVersionLabel(versionNo) + "）";
     }
 
     /**
@@ -374,6 +590,11 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
         bizDecisionBudgetPlan.setPlanName(StringUtils.isEmpty(bizDecisionBudgetPlan.getPlanName())
             ? bizDecisionBudgetPlan.getBudgetYear() + "年度经营预算"
             : bizDecisionBudgetPlan.getPlanName());
+        bizDecisionBudgetPlan.setVersionLabel(resolveVersionLabel(
+            bizDecisionBudgetPlan.getVersionLabel(), bizDecisionBudgetPlan.getVersionNo()));
+        bizDecisionBudgetPlan.setEffectiveFlag(StringUtils.isEmpty(bizDecisionBudgetPlan.getEffectiveFlag())
+            ? EFFECTIVE_FLAG_NO
+            : bizDecisionBudgetPlan.getEffectiveFlag());
 
         List<BigDecimal> saleMonthlyPlanList =
             normalizeMonthlyBudgetList(bizDecisionBudgetPlan.getSaleMonthlyPlanList(), bizDecisionBudgetPlan.getSaleBudgetAmount());
@@ -412,6 +633,15 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      */
     private BizDecisionBudgetPlan convertBizDecisionBudgetPlanForDisplay(BizDecisionBudgetPlan bizDecisionBudgetPlan)
     {
+        bizDecisionBudgetPlan.setVersionNo(
+            bizDecisionBudgetPlan.getVersionNo() == null || bizDecisionBudgetPlan.getVersionNo().intValue() < 1
+                ? 1
+                : bizDecisionBudgetPlan.getVersionNo());
+        bizDecisionBudgetPlan.setVersionLabel(resolveVersionLabel(
+            bizDecisionBudgetPlan.getVersionLabel(), bizDecisionBudgetPlan.getVersionNo()));
+        bizDecisionBudgetPlan.setEffectiveFlag(StringUtils.isEmpty(bizDecisionBudgetPlan.getEffectiveFlag())
+            ? EFFECTIVE_FLAG_NO
+            : bizDecisionBudgetPlan.getEffectiveFlag());
         bizDecisionBudgetPlan.setSaleMonthlyPlanList(readMonthlyBudgetListFromText(
             bizDecisionBudgetPlan.getSaleMonthlyPlanText(), bizDecisionBudgetPlan.getSaleBudgetAmount()));
         bizDecisionBudgetPlan.setGrossProfitMonthlyPlanList(readMonthlyBudgetListFromText(
@@ -460,18 +690,21 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
             }
             return normalizedMonthlyBudgetList;
         }
-        BigDecimal normalizedAnnualBudgetAmount = annualBudgetAmount == null ? BigDecimal.ZERO : annualBudgetAmount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal normalizedAnnualBudgetAmount =
+            annualBudgetAmount == null ? BigDecimal.ZERO : annualBudgetAmount.setScale(2, RoundingMode.HALF_UP);
         if (normalizedAnnualBudgetAmount.compareTo(BigDecimal.ZERO) == 0)
         {
             return buildZeroMonthlyBudgetList();
         }
-        BigDecimal averageMonthAmount = normalizedAnnualBudgetAmount.divide(new BigDecimal(MONTH_COUNT), 2, RoundingMode.DOWN);
+        BigDecimal averageMonthAmount =
+            normalizedAnnualBudgetAmount.divide(new BigDecimal(MONTH_COUNT), 2, RoundingMode.DOWN);
         BigDecimal distributedAmount = BigDecimal.ZERO;
         for (int monthIndexValue = 0; monthIndexValue < MONTH_COUNT; monthIndexValue++)
         {
             if (monthIndexValue == MONTH_COUNT - 1)
             {
-                normalizedMonthlyBudgetList.add(normalizedAnnualBudgetAmount.subtract(distributedAmount).setScale(2, RoundingMode.HALF_UP));
+                normalizedMonthlyBudgetList.add(
+                    normalizedAnnualBudgetAmount.subtract(distributedAmount).setScale(2, RoundingMode.HALF_UP));
                 continue;
             }
             normalizedMonthlyBudgetList.add(averageMonthAmount);
@@ -571,7 +804,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
             getMonthBudgetAmount(bizDecisionBudgetPlan.getPurchaseMonthlyPlanList(), currentMonthIndexValue),
             getMonthBudgetAmount(bizDecisionBudgetPlan.getNetCashMonthlyPlanList(), currentMonthIndexValue)
         };
-        for (int configIndexValue = 0; configIndexValue < DECISION_BUDGET_KEY_ARRAY.length; configIndexValue++)
+        for (int configIndexValue = 0; configIndexValue < DECISION_BUDGET_CONFIG_KEY_ARRAY.length; configIndexValue++)
         {
             upsertDecisionBudgetConfig(
                 DECISION_BUDGET_CONFIG_KEY_ARRAY[configIndexValue],
@@ -597,7 +830,9 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
         BigDecimal monthBudgetAmount = monthlyBudgetList.get(monthIndexValue);
-        return monthBudgetAmount == null ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP) : monthBudgetAmount.setScale(2, RoundingMode.HALF_UP);
+        return monthBudgetAmount == null
+            ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+            : monthBudgetAmount.setScale(2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -609,12 +844,14 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      * @param remark 备注
      * @param operatorName 操作人
      */
-    private void upsertDecisionBudgetConfig(String configKey, String configName, BigDecimal configValue, String remark, String operatorName)
+    private void upsertDecisionBudgetConfig(String configKey, String configName, BigDecimal configValue, String remark,
+        String operatorName)
     {
         SysConfig queryConfig = new SysConfig();
         queryConfig.setConfigKey(configKey);
         List<SysConfig> configList = sysConfigService.selectConfigList(queryConfig);
-        String formattedConfigValue = (configValue == null ? BigDecimal.ZERO : configValue).setScale(2, RoundingMode.HALF_UP).toPlainString();
+        String formattedConfigValue =
+            (configValue == null ? BigDecimal.ZERO : configValue).setScale(2, RoundingMode.HALF_UP).toPlainString();
         if (configList == null || configList.isEmpty())
         {
             SysConfig insertConfig = new SysConfig();

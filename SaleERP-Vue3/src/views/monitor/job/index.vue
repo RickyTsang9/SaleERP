@@ -287,6 +287,7 @@
 <script setup name="Job">
 import Crontab from '@/components/Crontab'
 import { listJob, getJob, delJob, addJob, updateJob, runJob, changeJobStatus } from "@/api/monitor/job"
+import { parseTime } from "@/utils/ruoyi"
 
 const router = useRouter()
 const { proxy } = getCurrentInstance()

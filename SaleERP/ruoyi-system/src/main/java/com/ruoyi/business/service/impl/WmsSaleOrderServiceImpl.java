@@ -415,6 +415,10 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         {
             throw new ServiceException("销售单不存在");
         }
+        if (STATUS_CANCELLED.equals(databaseSaleOrder.getStatus()))
+        {
+            throw new ServiceException("销售单已作废，无需重复作废");
+        }
         if (STATUS_AUDITED.equals(databaseSaleOrder.getStatus()))
         {
             throw new ServiceException("已审核销售单不允许作废");
@@ -430,18 +434,53 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         return updateCount;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int deleteWmsSaleOrderById(Long saleOrderId)
     {
+        WmsSaleOrder databaseSaleOrder = wmsSaleOrderMapper.selectWmsSaleOrderById(saleOrderId);
+        if (databaseSaleOrder == null)
+        {
+            return 0;
+        }
+        validateSaleOrderCanBeDeleted(databaseSaleOrder, false);
         wmsSaleOrderItemMapper.deleteWmsSaleOrderItemBySaleOrderIds(new Long[] { saleOrderId });
         return wmsSaleOrderMapper.deleteWmsSaleOrderById(saleOrderId);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int deleteWmsSaleOrderByIds(Long[] saleOrderIds)
     {
+        for (Long saleOrderId : saleOrderIds)
+        {
+            WmsSaleOrder databaseSaleOrder = wmsSaleOrderMapper.selectWmsSaleOrderById(saleOrderId);
+            if (databaseSaleOrder == null)
+            {
+                continue;
+            }
+            validateSaleOrderCanBeDeleted(databaseSaleOrder, true);
+        }
         wmsSaleOrderItemMapper.deleteWmsSaleOrderItemBySaleOrderIds(saleOrderIds);
         return wmsSaleOrderMapper.deleteWmsSaleOrderByIds(saleOrderIds);
+    }
+
+    /**
+     * 校验销售单是否允许删除
+     *
+     * @param databaseSaleOrder 数据库中的销售单
+     * @param batchDelete 是否批量删除
+     */
+    private void validateSaleOrderCanBeDeleted(WmsSaleOrder databaseSaleOrder, boolean batchDelete)
+    {
+        if (!STATUS_DRAFT.equals(databaseSaleOrder.getStatus()))
+        {
+            if (batchDelete)
+            {
+                throw new ServiceException("仅草稿状态销售单允许删除，销售单号：" + databaseSaleOrder.getOrderNo());
+            }
+            throw new ServiceException("仅草稿状态销售单允许删除");
+        }
     }
 
     /**

@@ -307,6 +307,7 @@ import { listPurchaseOrder, getPurchaseOrder, delPurchaseOrder, addPurchaseOrder
 import { listSupplier, getSupplier } from "@/api/business/supplier"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 
@@ -431,7 +432,7 @@ async function ensureSupplierOptionLoaded(supplierIdList) {
       const response = await getSupplier(supplierId)
       appendUniqueSelectOption(supplierList.value, response.data, "supplierId")
     } catch (error) {
-      appendUniqueSelectOption(supplierList.value, { supplierId, supplierName: `历史供应商ID：${supplierId}` }, "supplierId")
+      appendUniqueSelectOption(supplierList.value, { supplierId, supplierName: "供应商资料缺失" }, "supplierId")
     }
   }
 }
@@ -447,7 +448,7 @@ async function ensureProductOptionLoaded(productIdList) {
       const response = await getProduct(productId)
       appendUniqueSelectOption(productList.value, response.data, "productId")
     } catch (error) {
-      appendUniqueSelectOption(productList.value, { productId, productName: `历史商品ID：${productId}` }, "productId")
+      appendUniqueSelectOption(productList.value, { productId, productName: "商品资料缺失" }, "productId")
     }
   }
 }
@@ -471,32 +472,32 @@ async function ensurePurchaseOrderItemReferenceOptionsLoaded(targetPurchaseOrder
   await ensureProductOptionLoaded(productIdList)
 }
 
-// 构造供应商下拉选项，并兼容历史供应商编号回显。
+// 构造供应商下拉选项，并兼容历史主数据缺失时的兜底回显。
 function buildSupplierSelectOptionList() {
-  return buildSelectOptionList(supplierList.value, [queryParams.value.supplierId, form.value.supplierId], "supplierId", "supplierName", "历史供应商ID：")
+  return buildSelectOptionList(supplierList.value, [queryParams.value.supplierId, form.value.supplierId], "supplierId", "supplierName", () => "供应商资料缺失")
 }
 
-// 构造商品下拉选项，并兼容采购明细中的历史商品编号回显。
+// 构造商品下拉选项，并兼容采购明细中主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, wmsPurchaseOrderItemList.value.map(purchaseOrderItem => purchaseOrderItem.productId), "productId", "productName", "历史商品ID：")
+  return buildSelectOptionList(productList.value, wmsPurchaseOrderItemList.value.map(purchaseOrderItem => purchaseOrderItem.productId), "productId", "productName", () => "商品资料缺失")
 }
 
-// 根据供应商编号返回供应商名称，未命中主数据时显示历史编号。
+// 根据供应商编号返回供应商名称，未命中主数据时显示资料缺失提示。
 function getSupplierName(supplierId) {
   if (supplierId === undefined || supplierId === null || supplierId === "") {
     return "-"
   }
   const supplier = supplierList.value.find(supplierItem => supplierItem.supplierId === supplierId)
-  return supplier?.supplierName || `历史供应商ID：${supplierId}`
+  return supplier?.supplierName || "供应商资料缺失"
 }
 
-// 根据商品编号返回商品名称，未命中主数据时显示历史编号。
+// 根据商品编号返回商品名称，未命中主数据时显示资料缺失提示。
 function getProductName(productId) {
   if (productId === undefined || productId === null || productId === "") {
     return "-"
   }
   const product = productList.value.find(productItem => productItem.productId === productId)
-  return product?.productName || `历史商品ID：${productId}`
+  return product?.productName || "商品资料缺失"
 }
 
 // 统一格式化采购数量相关字段，避免列表中出现空值或 undefined。
@@ -854,7 +855,20 @@ function handleExport() {
   }, `purchaseOrder_${Date.now()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute()
-initBasicData()
-getList()
+// 初始化页面筛选条件和基础资料，保证首页或财务页重复跳转时采购订单列表会同步刷新。
+async function initializePage() {
+  initializeQueryParamsFromRoute()
+  await initBasicData()
+  await getList()
+}
+
+// 监听同一路由下的查询参数变化，避免采购订单页仍停留在上一次跳转的筛选结果。
+watch(() => proxy?.$route?.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>

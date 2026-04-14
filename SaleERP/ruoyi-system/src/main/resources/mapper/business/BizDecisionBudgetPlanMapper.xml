@@ -8,6 +8,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <id     property="planId"                     column="plan_id"                       />
         <result property="budgetYear"                column="budget_year"                   />
         <result property="planName"                  column="plan_name"                     />
+        <result property="versionNo"                 column="version_no"                    />
+        <result property="versionLabel"              column="version_label"                 />
+        <result property="basePlanId"                column="base_plan_id"                  />
+        <result property="effectiveFlag"             column="effective_flag"                />
+        <result property="adjustmentReason"          column="adjustment_reason"             />
         <result property="planStatus"                column="plan_status"                   />
         <result property="saleBudgetAmount"          column="sale_budget_amount"            />
         <result property="grossProfitBudgetAmount"   column="gross_profit_budget_amount"    />
@@ -32,7 +37,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectBizDecisionBudgetPlanVo">
-        select plan_id, budget_year, plan_name, plan_status, sale_budget_amount, gross_profit_budget_amount,
+        select plan_id, budget_year, plan_name, version_no, version_label, base_plan_id, effective_flag,
+               adjustment_reason, plan_status, sale_budget_amount, gross_profit_budget_amount,
                collection_budget_amount, purchase_budget_amount, net_cash_budget_amount,
                sale_monthly_plan_text, gross_profit_monthly_plan_text, collection_monthly_plan_text,
                purchase_monthly_plan_text, net_cash_monthly_plan_text,
@@ -49,7 +55,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectBizDecisionBudgetPlanByBudgetYear" parameterType="Integer" resultMap="BizDecisionBudgetPlanResult">
         <include refid="selectBizDecisionBudgetPlanVo"/>
         where budget_year = #{budgetYear}
+        order by version_no desc, plan_id desc
         limit 1
+    </select>
+
+    <select id="selectBizDecisionBudgetPlanVersionListByBudgetYear" parameterType="Integer" resultMap="BizDecisionBudgetPlanResult">
+        <include refid="selectBizDecisionBudgetPlanVo"/>
+        where budget_year = #{budgetYear}
+        order by version_no desc, plan_id desc
+    </select>
+
+    <select id="selectBizDecisionBudgetPlanMaxVersionNoByBudgetYear" parameterType="Integer" resultType="Integer">
+        select ifnull(max(version_no), 0)
+        from biz_decision_budget_plan
+        where budget_year = #{budgetYear}
     </select>
 
     <insert id="insertBizDecisionBudgetPlan" parameterType="BizDecisionBudgetPlan" useGeneratedKeys="true" keyProperty="planId">
@@ -57,6 +76,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="budgetYear != null">budget_year,</if>
             <if test="planName != null and planName != ''">plan_name,</if>
+            <if test="versionNo != null">version_no,</if>
+            <if test="versionLabel != null and versionLabel != ''">version_label,</if>
+            <if test="basePlanId != null">base_plan_id,</if>
+            <if test="effectiveFlag != null and effectiveFlag != ''">effective_flag,</if>
+            <if test="adjustmentReason != null and adjustmentReason != ''">adjustment_reason,</if>
             <if test="planStatus != null and planStatus != ''">plan_status,</if>
             <if test="saleBudgetAmount != null">sale_budget_amount,</if>
             <if test="grossProfitBudgetAmount != null">gross_profit_budget_amount,</if>
@@ -81,6 +105,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="budgetYear != null">#{budgetYear},</if>
             <if test="planName != null and planName != ''">#{planName},</if>
+            <if test="versionNo != null">#{versionNo},</if>
+            <if test="versionLabel != null and versionLabel != ''">#{versionLabel},</if>
+            <if test="basePlanId != null">#{basePlanId},</if>
+            <if test="effectiveFlag != null and effectiveFlag != ''">#{effectiveFlag},</if>
+            <if test="adjustmentReason != null and adjustmentReason != ''">#{adjustmentReason},</if>
             <if test="planStatus != null and planStatus != ''">#{planStatus},</if>
             <if test="saleBudgetAmount != null">#{saleBudgetAmount},</if>
             <if test="grossProfitBudgetAmount != null">#{grossProfitBudgetAmount},</if>
@@ -109,6 +138,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <set>
             <if test="budgetYear != null">budget_year = #{budgetYear},</if>
             <if test="planName != null and planName != ''">plan_name = #{planName},</if>
+            <if test="versionNo != null">version_no = #{versionNo},</if>
+            <if test="versionLabel != null">version_label = #{versionLabel},</if>
+            <if test="basePlanId != null">base_plan_id = #{basePlanId},</if>
+            <if test="basePlanId == null">base_plan_id = null,</if>
+            <if test="effectiveFlag != null">effective_flag = #{effectiveFlag},</if>
+            <if test="adjustmentReason != null">adjustment_reason = #{adjustmentReason},</if>
+            <if test="adjustmentReason == null">adjustment_reason = null,</if>
             <if test="planStatus != null and planStatus != ''">plan_status = #{planStatus},</if>
             <if test="saleBudgetAmount != null">sale_budget_amount = #{saleBudgetAmount},</if>
             <if test="grossProfitBudgetAmount != null">gross_profit_budget_amount = #{grossProfitBudgetAmount},</if>
@@ -135,5 +171,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="remark != null">remark = #{remark},</if>
         </set>
         where plan_id = #{planId}
+    </update>
+
+    <update id="resetBizDecisionBudgetPlanEffectiveFlagByBudgetYear">
+        update biz_decision_budget_plan
+        set effective_flag = 'n',
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where budget_year = #{budgetYear}
     </update>
 </mapper>

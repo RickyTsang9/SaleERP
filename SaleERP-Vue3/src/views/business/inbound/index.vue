@@ -371,6 +371,7 @@ import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
@@ -483,26 +484,11 @@ function handleInboundDialogPrimaryAction() {
 
 // 根据首页和采购订单等页面传入的参数初始化入库单筛选条件。
 function initializeQueryParamsFromRoute() {
-  if (route.query.purchaseOrderId)
-  {
-    queryParams.value.purchaseOrderId = convertRouteNumberValue(route.query.purchaseOrderId)
-  }
-  if (route.query.purchaseOrderNo)
-  {
-    queryParams.value.purchaseOrderNo = route.query.purchaseOrderNo
-  }
-  if (route.query.inboundType)
-  {
-    queryParams.value.inboundType = route.query.inboundType
-  }
-  if (route.query.supplierId)
-  {
-    queryParams.value.supplierId = convertRouteNumberValue(route.query.supplierId)
-  }
-  if (route.query.status)
-  {
-    queryParams.value.status = route.query.status
-  }
+  queryParams.value.purchaseOrderId = convertRouteNumberValue(route.query.purchaseOrderId)
+  queryParams.value.purchaseOrderNo = route.query.purchaseOrderNo || undefined
+  queryParams.value.inboundType = route.query.inboundType || undefined
+  queryParams.value.supplierId = convertRouteNumberValue(route.query.supplierId)
+  queryParams.value.status = route.query.status || undefined
 }
 
 // 将路由中的数字参数转换为数值类型，避免空字符串或异常值影响筛选和表单初始化。
@@ -625,13 +611,13 @@ function syncSupplierOption(supplierId, supplierName) {
 
 // 判断当前供应商名称是否已经是可直接展示给用户的正式名称。
 function isDirectSupplierNameResolved(supplierName) {
-  return !!supplierName && !supplierName.startsWith("历史供应商ID：")
+  return !!supplierName && supplierName !== "供应商资料缺失" && !supplierName.startsWith("历史供应商ID：")
 }
 
 // 按来源采购订单回补历史入库记录的供应商名称，减少页面出现裸供应商编号。
 function ensureSupplierOptionLoadedByPurchaseOrder(supplierId, purchaseOrderId) {
   if (!purchaseOrderId) {
-    syncSupplierOption(supplierId, `历史供应商ID：${supplierId}`)
+    syncSupplierOption(supplierId, "供应商资料缺失")
     return Promise.resolve()
   }
   const cachedSupplierName = purchaseOrderSupplierNameMap.value[purchaseOrderId]
@@ -642,7 +628,7 @@ function ensureSupplierOptionLoadedByPurchaseOrder(supplierId, purchaseOrderId) 
   return getPurchaseOrder(purchaseOrderId).then(response => {
     const resolvedSupplierId = response.data && response.data.supplierId
     if (resolvedSupplierId === undefined || resolvedSupplierId === null || resolvedSupplierId === "") {
-      syncSupplierOption(supplierId, `历史供应商ID：${supplierId}`)
+      syncSupplierOption(supplierId, "供应商资料缺失")
       return
     }
     return getSupplier(resolvedSupplierId).then(supplierResponse => {
@@ -650,10 +636,10 @@ function ensureSupplierOptionLoadedByPurchaseOrder(supplierId, purchaseOrderId) 
       purchaseOrderSupplierNameMap.value[purchaseOrderId] = resolvedSupplierName
       syncSupplierOption(supplierId, resolvedSupplierName)
     }).catch(() => {
-      syncSupplierOption(supplierId, `历史供应商ID：${supplierId}`)
+      syncSupplierOption(supplierId, "供应商资料缺失")
     })
   }).catch(() => {
-    syncSupplierOption(supplierId, `历史供应商ID：${supplierId}`)
+    syncSupplierOption(supplierId, "供应商资料缺失")
   })
 }
 
@@ -686,7 +672,7 @@ function ensureWarehouseOptionLoaded(warehouseId) {
   }).catch(() => {
     appendUniqueSelectOption(warehouseList.value, {
       warehouseId: warehouseId,
-      warehouseName: `历史仓库ID：${warehouseId}`
+      warehouseName: "仓库资料缺失"
     }, "warehouseId")
   })
 }
@@ -704,7 +690,7 @@ function ensureProductOptionLoaded(productId) {
   }).catch(() => {
     appendUniqueSelectOption(productList.value, {
       productId: productId,
-      productName: `历史商品ID：${productId}`
+      productName: "商品资料缺失"
     }, "productId")
   })
 }
@@ -722,7 +708,7 @@ function ensureLocationOptionLoaded(locationId) {
   }).catch(() => {
     appendUniqueSelectOption(locationList.value, {
       locationId: locationId,
-      locationName: `历史库位ID：${locationId}`
+      locationName: "库位资料缺失"
     }, "locationId")
   })
 }
@@ -746,24 +732,24 @@ function ensureInboundItemReferenceOptionsLoaded(inboundItemRowList) {
   ]).catch(() => {})
 }
 
-// 组合供应商下拉选项，兼容历史入库单中的旧供应商编号回显。
+// 组合供应商下拉选项，兼容历史入库单中主数据缺失时的兜底回显。
 function buildSupplierSelectOptionList() {
-  return buildSelectOptionList(supplierList.value, [queryParams.value.supplierId, form.value.supplierId], "supplierId", "supplierName", "历史供应商ID：")
+  return buildSelectOptionList(supplierList.value, [queryParams.value.supplierId, form.value.supplierId], "supplierId", "supplierName", () => "供应商资料缺失")
 }
 
-// 组合仓库下拉选项，兼容历史入库单中的旧仓库编号回显。
+// 组合仓库下拉选项，兼容历史入库单中主数据缺失时的兜底回显。
 function buildWarehouseSelectOptionList() {
-  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", "历史仓库ID：")
+  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", () => "仓库资料缺失")
 }
 
-// 组合商品下拉选项，兼容历史入库明细中的旧商品编号回显。
+// 组合商品下拉选项，兼容历史入库明细中主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, [inboundItemForm.value.productId], "productId", "productName", "历史商品ID：")
+  return buildSelectOptionList(productList.value, [inboundItemForm.value.productId], "productId", "productName", () => "商品资料缺失")
 }
 
-// 组合库位下拉选项，兼容历史入库明细中的旧库位编号回显。
+// 组合库位下拉选项，兼容历史入库明细中主数据缺失时的兜底回显。
 function buildLocationSelectOptionList() {
-  return buildSelectOptionList(locationList.value, [inboundItemForm.value.locationId], "locationId", "locationName", "历史库位ID：")
+  return buildSelectOptionList(locationList.value, [inboundItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据供应商编号和来源采购订单返回供应商名称，优先展示回补后的正式供应商名称。
@@ -776,25 +762,25 @@ function getSupplierName(supplierId, purchaseOrderId) {
   if (purchaseOrderSupplierName) {
     return purchaseOrderSupplierName
   }
-  return supplierId ? `历史供应商ID：${supplierId}` : "未关联供应商"
+  return supplierId ? "供应商资料缺失" : "未关联供应商"
 }
 
 // 根据仓库编号返回仓库名称，统一入库单页面展示口径。
 function getWarehouseName(warehouseId) {
   const warehouse = warehouseList.value.find(warehouseItem => warehouseItem.warehouseId === warehouseId)
-  return warehouse ? warehouse.warehouseName : (warehouseId ? `历史仓库ID：${warehouseId}` : "")
+  return warehouse ? warehouse.warehouseName : (warehouseId ? "仓库资料缺失" : "")
 }
 
 // 根据商品编号返回商品名称，帮助用户在入库明细中快速确认商品。
 function getProductName(productId) {
   const product = productList.value.find(productItem => productItem.productId === productId)
-  return product ? product.productName : (productId ? `历史商品ID：${productId}` : "")
+  return product ? product.productName : (productId ? "商品资料缺失" : "")
 }
 
 // 根据库位编号返回库位名称，统一入库明细展示口径。
 function getLocationName(locationId) {
   const location = locationList.value.find(locationItem => locationItem.locationId === locationId)
-  return location ? location.locationName : (locationId ? `历史库位ID：${locationId}` : "")
+  return location ? location.locationName : (locationId ? "库位资料缺失" : "")
 }
 
 // 返回入库类型中文名称，减少列表中的英文编码展示。
@@ -821,7 +807,7 @@ function getPurchaseOrderDisplayName(purchaseOrderNo, purchaseOrderId) {
     return purchaseOrderNo
   }
   if (purchaseOrderId) {
-    return `历史采购单ID：${purchaseOrderId}`
+    return "采购单资料缺失"
   }
   return "未关联采购单"
 }
@@ -1175,6 +1161,14 @@ async function initializePage() {
     handleAdd()
   }
 }
+
+// 监听路由参数变化，保证从采购订单重复跳转到当前页面时列表和自动新建逻辑都会重新生效。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
 
 initializePage()
 </script>

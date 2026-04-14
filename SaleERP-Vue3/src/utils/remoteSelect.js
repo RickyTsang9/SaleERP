@@ -12,7 +12,7 @@ export function appendUniqueSelectOption(optionList, optionItem, optionIdFieldNa
   return optionList
 }
 
-// 按当前值构造下拉选项列表，当前值未命中远程结果时补充历史编号占位，保证回显稳定。
+// 按当前值构造下拉选项列表，当前值未命中远程结果时补充兜底文案，保证回显稳定。
 export function buildSelectOptionList(optionList, currentIdList, optionIdFieldName, optionLabelFieldName, fallbackLabelPrefix) {
   const selectOptionList = [...optionList]
   currentIdList.forEach(currentId => {
@@ -22,9 +22,12 @@ export function buildSelectOptionList(optionList, currentIdList, optionIdFieldNa
     if (selectOptionList.some(optionItem => optionItem[optionIdFieldName] === currentId)) {
       return
     }
+    const fallbackLabel = typeof fallbackLabelPrefix === "function"
+      ? fallbackLabelPrefix(currentId)
+      : `${fallbackLabelPrefix}${currentId}`
     selectOptionList.unshift({
       [optionIdFieldName]: currentId,
-      [optionLabelFieldName]: `${fallbackLabelPrefix}${currentId}`
+      [optionLabelFieldName]: fallbackLabel
     })
   })
   return selectOptionList

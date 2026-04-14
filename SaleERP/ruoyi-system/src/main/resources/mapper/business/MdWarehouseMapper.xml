@@ -99,6 +99,21 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where warehouse_id = #{warehouseId}
     </update>
 
+    <select id="selectWarehouseReferenceCount" parameterType="Long" resultType="int">
+        select
+            (select count(1) from md_location where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_stock where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_stock_log where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_sale_order where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_sale_return where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_purchase_return where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_inbound where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_outbound where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_inventory_check where warehouse_id = #{warehouseId})
+            + (select count(1) from wms_transfer where out_warehouse_id = #{warehouseId})
+            + (select count(1) from wms_transfer where in_warehouse_id = #{warehouseId})
+    </select>
+
     <delete id="deleteMdWarehouseById" parameterType="Long">
         delete from md_warehouse where warehouse_id = #{warehouseId}
     </delete>

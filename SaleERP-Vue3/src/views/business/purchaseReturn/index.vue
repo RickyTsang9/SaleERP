@@ -282,6 +282,7 @@ import { listSupplier, getSupplier } from "@/api/business/supplier"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 
@@ -388,7 +389,7 @@ async function loadSupplierOptionList(searchKeyword) {
       pageSize: 20,
       supplierName: normalizedKeyword
     })
-    supplierList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "supplierId", "supplierName", "历史供应商ID：")
+  supplierList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "supplierId", "supplierName", () => "供应商资料缺失")
   } finally {
     supplierListLoading.value = false
   }
@@ -404,7 +405,7 @@ async function loadWarehouseOptionList(searchKeyword) {
       pageSize: 20,
       warehouseName: normalizedKeyword
     })
-    warehouseList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "warehouseId", "warehouseName", "历史仓库ID：")
+    warehouseList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "warehouseId", "warehouseName", () => "仓库资料缺失")
   } finally {
     warehouseListLoading.value = false
   }
@@ -420,7 +421,7 @@ async function loadProductOptionList(searchKeyword) {
       pageSize: 20,
       productName: normalizedKeyword
     })
-    productList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "productId", "productName", "历史商品ID：")
+    productList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "productId", "productName", () => "商品资料缺失")
   } finally {
     productListLoading.value = false
   }
@@ -437,7 +438,7 @@ async function ensureSupplierOptionLoaded(supplierIdList) {
       const response = await getSupplier(supplierId)
       appendUniqueSelectOption(supplierList.value, response.data, "supplierId")
     } catch (error) {
-      appendUniqueSelectOption(supplierList.value, { supplierId, supplierName: `历史供应商ID：${supplierId}` }, "supplierId")
+      appendUniqueSelectOption(supplierList.value, { supplierId, supplierName: "供应商资料缺失" }, "supplierId")
     }
   }
 }
@@ -453,7 +454,7 @@ async function ensureWarehouseOptionLoaded(warehouseIdList) {
       const response = await getWarehouse(warehouseId)
       appendUniqueSelectOption(warehouseList.value, response.data, "warehouseId")
     } catch (error) {
-      appendUniqueSelectOption(warehouseList.value, { warehouseId, warehouseName: `历史仓库ID：${warehouseId}` }, "warehouseId")
+      appendUniqueSelectOption(warehouseList.value, { warehouseId, warehouseName: "仓库资料缺失" }, "warehouseId")
     }
   }
 }
@@ -469,7 +470,7 @@ async function ensureProductOptionLoaded(productIdList) {
       const response = await getProduct(productId)
       appendUniqueSelectOption(productList.value, response.data, "productId")
     } catch (error) {
-      appendUniqueSelectOption(productList.value, { productId, productName: `历史商品ID：${productId}` }, "productId")
+      appendUniqueSelectOption(productList.value, { productId, productName: "商品资料缺失" }, "productId")
     }
   }
 }
@@ -501,46 +502,46 @@ async function ensurePurchaseReturnItemReferenceOptionsLoaded(targetPurchaseRetu
   await ensureProductOptionLoaded(productIdList)
 }
 
-// 构造供应商下拉列表，并兼容历史供应商编号回显。
+// 构造供应商下拉列表，并兼容主数据缺失时的兜底回显。
 function buildSupplierSelectOptionList() {
-  return buildSelectOptionList(supplierList.value, [queryParams.value.supplierId, form.value.supplierId], "supplierId", "supplierName", "历史供应商ID：")
+  return buildSelectOptionList(supplierList.value, [queryParams.value.supplierId, form.value.supplierId], "supplierId", "supplierName", () => "供应商资料缺失")
 }
 
-// 构造仓库下拉列表，并兼容历史仓库编号回显。
+// 构造仓库下拉列表，并兼容主数据缺失时的兜底回显。
 function buildWarehouseSelectOptionList() {
-  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", "历史仓库ID：")
+  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", () => "仓库资料缺失")
 }
 
-// 构造商品下拉列表，并兼容历史商品编号回显。
+// 构造商品下拉列表，并兼容主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, [purchaseReturnItemForm.value.productId], "productId", "productName", "历史商品ID：")
+  return buildSelectOptionList(productList.value, [purchaseReturnItemForm.value.productId], "productId", "productName", () => "商品资料缺失")
 }
 
-// 通过供应商编号返回供应商名称，未命中主数据时显示历史编号。
+// 通过供应商编号返回供应商名称，未命中主数据时显示资料缺失提示。
 function getSupplierName(supplierId) {
   if (supplierId === undefined || supplierId === null || supplierId === "") {
     return "-"
   }
   const supplier = supplierList.value.find(supplierItem => supplierItem.supplierId === supplierId)
-  return supplier?.supplierName || `历史供应商ID：${supplierId}`
+  return supplier?.supplierName || "供应商资料缺失"
 }
 
-// 通过仓库编号返回仓库名称，未命中主数据时显示历史编号。
+// 通过仓库编号返回仓库名称，未命中主数据时显示资料缺失提示。
 function getWarehouseName(warehouseId) {
   if (warehouseId === undefined || warehouseId === null || warehouseId === "") {
     return "-"
   }
   const warehouse = warehouseList.value.find(warehouseItem => warehouseItem.warehouseId === warehouseId)
-  return warehouse?.warehouseName || `历史仓库ID：${warehouseId}`
+  return warehouse?.warehouseName || "仓库资料缺失"
 }
 
-// 通过商品编号返回商品名称，未命中主数据时显示历史编号。
+// 通过商品编号返回商品名称，未命中主数据时显示资料缺失提示。
 function getProductName(productId) {
   if (productId === undefined || productId === null || productId === "") {
     return "-"
   }
   const product = productList.value.find(productItem => productItem.productId === productId)
-  return product?.productName || `历史商品ID：${productId}`
+  return product?.productName || "商品资料缺失"
 }
 
 // 将采购退货状态编码转换为中文文案。
@@ -858,7 +859,20 @@ function handleExport() {
   }, `purchaseReturn_${new Date().getTime()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute()
-initBasicData()
-getList()
+// 初始化页面筛选条件和基础资料，保证重复跳转到采购退货页时列表会按最新参数刷新。
+async function initializePage() {
+  initializeQueryParamsFromRoute()
+  await initBasicData()
+  await getList()
+}
+
+// 监听同一路由下的查询参数变化，避免采购退货页沿用旧的供应商或仓库筛选。
+watch(() => proxy?.$route?.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>

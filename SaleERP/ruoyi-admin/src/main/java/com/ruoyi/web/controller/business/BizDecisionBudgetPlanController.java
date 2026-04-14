@@ -1,5 +1,6 @@
 package com.ruoyi.web.controller.business;
 
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +41,18 @@ public class BizDecisionBudgetPlanController extends BaseController
     }
 
     /**
+     * 查询指定年度预算版本列表
+     */
+    @PreAuthorize("@ss.hasPermi('business:report:view')")
+    @GetMapping("/history/{budgetYear}")
+    public AjaxResult history(@PathVariable Integer budgetYear)
+    {
+        List<BizDecisionBudgetPlan> budgetPlanVersionList =
+            bizDecisionBudgetPlanService.selectBizDecisionBudgetPlanVersionList(budgetYear);
+        return AjaxResult.success(budgetPlanVersionList);
+    }
+
+    /**
      * 新增年度预算计划
      */
     @PreAuthorize("@ss.hasPermi('business:report:edit')")
@@ -59,6 +72,19 @@ public class BizDecisionBudgetPlanController extends BaseController
     public AjaxResult edit(@RequestBody BizDecisionBudgetPlan bizDecisionBudgetPlan)
     {
         return toAjax(bizDecisionBudgetPlanService.updateBizDecisionBudgetPlan(bizDecisionBudgetPlan, getUsername()));
+    }
+
+    /**
+     * 基于当前预算计划创建新版本
+     */
+    @PreAuthorize("@ss.hasPermi('business:report:edit')")
+    @Log(title = "年度预算计划", businessType = BusinessType.INSERT)
+    @PostMapping("/createVersion/{planId}")
+    public AjaxResult createVersion(@PathVariable Long planId, @RequestBody(required = false) BizDecisionBudgetPlan bizDecisionBudgetPlan)
+    {
+        BizDecisionBudgetPlan createdDecisionBudgetPlan =
+            bizDecisionBudgetPlanService.createVersionBizDecisionBudgetPlan(planId, bizDecisionBudgetPlan, getUsername());
+        return AjaxResult.success(createdDecisionBudgetPlan);
     }
 
     /**

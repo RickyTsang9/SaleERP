@@ -104,6 +104,7 @@ import { listPayment } from "@/api/business/payment"
 import { listSupplier, getSupplier } from "@/api/business/supplier"
 import { getPurchaseOrder } from "@/api/business/purchaseOrder"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
@@ -147,26 +148,10 @@ const { queryParams } = toRefs(data)
 
 // 根据首页或其他业务页传入的参数初始化付款流水筛选条件，保证落地页即开即用。
 function initializeQueryParamsFromRoute() {
-  if (route.query.payableId)
-  {
-    queryParams.value.payableId = route.query.payableId
-  }
-  if (route.query.purchaseOrderId)
-  {
-    queryParams.value.purchaseOrderId = route.query.purchaseOrderId
-  }
-  if (route.query.purchaseOrderNo)
-  {
-    queryParams.value.purchaseOrderNo = route.query.purchaseOrderNo
-  }
-  if (route.query.orderNo)
-  {
-    queryParams.value.purchaseOrderNo = route.query.orderNo
-  }
-  if (route.query.supplierId)
-  {
-    queryParams.value.supplierId = Number(route.query.supplierId)
-  }
+  queryParams.value.payableId = route.query.payableId || undefined
+  queryParams.value.purchaseOrderId = route.query.purchaseOrderId || undefined
+  queryParams.value.purchaseOrderNo = route.query.purchaseOrderNo || route.query.orderNo || undefined
+  queryParams.value.supplierId = route.query.supplierId ? Number(route.query.supplierId) : undefined
 }
 
 // 初始化供应商远程下拉数据，避免页面初始阶段一次性加载过多基础资料。
@@ -216,12 +201,12 @@ function syncPurchaseOrderDisplayName(purchaseOrderId, orderNo) {
   if (purchaseOrderId === undefined || purchaseOrderId === null || purchaseOrderId === "") {
     return
   }
-  purchaseOrderDisplayNameMap.value[purchaseOrderId] = orderNo || `历史采购单ID：${purchaseOrderId}`
+  purchaseOrderDisplayNameMap.value[purchaseOrderId] = orderNo || "采购单资料缺失"
 }
 
 // 判断当前供应商名称是否已经是可直接展示给用户的正式名称。
 function isDirectSupplierNameResolved(supplierName) {
-  return !!supplierName && !supplierName.startsWith("历史供应商ID：")
+  return !!supplierName && supplierName !== "供应商资料缺失" && !supplierName.startsWith("历史供应商ID：")
 }
 
 // 按采购订单编号补充当前页缺失的采购单号展示，减少付款流水出现内部编号字段。
@@ -242,7 +227,7 @@ function ensurePurchaseOrderDisplayLoaded(purchaseOrderId) {
 // 按采购订单来源回补历史付款记录的供应商名称，减少页面出现裸供应商编号。
 function ensureSupplierOptionLoadedByPurchaseOrder(supplierId, purchaseOrderId) {
   if (!purchaseOrderId) {
-    syncSupplierOption(supplierId, `历史供应商ID：${supplierId}`)
+    syncSupplierOption(supplierId, "供应商资料缺失")
     return Promise.resolve()
   }
   const cachedSupplierName = purchaseOrderSupplierNameMap.value[purchaseOrderId]
@@ -254,7 +239,7 @@ function ensureSupplierOptionLoadedByPurchaseOrder(supplierId, purchaseOrderId) 
     syncPurchaseOrderDisplayName(purchaseOrderId, response.data && response.data.orderNo)
     const resolvedSupplierId = response.data && response.data.supplierId
     if (resolvedSupplierId === undefined || resolvedSupplierId === null || resolvedSupplierId === "") {
-      syncSupplierOption(supplierId, `历史供应商ID：${supplierId}`)
+      syncSupplierOption(supplierId, "供应商资料缺失")
       return
     }
     return getSupplier(resolvedSupplierId).then(supplierResponse => {
@@ -262,10 +247,10 @@ function ensureSupplierOptionLoadedByPurchaseOrder(supplierId, purchaseOrderId) 
       purchaseOrderSupplierNameMap.value[purchaseOrderId] = resolvedSupplierName
       syncSupplierOption(supplierId, resolvedSupplierName)
     }).catch(() => {
-      syncSupplierOption(supplierId, `历史供应商ID：${supplierId}`)
+      syncSupplierOption(supplierId, "供应商资料缺失")
     })
   }).catch(() => {
-    syncSupplierOption(supplierId, `历史供应商ID：${supplierId}`)
+    syncSupplierOption(supplierId, "供应商资料缺失")
   })
 }
 
@@ -299,9 +284,9 @@ function ensurePaymentReferenceOptionsLoaded(paymentRowList) {
   ]).catch(() => {})
 }
 
-// 组合供应商下拉选项，兼容历史付款记录中仍在使用的旧供应商编号回显。
+// 组合供应商下拉选项，兼容历史付款记录中主数据缺失时的兜底回显。
 function buildSupplierSelectOptionList() {
-  return buildSelectOptionList(supplierList.value, [queryParams.value.supplierId], "supplierId", "supplierName", "历史供应商ID：")
+  return buildSelectOptionList(supplierList.value, [queryParams.value.supplierId], "supplierId", "supplierName", () => "供应商资料缺失")
 }
 
 // 根据供应商编号和来源采购订单返回供应商名称，优先展示回补后的正式供应商名称。
@@ -314,7 +299,7 @@ function getSupplierName(supplierId, purchaseOrderId) {
   if (purchaseOrderSupplierName) {
     return purchaseOrderSupplierName
   }
-  return supplierId ? `历史供应商ID：${supplierId}` : ""
+  return supplierId ? "供应商资料缺失" : ""
 }
 
 // 根据采购订单编号返回采购单号，优先展示已回补的来源单号。
@@ -322,7 +307,7 @@ function getPurchaseOrderDisplayName(purchaseOrderId) {
   if (purchaseOrderId === undefined || purchaseOrderId === null || purchaseOrderId === "") {
     return "未关联采购单"
   }
-  return purchaseOrderDisplayNameMap.value[purchaseOrderId] || `历史采购单ID：${purchaseOrderId}`
+  return purchaseOrderDisplayNameMap.value[purchaseOrderId] || "采购单资料缺失"
 }
 
 // 返回付款方式中文名称，兼容历史记录中的中文值和代码值展示。
@@ -387,7 +372,20 @@ function handleExport() {
   }, `payment_${new Date().getTime()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute()
-initBasicData()
-getList()
+// 初始化页面筛选条件和供应商下拉，保证从应付台账重复跳转时付款流水能按新条件刷新。
+async function initializePage() {
+  initializeQueryParamsFromRoute()
+  await initBasicData()
+  await getList()
+}
+
+// 监听同一路由下的查询参数变化，避免付款流水列表停留在旧的采购单或供应商筛选。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>

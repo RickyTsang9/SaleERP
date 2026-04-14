@@ -260,6 +260,7 @@
 <script setup name="BusinessCustomer">
 import { listCustomer, getCustomer, addCustomer, updateCustomer, delCustomer, changeCustomerStatus, importTemplate as downloadImportTemplate } from "@/api/business/customer"
 import { getToken } from "@/utils/auth"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")

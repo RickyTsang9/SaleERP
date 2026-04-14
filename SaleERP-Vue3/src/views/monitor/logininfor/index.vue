@@ -126,6 +126,7 @@
 
 <script setup name="Logininfor">
 import { list, delLogininfor, cleanLogininfor, unlockLogininfor } from "@/api/monitor/logininfor"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_common_status } = proxy.useDict("sys_common_status")

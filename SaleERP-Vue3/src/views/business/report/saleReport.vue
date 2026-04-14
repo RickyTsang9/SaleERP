@@ -78,6 +78,7 @@
 <script setup name="SaleReport">
 import { listSaleReport } from "@/api/business/report"
 import { listCustomer } from "@/api/business/customer"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 

@@ -260,6 +260,7 @@ import { addReceipt } from "@/api/business/receipt"
 import { listCustomer, getCustomer } from "@/api/business/customer"
 import { getSaleOrder } from "@/api/business/saleOrder"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
@@ -322,22 +323,12 @@ const { queryParams, form, rules, receiptForm, receiptRules } = toRefs(data)
 
 // 根据首页和经营看板传入的参数初始化应收台账筛选条件。
 function initializeQueryParamsFromRoute() {
-  if (route.query.saleOrderId)
-  {
-    queryParams.value.saleOrderId = route.query.saleOrderId
-  }
-  if (route.query.customerId)
-  {
-    queryParams.value.customerId = Number(route.query.customerId)
-  }
-  if (route.query.status)
-  {
-    queryParams.value.status = route.query.status
-  }
-  if (route.query.overdueQuery)
-  {
+  queryParams.value.saleOrderId = route.query.saleOrderId || undefined
+  queryParams.value.customerId = route.query.customerId ? Number(route.query.customerId) : undefined
+  queryParams.value.status = route.query.status || undefined
+  queryParams.value.params.overdueQuery = route.query.overdueQuery || undefined
+  if (queryParams.value.params.overdueQuery) {
     queryParams.value.status = undefined
-    queryParams.value.params.overdueQuery = route.query.overdueQuery
   }
 }
 
@@ -385,7 +376,7 @@ function syncCustomerOption(customerId, customerName) {
 
 // 判断当前客户名称是否已经是可直接展示给用户的正式名称。
 function isDirectCustomerNameResolved(customerName) {
-  return !!customerName && !customerName.startsWith("历史客户ID：") && !customerName.endsWith("（历史单据）")
+  return !!customerName && customerName !== "客户资料缺失" && !customerName.startsWith("历史客户ID：") && !customerName.endsWith("（历史单据）")
 }
 
 // 兼容已缓存的历史映射后缀，保证页面展示和表单回显都保持简洁可读。
@@ -396,7 +387,7 @@ function normalizeCustomerDisplayName(customerName) {
 // 按销售单来源回补历史财务记录的客户名称，减少页面出现裸客户编号。
 function ensureCustomerOptionLoadedBySaleOrder(customerId, saleOrderId) {
   if (!saleOrderId) {
-    syncCustomerOption(customerId, `历史客户ID：${customerId}`)
+    syncCustomerOption(customerId, "客户资料缺失")
     return Promise.resolve()
   }
   const cachedCustomerName = saleOrderCustomerNameMap.value[saleOrderId]
@@ -407,7 +398,7 @@ function ensureCustomerOptionLoadedBySaleOrder(customerId, saleOrderId) {
   return getSaleOrder(saleOrderId).then(response => {
     const resolvedCustomerId = response.data?.customerId
     if (resolvedCustomerId === undefined || resolvedCustomerId === null || resolvedCustomerId === "") {
-      syncCustomerOption(customerId, `历史客户ID：${customerId}`)
+      syncCustomerOption(customerId, "客户资料缺失")
       return
     }
     return getCustomer(resolvedCustomerId).then(customerResponse => {
@@ -415,10 +406,10 @@ function ensureCustomerOptionLoadedBySaleOrder(customerId, saleOrderId) {
       saleOrderCustomerNameMap.value[saleOrderId] = resolvedCustomerName
       syncCustomerOption(customerId, resolvedCustomerName)
     }).catch(() => {
-      syncCustomerOption(customerId, `历史客户ID：${customerId}`)
+      syncCustomerOption(customerId, "客户资料缺失")
     })
   }).catch(() => {
-    syncCustomerOption(customerId, `历史客户ID：${customerId}`)
+    syncCustomerOption(customerId, "客户资料缺失")
   })
 }
 
@@ -443,9 +434,9 @@ function ensureReceivableReferenceOptionsLoaded(receivableRowList) {
   Promise.all((receivableRowList || []).map(receivableRow => ensureCustomerOptionLoaded(receivableRow.customerId, receivableRow.saleOrderId))).catch(() => {})
 }
 
-// 组合客户下拉选项，兼容历史应收台账中仍在使用的旧客户编号回显。
+// 组合客户下拉选项，兼容历史应收台账中主数据缺失时的兜底回显。
 function buildCustomerSelectOptionList() {
-  return buildSelectOptionList(customerList.value, [queryParams.value.customerId, form.value.customerId, receiptForm.value.customerId], "customerId", "customerName", "历史客户ID：")
+  return buildSelectOptionList(customerList.value, [queryParams.value.customerId, form.value.customerId, receiptForm.value.customerId], "customerId", "customerName", () => "客户资料缺失")
 }
 
 // 根据客户编号和来源销售单返回客户名称，优先展示回补后的正式客户名称。
@@ -458,7 +449,7 @@ function getCustomerName(customerId, saleOrderId) {
   if (saleOrderCustomerName) {
     return saleOrderCustomerName
   }
-  return customerId ? `历史客户ID：${customerId}` : ""
+  return customerId ? "客户资料缺失" : ""
 }
 
 // 返回应收状态中文名称，统一列表和表单展示口径。
@@ -679,7 +670,21 @@ function handleExport() {
   }, `receivable_${new Date().getTime()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute()
-initBasicData()
-getList()
+// 初始化页面筛选条件和客户下拉，保证从首页、经营看板和销售订单重复跳转时数据会正确刷新。
+async function initializePage() {
+  autoOpenReceiptHandled.value = false
+  initializeQueryParamsFromRoute()
+  await initBasicData()
+  await getList()
+}
+
+// 监听同一路由下的查询参数变化，保证更换销售单或客户后自动回款弹窗和列表筛选同步更新。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>

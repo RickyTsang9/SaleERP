@@ -223,6 +223,7 @@
 <script setup name="BusinessProduct">
 import { listProduct, getProduct, addProduct, updateProduct, delProduct, changeProductStatus, importTemplate as downloadImportTemplate } from "@/api/business/product"
 import { getToken } from "@/utils/auth"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")

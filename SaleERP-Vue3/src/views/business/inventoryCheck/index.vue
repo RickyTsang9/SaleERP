@@ -276,6 +276,7 @@ import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 
@@ -414,7 +415,7 @@ function ensureWarehouseOptionLoaded(warehouseId) {
   }).catch(() => {
     appendUniqueSelectOption(warehouseList.value, {
       warehouseId: warehouseId,
-      warehouseName: `历史仓库ID：${warehouseId}`
+      warehouseName: "仓库资料缺失"
     }, "warehouseId")
   })
 }
@@ -434,7 +435,7 @@ function ensureProductOptionLoaded(productId) {
   }).catch(() => {
     appendUniqueSelectOption(productList.value, {
       productId: productId,
-      productName: `历史商品ID：${productId}`
+      productName: "商品资料缺失"
     }, "productId")
   })
 }
@@ -454,7 +455,7 @@ function ensureLocationOptionLoaded(locationId) {
   }).catch(() => {
     appendUniqueSelectOption(locationList.value, {
       locationId: locationId,
-      locationName: `历史库位ID：${locationId}`
+      locationName: "库位资料缺失"
     }, "locationId")
   })
 }
@@ -475,37 +476,37 @@ function ensureInventoryCheckItemReferenceOptionsLoaded(inventoryCheckItemRowLis
   ]).catch(() => {})
 }
 
-// 组合仓库下拉选项，兼容历史盘点单中仍在使用的旧仓库编号回显。
+// 组合仓库下拉选项，兼容历史盘点单中主数据缺失时的兜底回显。
 function buildWarehouseSelectOptionList() {
-  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", "历史仓库ID：")
+  return buildSelectOptionList(warehouseList.value, [queryParams.value.warehouseId, form.value.warehouseId], "warehouseId", "warehouseName", () => "仓库资料缺失")
 }
 
-// 组合商品下拉选项，兼容历史盘点明细中仍在使用的旧商品编号回显。
+// 组合商品下拉选项，兼容历史盘点明细中主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, [inventoryCheckItemForm.value.productId], "productId", "productName", "历史商品ID：")
+  return buildSelectOptionList(productList.value, [inventoryCheckItemForm.value.productId], "productId", "productName", () => "商品资料缺失")
 }
 
-// 组合库位下拉选项，兼容历史盘点明细中仍在使用的旧库位编号回显。
+// 组合库位下拉选项，兼容历史盘点明细中主数据缺失时的兜底回显。
 function buildLocationSelectOptionList() {
-  return buildSelectOptionList(locationList.value, [inventoryCheckItemForm.value.locationId], "locationId", "locationName", "历史库位ID：")
+  return buildSelectOptionList(locationList.value, [inventoryCheckItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据仓库编号返回仓库名称，减少盘点单列表中的纯编号展示。
 function getWarehouseName(warehouseId) {
   const warehouse = warehouseList.value.find(warehouseItem => warehouseItem.warehouseId === warehouseId)
-  return warehouse ? warehouse.warehouseName : (warehouseId ? `历史仓库ID：${warehouseId}` : "")
+  return warehouse ? warehouse.warehouseName : (warehouseId ? "仓库资料缺失" : "")
 }
 
 // 根据商品编号返回商品名称，帮助仓库人员快速识别盘点明细中的商品。
 function getProductName(productId) {
   const product = productList.value.find(productItem => productItem.productId === productId)
-  return product ? product.productName : (productId ? `历史商品ID：${productId}` : "")
+  return product ? product.productName : (productId ? "商品资料缺失" : "")
 }
 
 // 根据库位编号返回库位名称，统一盘点明细的展示口径。
 function getLocationName(locationId) {
   const location = locationList.value.find(locationItem => locationItem.locationId === locationId)
-  return location ? location.locationName : (locationId ? `历史库位ID：${locationId}` : "")
+  return location ? location.locationName : (locationId ? "库位资料缺失" : "")
 }
 
 // 判断当前盘点明细是否允许继续编辑，避免已提交单据绕过主流程修改明细。

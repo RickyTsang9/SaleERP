@@ -146,6 +146,7 @@
 
 <script setup name="Post">
 import { listPost, addPost, delPost, getPost, updatePost } from "@/api/system/post"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")

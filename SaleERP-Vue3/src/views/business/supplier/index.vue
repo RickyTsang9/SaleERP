@@ -202,6 +202,7 @@
 
 <script setup name="BusinessSupplier">
 import { listSupplier, getSupplier, delSupplier, addSupplier, updateSupplier } from "@/api/business/supplier";
+import { parseTime } from "@/utils/ruoyi";
 
 const { proxy } = getCurrentInstance();
 const route = useRoute();
@@ -241,14 +242,16 @@ const { queryParams, form, rules } = toRefs(data);
 
 // 根据来源路由恢复供应商筛选条件，支持从采购订单直接落到指定供应商资料。
 async function initializeQueryParamsFromRoute() {
+  queryParams.value.supplierName = undefined;
+  queryParams.value.supplierCode = undefined;
+  routeSupplierNotice.value = "";
   if (!route.query.supplierId) {
-    routeSupplierNotice.value = "";
     return;
   }
   try {
     const response = await getSupplier(route.query.supplierId);
     if (!response?.data?.supplierId) {
-      routeSupplierNotice.value = `当前来源单据引用的是历史供应商ID：${route.query.supplierId}，该供应商主数据已不存在，因此资料页暂无可展示记录。`;
+      routeSupplierNotice.value = "当前来源单据引用的供应商主数据已不存在，因此资料页暂无可展示记录。";
       return;
     }
     queryParams.value.supplierName = response.data.supplierName || undefined;
@@ -258,7 +261,7 @@ async function initializeQueryParamsFromRoute() {
       : "";
   } catch (error) {
     // 保留普通列表查询逻辑，避免历史供应商或异常数据阻断页面打开。
-    routeSupplierNotice.value = `当前来源单据引用的是历史供应商ID：${route.query.supplierId}，该供应商主数据已不存在，因此资料页暂无可展示记录。`;
+    routeSupplierNotice.value = "当前来源单据引用的供应商主数据已不存在，因此资料页暂无可展示记录。";
   }
 }
 
@@ -401,7 +404,19 @@ function handleExport() {
   }, `supplier_${new Date().getTime()}.xlsx`)
 }
 
-initializeQueryParamsFromRoute().finally(() => {
-  getList();
+// 初始化页面筛选条件和列表数据，保证从采购订单重复跳转时供应商资料会跟随最新参数刷新。
+async function initializePage() {
+  await initializeQueryParamsFromRoute();
+  await getList();
+}
+
+// 监听同一路由下的查询参数变化，避免供应商资料页仍然停留在旧的来源供应商筛选结果。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return;
+  }
+  initializePage();
 });
+
+initializePage();
 </script>

@@ -67,10 +67,7 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
         {
             wmsPurchaseReturn.setReturnNo(generatePurchaseReturnNo());
         }
-        if (StringUtils.isEmpty(wmsPurchaseReturn.getStatus()))
-        {
-            wmsPurchaseReturn.setStatus(STATUS_DRAFT);
-        }
+        wmsPurchaseReturn.setStatus(STATUS_DRAFT);
         return wmsPurchaseReturnMapper.insertWmsPurchaseReturn(wmsPurchaseReturn);
     }
 
@@ -209,6 +206,10 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
         if (databasePurchaseReturn == null)
         {
             throw new ServiceException("采购退货单不存在");
+        }
+        if (STATUS_CANCELLED.equals(databasePurchaseReturn.getStatus()))
+        {
+            throw new ServiceException("采购退货单已作废，无需重复作废");
         }
         if (STATUS_AUDITED.equals(databasePurchaseReturn.getStatus()))
         {
