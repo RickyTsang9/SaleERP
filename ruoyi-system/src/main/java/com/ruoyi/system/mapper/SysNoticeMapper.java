@@ -27,6 +27,14 @@ public interface SysNoticeMapper
     public List<SysNotice> selectNoticeList(SysNotice notice);
 
     /**
+     * 根据公告标题查询公告
+     * 
+     * @param noticeTitle 公告标题
+     * @return 公告信息
+     */
+    public SysNotice selectNoticeByTitle(String noticeTitle);
+
+    /**
      * 新增公告
      * 
      * @param notice 公告信息

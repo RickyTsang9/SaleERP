@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.BizOperationSnapshotMapper">
+
+    <resultMap type="BizOperationSnapshot" id="BizOperationSnapshotResult">
+        <id     property="snapshotId"         column="snapshot_id"          />
+        <result property="snapshotTitle"      column="snapshot_title"       />
+        <result property="snapshotDate"       column="snapshot_date"        />
+        <result property="snapshotType"       column="snapshot_type"        />
+        <result property="saleAmount"         column="sale_amount"          />
+        <result property="grossProfitAmount"  column="gross_profit_amount"  />
+        <result property="collectionRate"     column="collection_rate"      />
+        <result property="overdueCount"       column="overdue_count"        />
+        <result property="stockWarningCount"  column="stock_warning_count"  />
+        <result property="pendingActionCount" column="pending_action_count" />
+        <result property="summaryContent"     column="summary_content"      />
+        <result property="plainTextContent"   column="plain_text_content"   />
+        <result property="sourceMode"         column="source_mode"          />
+        <result property="createBy"           column="create_by"            />
+        <result property="createTime"         column="create_time"          />
+        <result property="updateBy"           column="update_by"            />
+        <result property="updateTime"         column="update_time"          />
+        <result property="remark"             column="remark"               />
+    </resultMap>
+
+    <sql id="selectBizOperationSnapshotVo">
+        select snapshot_id, snapshot_title, snapshot_date, snapshot_type, sale_amount, gross_profit_amount,
+               collection_rate, overdue_count, stock_warning_count, pending_action_count, summary_content,
+               plain_text_content, source_mode, create_by, create_time, update_by, update_time, remark
+        from biz_operation_snapshot
+    </sql>
+
+    <select id="selectBizOperationSnapshotBySnapshotId" parameterType="Long" resultMap="BizOperationSnapshotResult">
+        <include refid="selectBizOperationSnapshotVo"/>
+        where snapshot_id = #{snapshotId}
+    </select>
+
+    <select id="selectBizOperationSnapshotList" parameterType="BizOperationSnapshot" resultMap="BizOperationSnapshotResult">
+        <include refid="selectBizOperationSnapshotVo"/>
+        <where>
+            <if test="snapshotTitle != null and snapshotTitle != ''">
+                and snapshot_title like concat('%', #{snapshotTitle}, '%')
+            </if>
+            <if test="snapshotType != null and snapshotType != ''">
+                and snapshot_type = #{snapshotType}
+            </if>
+            <if test="snapshotDate != null">
+                and snapshot_date &gt;= date(#{snapshotDate})
+                and snapshot_date &lt; date_add(date(#{snapshotDate}), interval 1 day)
+            </if>
+        </where>
+        order by snapshot_date desc, snapshot_id desc
+    </select>
+
+    <insert id="insertBizOperationSnapshot" parameterType="BizOperationSnapshot" useGeneratedKeys="true" keyProperty="snapshotId">
+        insert into biz_operation_snapshot
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="snapshotTitle != null and snapshotTitle != ''">snapshot_title,</if>
+            <if test="snapshotDate != null">snapshot_date,</if>
+            <if test="snapshotType != null and snapshotType != ''">snapshot_type,</if>
+            <if test="saleAmount != null">sale_amount,</if>
+            <if test="grossProfitAmount != null">gross_profit_amount,</if>
+            <if test="collectionRate != null">collection_rate,</if>
+            <if test="overdueCount != null">overdue_count,</if>
+            <if test="stockWarningCount != null">stock_warning_count,</if>
+            <if test="pendingActionCount != null">pending_action_count,</if>
+            <if test="summaryContent != null and summaryContent != ''">summary_content,</if>
+            <if test="plainTextContent != null and plainTextContent != ''">plain_text_content,</if>
+            <if test="sourceMode != null and sourceMode != ''">source_mode,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="snapshotTitle != null and snapshotTitle != ''">#{snapshotTitle},</if>
+            <if test="snapshotDate != null">#{snapshotDate},</if>
+            <if test="snapshotType != null and snapshotType != ''">#{snapshotType},</if>
+            <if test="saleAmount != null">#{saleAmount},</if>
+            <if test="grossProfitAmount != null">#{grossProfitAmount},</if>
+            <if test="collectionRate != null">#{collectionRate},</if>
+            <if test="overdueCount != null">#{overdueCount},</if>
+            <if test="stockWarningCount != null">#{stockWarningCount},</if>
+            <if test="pendingActionCount != null">#{pendingActionCount},</if>
+            <if test="summaryContent != null and summaryContent != ''">#{summaryContent},</if>
+            <if test="plainTextContent != null and plainTextContent != ''">#{plainTextContent},</if>
+            <if test="sourceMode != null and sourceMode != ''">#{sourceMode},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+</mapper>

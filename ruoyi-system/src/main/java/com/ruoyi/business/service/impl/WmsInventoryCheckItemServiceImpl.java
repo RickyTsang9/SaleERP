@@ -3,6 +3,7 @@ package com.ruoyi.business.service.impl;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.business.domain.WmsInventoryCheck;
 import com.ruoyi.business.domain.WmsInventoryCheckItem;
 import com.ruoyi.business.mapper.WmsInventoryCheckItemMapper;
@@ -33,14 +34,28 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
         return wmsInventoryCheckItemMapper.selectWmsInventoryCheckItemList(wmsInventoryCheckItem);
     }
 
+    /**
+     * 新增盘点明细
+     *
+     * @param wmsInventoryCheckItem 盘点明细
+     * @return 新增结果
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int insertWmsInventoryCheckItem(WmsInventoryCheckItem wmsInventoryCheckItem)
     {
         validateDraftCheck(wmsInventoryCheckItem.getCheckId());
         return wmsInventoryCheckItemMapper.insertWmsInventoryCheckItem(wmsInventoryCheckItem);
     }
 
+    /**
+     * 修改盘点明细
+     *
+     * @param wmsInventoryCheckItem 盘点明细
+     * @return 修改结果
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateWmsInventoryCheckItem(WmsInventoryCheckItem wmsInventoryCheckItem)
     {
         WmsInventoryCheckItem databaseInventoryCheckItem = wmsInventoryCheckItemMapper.selectWmsInventoryCheckItemById(wmsInventoryCheckItem.getCheckItemId());
@@ -53,7 +68,14 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
         return wmsInventoryCheckItemMapper.updateWmsInventoryCheckItem(wmsInventoryCheckItem);
     }
 
+    /**
+     * 删除盘点明细
+     *
+     * @param checkItemId 盘点明细编号
+     * @return 删除结果
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsInventoryCheckItemById(Long checkItemId)
     {
         WmsInventoryCheckItem databaseInventoryCheckItem = wmsInventoryCheckItemMapper.selectWmsInventoryCheckItemById(checkItemId);
@@ -65,7 +87,14 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
         return wmsInventoryCheckItemMapper.deleteWmsInventoryCheckItemById(checkItemId);
     }
 
+    /**
+     * 批量删除盘点明细
+     *
+     * @param checkItemIds 盘点明细编号集合
+     * @return 删除结果
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsInventoryCheckItemByIds(Long[] checkItemIds)
     {
         for (Long checkItemId : checkItemIds)
@@ -80,6 +109,11 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
         return wmsInventoryCheckItemMapper.deleteWmsInventoryCheckItemByIds(checkItemIds);
     }
 
+    /**
+     * 校验盘点单是否仍允许维护明细
+     *
+     * @param checkId 盘点单编号
+     */
     private void validateDraftCheck(Long checkId)
     {
         if (checkId == null)

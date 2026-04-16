@@ -20,4 +20,6 @@ public interface WmsInboundMapper
     public String selectMaxInboundNoByPrefix(String noPrefix);
 
     public int refreshTotalByInboundId(Long inboundId);
+
+    public int updateWmsInboundStatus(Long inboundId, String oldStatus, String newStatus, String auditBy, String updateBy);
 }

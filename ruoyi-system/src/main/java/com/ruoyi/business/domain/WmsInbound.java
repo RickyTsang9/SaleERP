@@ -19,6 +19,13 @@ public class WmsInbound extends BaseEntity
     @Excel(name = "入库类型")
     private String inboundType;
 
+    /** 来源采购订单编号 */
+    private Long purchaseOrderId;
+
+    /** 来源采购单号 */
+    @Excel(name = "采购单号")
+    private String purchaseOrderNo;
+
     @Excel(name = "供应商编号")
     private Long supplierId;
 
@@ -67,6 +74,46 @@ public class WmsInbound extends BaseEntity
     public void setInboundType(String inboundType)
     {
         this.inboundType = inboundType;
+    }
+
+    /**
+     * 获取来源采购订单编号
+     *
+     * @return 来源采购订单编号
+     */
+    public Long getPurchaseOrderId()
+    {
+        return purchaseOrderId;
+    }
+
+    /**
+     * 设置来源采购订单编号
+     *
+     * @param purchaseOrderId 来源采购订单编号
+     */
+    public void setPurchaseOrderId(Long purchaseOrderId)
+    {
+        this.purchaseOrderId = purchaseOrderId;
+    }
+
+    /**
+     * 获取来源采购单号
+     *
+     * @return 来源采购单号
+     */
+    public String getPurchaseOrderNo()
+    {
+        return purchaseOrderNo;
+    }
+
+    /**
+     * 设置来源采购单号
+     *
+     * @param purchaseOrderNo 来源采购单号
+     */
+    public void setPurchaseOrderNo(String purchaseOrderNo)
+    {
+        this.purchaseOrderNo = purchaseOrderNo;
     }
 
     public Long getSupplierId()
@@ -146,6 +193,8 @@ public class WmsInbound extends BaseEntity
             .append("inboundId", getInboundId())
             .append("inboundNo", getInboundNo())
             .append("inboundType", getInboundType())
+            .append("purchaseOrderId", getPurchaseOrderId())
+            .append("purchaseOrderNo", getPurchaseOrderNo())
             .append("supplierId", getSupplierId())
             .append("warehouseId", getWarehouseId())
             .append("totalQty", getTotalQty())

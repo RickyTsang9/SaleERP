@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsPurchaseOrderMapper">
+    
+    <resultMap type="WmsPurchaseOrder" id="WmsPurchaseOrderResult">
+        <result property="purchaseOrderId"    column="purchase_order_id"    />
+        <result property="orderNo"    column="order_no"    />
+        <result property="supplierId"    column="supplier_id"    />
+        <result property="purchaseDate"    column="purchase_date"    />
+        <result property="totalAmount"    column="total_amount"    />
+        <result property="totalQuantity"    column="total_quantity"    />
+        <result property="inboundCount"    column="inbound_count"    />
+        <result property="inboundQuantity"    column="inbound_quantity"    />
+        <result property="remainQuantity"    column="remain_quantity"    />
+        <result property="status"    column="status"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <resultMap id="WmsPurchaseOrderWmsPurchaseOrderItemResult" type="WmsPurchaseOrder" extends="WmsPurchaseOrderResult">
+        <collection property="wmsPurchaseOrderItemList" notNullColumn="sub_purchase_order_item_id" javaType="java.util.List" resultMap="WmsPurchaseOrderItemResult" />
+    </resultMap>
+
+    <resultMap type="WmsPurchaseOrderItem" id="WmsPurchaseOrderItemResult">
+        <result property="purchaseOrderItemId"    column="sub_purchase_order_item_id"    />
+        <result property="purchaseOrderId"    column="sub_purchase_order_id"    />
+        <result property="productId"    column="sub_product_id"    />
+        <result property="quantity"    column="sub_quantity"    />
+        <result property="price"    column="sub_price"    />
+        <result property="amount"    column="sub_amount"    />
+        <result property="inboundQuantity"    column="sub_inbound_quantity"    />
+        <result property="remainQuantity"    column="sub_remain_quantity"    />
+        <result property="remark"    column="sub_remark"    />
+    </resultMap>
+
+    <sql id="selectWmsPurchaseOrderVo">
+        select a.purchase_order_id, a.order_no, a.supplier_id, a.purchase_date, a.total_amount,
+               ifnull(item_summary.total_quantity, 0) as total_quantity,
+               ifnull(inbound_summary.inbound_count, 0) as inbound_count,
+               ifnull(inbound_summary.inbound_quantity, 0) as inbound_quantity,
+               greatest(
+                   ifnull(item_summary.total_quantity, 0)
+                   - ifnull(inbound_summary.inbound_quantity, 0),
+                   0
+               ) as remain_quantity,
+               a.status, a.remark, a.create_by, a.create_time, a.update_by, a.update_time
+        from wms_purchase_order a
+        left join (
+            select purchase_order_id, sum(quantity) as total_quantity
+            from wms_purchase_order_item
+            group by purchase_order_id
+        ) item_summary on item_summary.purchase_order_id = a.purchase_order_id
+        left join (
+            select purchase_order_id,
+                   count(1) as inbound_count,
+                   sum(total_qty) as inbound_quantity
+            from wms_inbound
+            where status = 'audited'
+            group by purchase_order_id
+        ) inbound_summary on inbound_summary.purchase_order_id = a.purchase_order_id
+    </sql>
+
+    <select id="selectWmsPurchaseOrderList" parameterType="WmsPurchaseOrder" resultMap="WmsPurchaseOrderResult">
+        <include refid="selectWmsPurchaseOrderVo"/>
+        <where>  
+            <if test="purchaseOrderId != null "> and a.purchase_order_id = #{purchaseOrderId}</if>
+            <if test="orderNo != null  and orderNo != ''"> and a.order_no like concat('%', #{orderNo}, '%')</if>
+            <if test="supplierId != null "> and a.supplier_id = #{supplierId}</if>
+            <if test="status != null  and status != ''"> and a.status = #{status}</if>
+        </where>
+    </select>
+    
+    <select id="selectWmsPurchaseOrderByPurchaseOrderId" parameterType="Long" resultMap="WmsPurchaseOrderWmsPurchaseOrderItemResult">
+        select a.purchase_order_id, a.order_no, a.supplier_id, a.purchase_date, a.total_amount,
+            ifnull(item_summary.total_quantity, 0) as total_quantity,
+            ifnull(inbound_summary.inbound_count, 0) as inbound_count,
+            ifnull(inbound_summary.inbound_quantity, 0) as inbound_quantity,
+            greatest(
+                ifnull(item_summary.total_quantity, 0)
+                - ifnull(inbound_summary.inbound_quantity, 0),
+                0
+            ) as remain_quantity,
+            a.status, a.remark, a.create_by, a.create_time, a.update_by, a.update_time,
+            b.purchase_order_item_id as sub_purchase_order_item_id, b.purchase_order_id as sub_purchase_order_id, b.product_id as sub_product_id, b.quantity as sub_quantity, b.price as sub_price, b.amount as sub_amount,
+            ifnull(linked_inbound_item_summary.inbound_quantity, 0) + ifnull(fallback_inbound_item_summary.inbound_quantity, 0) as sub_inbound_quantity,
+            greatest(
+                ifnull(b.quantity, 0)
+                - ifnull(linked_inbound_item_summary.inbound_quantity, 0)
+                - ifnull(fallback_inbound_item_summary.inbound_quantity, 0),
+                0
+            ) as sub_remain_quantity,
+            b.remark as sub_remark
+        from wms_purchase_order a
+        left join (
+            select purchase_order_id, sum(quantity) as total_quantity
+            from wms_purchase_order_item
+            group by purchase_order_id
+        ) item_summary on item_summary.purchase_order_id = a.purchase_order_id
+        left join (
+            select purchase_order_id,
+                   count(1) as inbound_count,
+                   sum(total_qty) as inbound_quantity
+            from wms_inbound
+            where status = 'audited'
+            group by purchase_order_id
+        ) inbound_summary on inbound_summary.purchase_order_id = a.purchase_order_id
+        left join wms_purchase_order_item b on b.purchase_order_id = a.purchase_order_id
+        left join (
+            select inbound.purchase_order_id,
+                   inbound_item.purchase_order_item_id,
+                   sum(inbound_item.quantity) as inbound_quantity
+            from wms_inbound_item inbound_item
+            join wms_inbound inbound on inbound.inbound_id = inbound_item.inbound_id
+            where inbound.status = 'audited'
+              and inbound_item.purchase_order_item_id is not null
+            group by inbound.purchase_order_id, inbound_item.purchase_order_item_id
+        ) linked_inbound_item_summary
+            on linked_inbound_item_summary.purchase_order_id = a.purchase_order_id
+           and linked_inbound_item_summary.purchase_order_item_id = b.purchase_order_item_id
+        left join (
+            select inbound.purchase_order_id,
+                   inbound_item.product_id,
+                   sum(inbound_item.quantity) as inbound_quantity
+            from wms_inbound_item inbound_item
+            join wms_inbound inbound on inbound.inbound_id = inbound_item.inbound_id
+            where inbound.status = 'audited'
+              and inbound_item.purchase_order_item_id is null
+            group by inbound.purchase_order_id, inbound_item.product_id
+        ) fallback_inbound_item_summary
+            on fallback_inbound_item_summary.purchase_order_id = a.purchase_order_id
+           and fallback_inbound_item_summary.product_id = b.product_id
+        where a.purchase_order_id = #{purchaseOrderId}
+    </select>
+        
+    <insert id="insertWmsPurchaseOrder" parameterType="WmsPurchaseOrder" useGeneratedKeys="true" keyProperty="purchaseOrderId">
+        insert into wms_purchase_order
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="orderNo != null and orderNo != ''">order_no,</if>
+            <if test="supplierId != null">supplier_id,</if>
+            <if test="purchaseDate != null">purchase_date,</if>
+            <if test="totalAmount != null">total_amount,</if>
+            <if test="status != null">status,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="orderNo != null and orderNo != ''">#{orderNo},</if>
+            <if test="supplierId != null">#{supplierId},</if>
+            <if test="purchaseDate != null">#{purchaseDate},</if>
+            <if test="totalAmount != null">#{totalAmount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateWmsPurchaseOrder" parameterType="WmsPurchaseOrder">
+        update wms_purchase_order
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="orderNo != null and orderNo != ''">order_no = #{orderNo},</if>
+            <if test="supplierId != null">supplier_id = #{supplierId},</if>
+            <if test="purchaseDate != null">purchase_date = #{purchaseDate},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where purchase_order_id = #{purchaseOrderId}
+    </update>
+
+    <update id="updateWmsPurchaseOrderStatus">
+        update wms_purchase_order
+        set status = #{newStatus},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where purchase_order_id = #{purchaseOrderId}
+          and status = #{oldStatus}
+    </update>
+
+    <update id="updateWmsPurchaseOrderInboundStatus">
+        update wms_purchase_order
+        set status = #{newStatus},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where purchase_order_id = #{purchaseOrderId}
+          and status in ('1', '2', '3')
+    </update>
+
+    <delete id="deleteWmsPurchaseOrderByPurchaseOrderId" parameterType="Long">
+        delete from wms_purchase_order where purchase_order_id = #{purchaseOrderId}
+    </delete>
+
+    <delete id="deleteWmsPurchaseOrderByPurchaseOrderIds" parameterType="String">
+        delete from wms_purchase_order where purchase_order_id in 
+        <foreach item="purchaseOrderId" collection="array" open="(" separator="," close=")">
+            #{purchaseOrderId}
+        </foreach>
+    </delete>
+    
+    <delete id="deleteWmsPurchaseOrderItemByPurchaseOrderIds" parameterType="String">
+        delete from wms_purchase_order_item where purchase_order_id in 
+        <foreach item="purchaseOrderId" collection="array" open="(" separator="," close=")">
+            #{purchaseOrderId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteWmsPurchaseOrderItemByPurchaseOrderId" parameterType="Long">
+        delete from wms_purchase_order_item where purchase_order_id = #{purchaseOrderId}
+    </delete>
+
+    <insert id="batchWmsPurchaseOrderItem">
+        insert into wms_purchase_order_item( purchase_order_item_id, purchase_order_id, product_id, quantity, price, amount, remark) values
+        <foreach item="item" index="index" collection="list" separator=",">
+            ( #{item.purchaseOrderItemId}, #{item.purchaseOrderId}, #{item.productId}, #{item.quantity}, #{item.price}, #{item.amount}, #{item.remark})
+        </foreach>
+    </insert>
+</mapper>

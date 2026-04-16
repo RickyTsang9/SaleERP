@@ -74,6 +74,30 @@ public class WmsPurchaseReturnController extends BaseController
         return toAjax(wmsPurchaseReturnService.updateWmsPurchaseReturn(wmsPurchaseReturn));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:edit')")
+    @Log(title = "采购退货单", businessType = BusinessType.UPDATE)
+    @PostMapping("/submit/{purchaseReturnId}")
+    public AjaxResult submit(@PathVariable Long purchaseReturnId)
+    {
+        return toAjax(wmsPurchaseReturnService.submitWmsPurchaseReturn(purchaseReturnId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:audit')")
+    @Log(title = "采购退货单", businessType = BusinessType.UPDATE)
+    @PostMapping("/audit/{purchaseReturnId}")
+    public AjaxResult audit(@PathVariable Long purchaseReturnId)
+    {
+        return toAjax(wmsPurchaseReturnService.auditWmsPurchaseReturn(purchaseReturnId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:edit')")
+    @Log(title = "采购退货单", businessType = BusinessType.UPDATE)
+    @PostMapping("/cancel/{purchaseReturnId}")
+    public AjaxResult cancel(@PathVariable Long purchaseReturnId)
+    {
+        return toAjax(wmsPurchaseReturnService.cancelWmsPurchaseReturn(purchaseReturnId));
+    }
+
     @PreAuthorize("@ss.hasPermi('business:purchaseReturn:remove')")
     @Log(title = "采购退货单", businessType = BusinessType.DELETE)
     @DeleteMapping("/{purchaseReturnIds}")

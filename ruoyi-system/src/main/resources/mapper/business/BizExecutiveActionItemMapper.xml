@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.BizExecutiveActionItemMapper">
+
+    <resultMap type="BizExecutiveActionItem" id="BizExecutiveActionItemResult">
+        <id     property="actionItemId"       column="action_item_id"       />
+        <result property="briefId"            column="brief_id"             />
+        <result property="briefTitleSnapshot" column="brief_title_snapshot" />
+        <result property="actionTitle"        column="action_title"         />
+        <result property="ownerName"          column="owner_name"           />
+        <result property="dueDate"            column="due_date"             />
+        <result property="actionStatus"       column="action_status"        />
+        <result property="priorityLevel"      column="priority_level"       />
+        <result property="progressRemark"     column="progress_remark"      />
+        <result property="completedTime"      column="completed_time"       />
+        <result property="createBy"           column="create_by"            />
+        <result property="createTime"         column="create_time"          />
+        <result property="updateBy"           column="update_by"            />
+        <result property="updateTime"         column="update_time"          />
+        <result property="remark"             column="remark"               />
+    </resultMap>
+
+    <sql id="selectBizExecutiveActionItemVo">
+        select action_item_id, brief_id, brief_title_snapshot, action_title, owner_name, due_date, action_status,
+               priority_level, progress_remark, completed_time, create_by, create_time, update_by, update_time, remark
+        from biz_executive_action_item
+    </sql>
+
+    <select id="selectBizExecutiveActionItemByActionItemId" parameterType="Long" resultMap="BizExecutiveActionItemResult">
+        <include refid="selectBizExecutiveActionItemVo"/>
+        where action_item_id = #{actionItemId}
+    </select>
+
+    <select id="selectBizExecutiveActionItemList" parameterType="BizExecutiveActionItem" resultMap="BizExecutiveActionItemResult">
+        <include refid="selectBizExecutiveActionItemVo"/>
+        <where>
+            <if test="briefId != null">
+                and brief_id = #{briefId}
+            </if>
+            <if test="actionTitle != null and actionTitle != ''">
+                and action_title like concat('%', #{actionTitle}, '%')
+            </if>
+            <if test="ownerName != null and ownerName != ''">
+                and owner_name like concat('%', #{ownerName}, '%')
+            </if>
+            <if test="actionStatus != null and actionStatus != ''">
+                and action_status = #{actionStatus}
+            </if>
+            <if test="priorityLevel != null and priorityLevel != ''">
+                and priority_level = #{priorityLevel}
+            </if>
+        </where>
+        order by
+            case action_status
+                when 'todo' then 0
+                when 'in_progress' then 1
+                when 'completed' then 2
+                else 3
+            end,
+            due_date asc,
+            action_item_id desc
+    </select>
+
+    <insert id="insertBizExecutiveActionItem" parameterType="BizExecutiveActionItem" useGeneratedKeys="true" keyProperty="actionItemId">
+        insert into biz_executive_action_item
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="briefId != null">brief_id,</if>
+            <if test="briefTitleSnapshot != null and briefTitleSnapshot != ''">brief_title_snapshot,</if>
+            <if test="actionTitle != null and actionTitle != ''">action_title,</if>
+            <if test="ownerName != null and ownerName != ''">owner_name,</if>
+            <if test="dueDate != null">due_date,</if>
+            <if test="actionStatus != null and actionStatus != ''">action_status,</if>
+            <if test="priorityLevel != null and priorityLevel != ''">priority_level,</if>
+            <if test="progressRemark != null and progressRemark != ''">progress_remark,</if>
+            <if test="completedTime != null">completed_time,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="briefId != null">#{briefId},</if>
+            <if test="briefTitleSnapshot != null and briefTitleSnapshot != ''">#{briefTitleSnapshot},</if>
+            <if test="actionTitle != null and actionTitle != ''">#{actionTitle},</if>
+            <if test="ownerName != null and ownerName != ''">#{ownerName},</if>
+            <if test="dueDate != null">#{dueDate},</if>
+            <if test="actionStatus != null and actionStatus != ''">#{actionStatus},</if>
+            <if test="priorityLevel != null and priorityLevel != ''">#{priorityLevel},</if>
+            <if test="progressRemark != null and progressRemark != ''">#{progressRemark},</if>
+            <if test="completedTime != null">#{completedTime},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateBizExecutiveActionItem" parameterType="BizExecutiveActionItem">
+        update biz_executive_action_item
+        set brief_id = #{briefId},
+            brief_title_snapshot = #{briefTitleSnapshot},
+            action_title = #{actionTitle},
+            owner_name = #{ownerName},
+            due_date = #{dueDate},
+            action_status = #{actionStatus},
+            priority_level = #{priorityLevel},
+            progress_remark = #{progressRemark},
+            completed_time = #{completedTime},
+            update_by = #{updateBy},
+            update_time = sysdate(),
+            remark = #{remark}
+        where action_item_id = #{actionItemId}
+    </update>
+
+    <delete id="deleteBizExecutiveActionItemByActionItemIds" parameterType="String">
+        delete from biz_executive_action_item
+        where action_item_id in
+        <foreach item="actionItemId" collection="array" open="(" separator="," close=")">
+            #{actionItemId}
+        </foreach>
+    </delete>
+</mapper>

@@ -13,6 +13,12 @@ public interface IWmsPurchaseReturnService
 
     public int updateWmsPurchaseReturn(WmsPurchaseReturn wmsPurchaseReturn);
 
+    public int submitWmsPurchaseReturn(Long purchaseReturnId);
+
+    public int auditWmsPurchaseReturn(Long purchaseReturnId);
+
+    public int cancelWmsPurchaseReturn(Long purchaseReturnId);
+
     public int deleteWmsPurchaseReturnById(Long purchaseReturnId);
 
     public int deleteWmsPurchaseReturnByIds(Long[] purchaseReturnIds);

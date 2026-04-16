@@ -26,8 +26,34 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         left join sys_user su on su.user_name = fr.create_by
     </sql>
 
+    <sql id="selectFinReceiptLegacyVo">
+        select fr.receipt_id, fr.receivable_id, fr.sale_order_id, fr.customer_id, fr.amount,
+               fr.receipt_date as payment_time, null as payment_method,
+               fr.create_by, fr.create_time, fr.update_by, fr.update_time, fr.remark
+        from fin_receipt fr
+        left join sys_user su on su.user_name = fr.create_by
+    </sql>
+
+    <sql id="selectFinReceiptWithoutMethodVo">
+        select fr.receipt_id, fr.receivable_id, fr.sale_order_id, fr.customer_id, fr.amount,
+               fr.payment_time as payment_time, null as payment_method,
+               fr.create_by, fr.create_time, fr.update_by, fr.update_time, fr.remark
+        from fin_receipt fr
+        left join sys_user su on su.user_name = fr.create_by
+    </sql>
+
     <select id="selectFinReceiptById" parameterType="Long" resultMap="FinReceiptResult">
         <include refid="selectFinReceiptVo"/>
+        where fr.receipt_id = #{receiptId}
+    </select>
+
+    <select id="selectFinReceiptByIdLegacy" parameterType="Long" resultMap="FinReceiptResult">
+        <include refid="selectFinReceiptLegacyVo"/>
+        where fr.receipt_id = #{receiptId}
+    </select>
+
+    <select id="selectFinReceiptByIdWithoutMethod" parameterType="Long" resultMap="FinReceiptResult">
+        <include refid="selectFinReceiptWithoutMethodVo"/>
         where fr.receipt_id = #{receiptId}
     </select>
 
@@ -45,6 +71,52 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             </if>
             <if test="paymentMethod != null and paymentMethod != ''">
                 and fr.payment_method = #{paymentMethod}
+            </if>
+            <if test="params.beginPaymentTime != null and params.beginPaymentTime != ''">
+                and fr.payment_time &gt;= #{params.beginPaymentTime}
+            </if>
+            <if test="params.endPaymentTime != null and params.endPaymentTime != ''">
+                and fr.payment_time &lt;= #{params.endPaymentTime}
+            </if>
+            ${params.dataScope}
+        </where>
+        order by fr.receipt_id desc
+    </select>
+
+    <select id="selectFinReceiptListLegacy" parameterType="FinReceipt" resultMap="FinReceiptResult">
+        <include refid="selectFinReceiptLegacyVo"/>
+        <where>
+            <if test="receivableId != null">
+                and fr.receivable_id = #{receivableId}
+            </if>
+            <if test="saleOrderId != null">
+                and fr.sale_order_id = #{saleOrderId}
+            </if>
+            <if test="customerId != null">
+                and fr.customer_id = #{customerId}
+            </if>
+            <if test="params.beginPaymentTime != null and params.beginPaymentTime != ''">
+                and fr.receipt_date &gt;= #{params.beginPaymentTime}
+            </if>
+            <if test="params.endPaymentTime != null and params.endPaymentTime != ''">
+                and fr.receipt_date &lt;= #{params.endPaymentTime}
+            </if>
+            ${params.dataScope}
+        </where>
+        order by fr.receipt_id desc
+    </select>
+
+    <select id="selectFinReceiptListWithoutMethod" parameterType="FinReceipt" resultMap="FinReceiptResult">
+        <include refid="selectFinReceiptWithoutMethodVo"/>
+        <where>
+            <if test="receivableId != null">
+                and fr.receivable_id = #{receivableId}
+            </if>
+            <if test="saleOrderId != null">
+                and fr.sale_order_id = #{saleOrderId}
+            </if>
+            <if test="customerId != null">
+                and fr.customer_id = #{customerId}
             </if>
             <if test="params.beginPaymentTime != null and params.beginPaymentTime != ''">
                 and fr.payment_time &gt;= #{params.beginPaymentTime}
@@ -77,6 +149,54 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="amount != null">#{amount},</if>
             <if test="paymentTime != null">#{paymentTime},</if>
             <if test="paymentMethod != null and paymentMethod != ''">#{paymentMethod},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <insert id="insertFinReceiptLegacy" parameterType="FinReceipt" useGeneratedKeys="true" keyProperty="receiptId">
+        insert into fin_receipt
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="receivableId != null">receivable_id,</if>
+            <if test="saleOrderId != null">sale_order_id,</if>
+            <if test="customerId != null">customer_id,</if>
+            <if test="amount != null">amount,</if>
+            <if test="paymentTime != null">receipt_date,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="receivableId != null">#{receivableId},</if>
+            <if test="saleOrderId != null">#{saleOrderId},</if>
+            <if test="customerId != null">#{customerId},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="paymentTime != null">#{paymentTime},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            sysdate(),
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <insert id="insertFinReceiptWithoutMethod" parameterType="FinReceipt" useGeneratedKeys="true" keyProperty="receiptId">
+        insert into fin_receipt
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="receivableId != null">receivable_id,</if>
+            <if test="saleOrderId != null">sale_order_id,</if>
+            <if test="customerId != null">customer_id,</if>
+            <if test="amount != null">amount,</if>
+            <if test="paymentTime != null">payment_time,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            create_time,
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="receivableId != null">#{receivableId},</if>
+            <if test="saleOrderId != null">#{saleOrderId},</if>
+            <if test="customerId != null">#{customerId},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="paymentTime != null">#{paymentTime},</if>
             <if test="createBy != null and createBy != ''">#{createBy},</if>
             sysdate(),
             <if test="remark != null">#{remark},</if>

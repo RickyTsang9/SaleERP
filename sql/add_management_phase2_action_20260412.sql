@@ -1,0 +1,20 @@
+create table if not exists biz_executive_action_item (
+    action_item_id bigint(20) not null auto_increment comment '事项id',
+    brief_id bigint(20) default null comment '简报id',
+    brief_title_snapshot varchar(100) default null comment '简报标题快照',
+    action_title varchar(255) not null comment '决议事项',
+    owner_name varchar(64) default '' comment '负责人',
+    due_date datetime default null comment '到期日期',
+    action_status varchar(20) not null default 'todo' comment '事项状态',
+    priority_level varchar(20) not null default 'medium' comment '优先级',
+    progress_remark varchar(500) default null comment '进度备注',
+    completed_time datetime default null comment '完成时间',
+    remark varchar(500) default null comment '备注',
+    create_by varchar(64) default '' comment '创建者',
+    create_time datetime default null comment '创建时间',
+    update_by varchar(64) default '' comment '更新者',
+    update_time datetime default null comment '更新时间',
+    primary key (action_item_id),
+    key idx_action_status_due_date (action_status, due_date),
+    key idx_brief_id (brief_id)
+) engine=innodb auto_increment=1 comment='管理层经营决议事项';

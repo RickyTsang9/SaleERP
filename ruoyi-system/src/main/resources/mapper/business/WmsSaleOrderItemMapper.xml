@@ -13,11 +13,58 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="quantity"        column="quantity" />
         <result property="price"           column="price" />
         <result property="amount"          column="amount" />
+        <result property="outboundQuantity" column="outbound_quantity" />
+        <result property="remainQuantity"   column="remain_quantity" />
     </resultMap>
 
     <sql id="selectWmsSaleOrderItemVo">
-        select sale_order_item_id, sale_order_id, product_id, location_id, batch_no, quantity, price, amount
-        from wms_sale_order_item
+        select item.sale_order_item_id, item.sale_order_id, item.product_id, item.location_id, item.batch_no, item.quantity, item.price, item.amount,
+               ifnull((
+                   select sum(outbound_item.quantity)
+                   from wms_outbound outbound
+                   left join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
+                   where outbound.status = 'audited'
+                     and (
+                         outbound.sale_order_id = item.sale_order_id
+                         or (
+                             outbound.sale_order_id is null
+                             and outbound.source_order_no = (
+                                 select sale_order.order_no
+                                 from wms_sale_order sale_order
+                                 where sale_order.sale_order_id = item.sale_order_id
+                             )
+                         )
+                     )
+                     and (
+                         outbound_item.sale_order_item_id = item.sale_order_item_id
+                         or (outbound_item.sale_order_item_id is null and outbound_item.product_id = item.product_id)
+                     )
+               ), 0) as outbound_quantity,
+               greatest(
+                   ifnull(item.quantity, 0) - ifnull((
+                       select sum(outbound_item.quantity)
+                       from wms_outbound outbound
+                       left join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
+                       where outbound.status = 'audited'
+                         and (
+                             outbound.sale_order_id = item.sale_order_id
+                             or (
+                                 outbound.sale_order_id is null
+                                 and outbound.source_order_no = (
+                                     select sale_order.order_no
+                                     from wms_sale_order sale_order
+                                     where sale_order.sale_order_id = item.sale_order_id
+                                 )
+                             )
+                         )
+                         and (
+                             outbound_item.sale_order_item_id = item.sale_order_item_id
+                             or (outbound_item.sale_order_item_id is null and outbound_item.product_id = item.product_id)
+                         )
+                   ), 0),
+                   0
+               ) as remain_quantity
+        from wms_sale_order_item item
     </sql>
 
     <select id="selectWmsSaleOrderItemById" parameterType="Long" resultMap="WmsSaleOrderItemResult">
@@ -29,19 +76,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <include refid="selectWmsSaleOrderItemVo"/>
         <where>
             <if test="saleOrderId != null">
-                and sale_order_id = #{saleOrderId}
+                and item.sale_order_id = #{saleOrderId}
             </if>
             <if test="productId != null">
-                and product_id = #{productId}
+                and item.product_id = #{productId}
             </if>
         </where>
-        order by sale_order_item_id desc
+        order by item.sale_order_item_id desc
     </select>
 
     <select id="selectWmsSaleOrderItemsByOrderId" parameterType="Long" resultMap="WmsSaleOrderItemResult">
         <include refid="selectWmsSaleOrderItemVo"/>
-        where sale_order_id = #{saleOrderId}
-        order by sale_order_item_id asc
+        where item.sale_order_id = #{saleOrderId}
+        order by item.sale_order_item_id asc
     </select>
 
     <insert id="insertWmsSaleOrderItem" parameterType="WmsSaleOrderItem" useGeneratedKeys="true" keyProperty="saleOrderItemId">

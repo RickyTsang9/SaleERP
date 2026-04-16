@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.FinPayableMapper">
+    
+    <resultMap type="FinPayable" id="FinPayableResult">
+        <result property="payableId"    column="payable_id"    />
+        <result property="purchaseOrderId"    column="purchase_order_id"    />
+        <result property="purchaseOrderNo"    column="purchase_order_no"    />
+        <result property="supplierId"    column="supplier_id"    />
+        <result property="amountDue"    column="amount_due"    />
+        <result property="amountPaid"    column="amount_paid"    />
+        <result property="remainAmount"    column="remain_amount"    />
+        <result property="status"    column="status"    />
+        <result property="dueDate"    column="due_date"    />
+        <result property="overdueDays"    column="overdue_days"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectFinPayableVo">
+        select fin_payable.payable_id, fin_payable.purchase_order_id,
+               purchase_order.order_no as purchase_order_no,
+               fin_payable.supplier_id, fin_payable.amount_due, fin_payable.amount_paid, fin_payable.remain_amount,
+               fin_payable.status, fin_payable.due_date, fin_payable.overdue_days, fin_payable.remark,
+               fin_payable.create_by, fin_payable.create_time, fin_payable.update_by, fin_payable.update_time
+        from fin_payable
+        left join wms_purchase_order purchase_order on purchase_order.purchase_order_id = fin_payable.purchase_order_id
+    </sql>
+
+    <select id="selectFinPayableList" parameterType="FinPayable" resultMap="FinPayableResult">
+        <include refid="selectFinPayableVo"/>
+        <where>  
+            <if test="purchaseOrderId != null "> and fin_payable.purchase_order_id = #{purchaseOrderId}</if>
+            <if test="purchaseOrderNo != null and purchaseOrderNo != ''">
+                and purchase_order.order_no like concat('%', #{purchaseOrderNo}, '%')
+            </if>
+            <if test="supplierId != null "> and fin_payable.supplier_id = #{supplierId}</if>
+            <if test="status != null  and status != ''"> and fin_payable.status = #{status}</if>
+        </where>
+    </select>
+
+    <select id="selectFinPayableByPurchaseOrderId" parameterType="Long" resultMap="FinPayableResult">
+        <include refid="selectFinPayableVo"/>
+        where fin_payable.purchase_order_id = #{purchaseOrderId}
+        limit 1
+    </select>
+
+    <select id="selectPendingFinPayableListBySupplierId" parameterType="Long" resultMap="FinPayableResult">
+        <include refid="selectFinPayableVo"/>
+        where fin_payable.supplier_id = #{supplierId}
+          and fin_payable.status in ('0', '1')
+          and fin_payable.amount_due - ifnull(fin_payable.amount_paid, 0) > 0
+        order by fin_payable.payable_id desc
+    </select>
+    
+    <select id="selectFinPayableByPayableId" parameterType="Long" resultMap="FinPayableResult">
+        <include refid="selectFinPayableVo"/>
+        where fin_payable.payable_id = #{payableId}
+    </select>
+        
+    <insert id="insertFinPayable" parameterType="FinPayable" useGeneratedKeys="true" keyProperty="payableId">
+        insert into fin_payable
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="purchaseOrderId != null">purchase_order_id,</if>
+            <if test="supplierId != null">supplier_id,</if>
+            <if test="amountDue != null">amount_due,</if>
+            <if test="amountPaid != null">amount_paid,</if>
+            <if test="remainAmount != null">remain_amount,</if>
+            <if test="status != null">status,</if>
+            <if test="dueDate != null">due_date,</if>
+            <if test="overdueDays != null">overdue_days,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="purchaseOrderId != null">#{purchaseOrderId},</if>
+            <if test="supplierId != null">#{supplierId},</if>
+            <if test="amountDue != null">#{amountDue},</if>
+            <if test="amountPaid != null">#{amountPaid},</if>
+            <if test="remainAmount != null">#{remainAmount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="dueDate != null">#{dueDate},</if>
+            <if test="overdueDays != null">#{overdueDays},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateFinPayable" parameterType="FinPayable">
+        update fin_payable
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="purchaseOrderId != null">purchase_order_id = #{purchaseOrderId},</if>
+            <if test="supplierId != null">supplier_id = #{supplierId},</if>
+            <if test="amountDue != null">amount_due = #{amountDue},</if>
+            <if test="amountPaid != null">amount_paid = #{amountPaid},</if>
+            <if test="remainAmount != null">remain_amount = #{remainAmount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="dueDate != null">due_date = #{dueDate},</if>
+            <if test="overdueDays != null">overdue_days = #{overdueDays},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where payable_id = #{payableId}
+    </update>
+
+    <update id="updateFinPayableAdjustInfo" parameterType="FinPayable">
+        update fin_payable
+        set due_date = #{dueDate},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where payable_id = #{payableId}
+    </update>
+
+    <delete id="deleteFinPayableByPayableId" parameterType="Long">
+        delete from fin_payable where payable_id = #{payableId}
+    </delete>
+
+    <delete id="deleteFinPayableByPayableIds" parameterType="String">
+        delete from fin_payable where payable_id in 
+        <foreach item="payableId" collection="array" open="(" separator="," close=")">
+            #{payableId}
+        </foreach>
+    </delete>
+</mapper>

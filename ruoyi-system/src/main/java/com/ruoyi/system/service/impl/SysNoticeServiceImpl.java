@@ -43,6 +43,19 @@ public class SysNoticeServiceImpl implements ISysNoticeService
     }
 
     /**
+     * 根据公告标题判断公告是否存在
+     * 
+     * @param noticeTitle 公告标题
+     * @return 是否存在
+     */
+    @Override
+    public boolean existsNoticeByTitle(String noticeTitle)
+    {
+        SysNotice existingNotice = noticeMapper.selectNoticeByTitle(noticeTitle);
+        return existingNotice != null;
+    }
+
+    /**
      * 新增公告
      * 
      * @param notice 公告信息

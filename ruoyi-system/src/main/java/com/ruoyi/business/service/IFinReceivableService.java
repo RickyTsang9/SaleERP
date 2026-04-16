@@ -15,11 +15,23 @@ public interface IFinReceivableService
 
     public List<FinReceivable> selectFinReceivableOverdueList();
 
+    /**
+     * 手工新增应收台账
+     */
     public int insertFinReceivable(FinReceivable finReceivable);
 
+    /**
+     * 调整应收台账
+     */
     public int updateFinReceivable(FinReceivable finReceivable);
 
+    /**
+     * 删除单条应收台账
+     */
     public int deleteFinReceivableById(Long receivableId);
 
+    /**
+     * 批量删除应收台账
+     */
     public int deleteFinReceivableByIds(Long[] receivableIds);
 }

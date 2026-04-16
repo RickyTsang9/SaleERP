@@ -9,6 +9,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="outboundNo"  column="outbound_no"  />
         <result property="outboundType" column="outbound_type" />
         <result property="customerId"  column="customer_id"  />
+        <result property="saleOrderId"  column="sale_order_id"  />
+        <result property="saleOrderNo"  column="sale_order_no"  />
         <result property="warehouseId" column="warehouse_id" />
         <result property="totalQty"    column="total_qty"    />
         <result property="totalAmount" column="total_amount" />
@@ -30,7 +32,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsOutboundVo">
-        select outbound_id, outbound_no, outbound_type, customer_id, warehouse_id, total_qty, total_amount,
+        select outbound_id, outbound_no, outbound_type, customer_id, sale_order_id, sale_order_no, warehouse_id, total_qty, total_amount,
                status, audit_by, audit_time, platform_type, store_id, source_order_no, carrier, waybill_no,
                freight_cost, delivery_status, create_by, create_time, update_by, update_time, remark
         from wms_outbound
@@ -53,13 +55,56 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="customerId != null">
                 and customer_id = #{customerId}
             </if>
+            <if test="saleOrderId != null">
+                and sale_order_id = #{saleOrderId}
+            </if>
+            <if test="saleOrderNo != null and saleOrderNo != ''">
+                and sale_order_no like concat('%', #{saleOrderNo}, '%')
+            </if>
             <if test="warehouseId != null">
                 and warehouse_id = #{warehouseId}
             </if>
             <if test="status != null and status != ''">
                 and status = #{status}
             </if>
+            <if test="sourceOrderNo != null and sourceOrderNo != ''">
+                and source_order_no = #{sourceOrderNo}
+            </if>
         </where>
+    </select>
+
+    <select id="selectPendingLinkedOutboundCountBySaleOrderId" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where sale_order_id = #{saleOrderId}
+          and status in ('draft', 'submitted')
+        <if test="currentOutboundId != null">
+          and outbound_id != #{currentOutboundId}
+        </if>
+    </select>
+
+    <select id="selectPendingLinkedOutboundCountBySourceOrderNo" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where source_order_no = #{sourceOrderNo}
+          and status in ('draft', 'submitted')
+        <if test="currentOutboundId != null">
+          and outbound_id != #{currentOutboundId}
+        </if>
+    </select>
+
+    <select id="selectActiveOutboundCountBySaleOrderId" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where sale_order_id = #{saleOrderId}
+          and status in ('draft', 'submitted', 'audited')
+    </select>
+
+    <select id="selectActiveOutboundCountBySourceOrderNo" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where source_order_no = #{sourceOrderNo}
+          and status in ('draft', 'submitted', 'audited')
     </select>
 
     <insert id="insertWmsOutbound" parameterType="WmsOutbound" useGeneratedKeys="true" keyProperty="outboundId">
@@ -68,6 +113,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="outboundNo != null and outboundNo != ''">outbound_no,</if>
             <if test="outboundType != null">outbound_type,</if>
             <if test="customerId != null">customer_id,</if>
+            <if test="saleOrderId != null">sale_order_id,</if>
+            <if test="saleOrderNo != null and saleOrderNo != ''">sale_order_no,</if>
             <if test="warehouseId != null">warehouse_id,</if>
             <if test="totalQty != null">total_qty,</if>
             <if test="totalAmount != null">total_amount,</if>
@@ -90,6 +137,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="outboundNo != null and outboundNo != ''">#{outboundNo},</if>
             <if test="outboundType != null">#{outboundType},</if>
             <if test="customerId != null">#{customerId},</if>
+            <if test="saleOrderId != null">#{saleOrderId},</if>
+            <if test="saleOrderNo != null and saleOrderNo != ''">#{saleOrderNo},</if>
             <if test="warehouseId != null">#{warehouseId},</if>
             <if test="totalQty != null">#{totalQty},</if>
             <if test="totalAmount != null">#{totalAmount},</if>
@@ -116,6 +165,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="outboundNo != null and outboundNo != ''">outbound_no = #{outboundNo},</if>
             <if test="outboundType != null">outbound_type = #{outboundType},</if>
             <if test="customerId != null">customer_id = #{customerId},</if>
+            <if test="saleOrderId != null">sale_order_id = #{saleOrderId},</if>
+            <if test="saleOrderNo != null and saleOrderNo != ''">sale_order_no = #{saleOrderNo},</if>
             <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
             <if test="totalQty != null">total_qty = #{totalQty},</if>
             <if test="totalAmount != null">total_amount = #{totalAmount},</if>
@@ -157,5 +208,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             total_amount = ifnull((select sum(amount) from wms_outbound_item where outbound_id = #{outboundId}), 0),
             update_time = sysdate()
         where outbound_id = #{outboundId}
+    </update>
+
+    <update id="updateWmsOutboundStatus">
+        update wms_outbound
+        set status = #{newStatus},
+            audit_by = #{auditBy},
+            audit_time = case when #{auditBy} is not null and #{auditBy} != '' then sysdate() else null end,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where outbound_id = #{outboundId}
+          and status = #{oldStatus}
     </update>
 </mapper>

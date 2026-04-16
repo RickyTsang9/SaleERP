@@ -2,7 +2,10 @@ package com.ruoyi.business.service.impl;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.business.domain.FinReceivable;
@@ -17,6 +20,21 @@ import com.ruoyi.common.exception.ServiceException;
 @Service
 public class FinReceiptServiceImpl implements IFinReceiptService
 {
+    /** 回款登记表名称 */
+    private static final String FIN_RECEIPT_TABLE_NAME = "fin_receipt";
+
+    /** 回款时间字段名称 */
+    private static final String FIN_RECEIPT_PAYMENT_TIME_COLUMN_NAME = "payment_time";
+
+    /** 旧版回款日期字段名称 */
+    private static final String FIN_RECEIPT_RECEIPT_DATE_COLUMN_NAME = "receipt_date";
+
+    /** 回款方式字段名称 */
+    private static final String FIN_RECEIPT_PAYMENT_METHOD_COLUMN_NAME = "payment_method";
+
+    /** 已确认存在的回款字段缓存 */
+    private final Map<String, Boolean> finReceiptExistingColumnMap = new ConcurrentHashMap<String, Boolean>();
+
     @Autowired
     private FinReceiptMapper finReceiptMapper;
 
@@ -26,9 +44,22 @@ public class FinReceiptServiceImpl implements IFinReceiptService
     @Autowired
     private WmsSaleOrderMapper wmsSaleOrderMapper;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @Override
     public FinReceipt selectFinReceiptById(Long receiptId)
     {
+        // 兼容现网仍使用 receipt_date 的旧版回款表结构，避免回款查询直接报错。
+        if (useLegacyDateFinReceiptSchema())
+        {
+            return finReceiptMapper.selectFinReceiptByIdLegacy(receiptId);
+        }
+        // 兼容仅缺少回款方式字段的半升级结构，避免字段不一致导致查询失败。
+        if (useWithoutMethodFinReceiptSchema())
+        {
+            return finReceiptMapper.selectFinReceiptByIdWithoutMethod(receiptId);
+        }
         return finReceiptMapper.selectFinReceiptById(receiptId);
     }
 
@@ -36,6 +67,16 @@ public class FinReceiptServiceImpl implements IFinReceiptService
     @DataScope(deptAlias = "su", userAlias = "su", permission = "business:receipt:list")
     public List<FinReceipt> selectFinReceiptList(FinReceipt finReceipt)
     {
+        // 回款流水查询优先兼容旧版字段结构，保证老库也能正常打开回款页面。
+        if (useLegacyDateFinReceiptSchema())
+        {
+            return finReceiptMapper.selectFinReceiptListLegacy(finReceipt);
+        }
+        // 兼容仅缺少回款方式字段的老数据结构，确保流水查询可正常分页展示。
+        if (useWithoutMethodFinReceiptSchema())
+        {
+            return finReceiptMapper.selectFinReceiptListWithoutMethod(finReceipt);
+        }
         return finReceiptMapper.selectFinReceiptList(finReceipt);
     }
 
@@ -74,6 +115,16 @@ public class FinReceiptServiceImpl implements IFinReceiptService
             saleOrderPaymentStatus = "paid";
         }
         wmsSaleOrderMapper.updateWmsSaleOrderPaymentStatus(finReceivable.getSaleOrderId(), saleOrderPaymentStatus);
+        // 老版本 fin_receipt 表只保留回款日期，不具备回款方式字段时走兼容写入。
+        if (useLegacyDateFinReceiptSchema())
+        {
+            return finReceiptMapper.insertFinReceiptLegacy(finReceipt);
+        }
+        // 兼容仅缺少回款方式字段的半升级结构，避免登记回款时写入失败。
+        if (useWithoutMethodFinReceiptSchema())
+        {
+            return finReceiptMapper.insertFinReceiptWithoutMethod(finReceipt);
+        }
         return finReceiptMapper.insertFinReceipt(finReceipt);
     }
 
@@ -93,5 +144,47 @@ public class FinReceiptServiceImpl implements IFinReceiptService
     public int deleteFinReceiptByIds(Long[] receiptIds)
     {
         throw new ServiceException("回款记录不允许删除");
+    }
+
+    /**
+     * 判断当前回款登记表是否仍为旧版结构
+     * @return 是否使用旧版结构
+     */
+    private boolean useLegacyDateFinReceiptSchema()
+    {
+        return !hasFinReceiptColumn(FIN_RECEIPT_PAYMENT_TIME_COLUMN_NAME)
+            && hasFinReceiptColumn(FIN_RECEIPT_RECEIPT_DATE_COLUMN_NAME);
+    }
+
+    /**
+     * 判断当前回款登记表是否缺少回款方式字段
+     * @return 是否缺少回款方式字段
+     */
+    private boolean useWithoutMethodFinReceiptSchema()
+    {
+        return hasFinReceiptColumn(FIN_RECEIPT_PAYMENT_TIME_COLUMN_NAME)
+            && !hasFinReceiptColumn(FIN_RECEIPT_PAYMENT_METHOD_COLUMN_NAME);
+    }
+
+    /**
+     * 判断回款登记表是否包含指定字段
+     * @param columnName 字段名称
+     * @return 是否包含字段
+     */
+    private boolean hasFinReceiptColumn(String columnName)
+    {
+        if (Boolean.TRUE.equals(finReceiptExistingColumnMap.get(columnName)))
+        {
+            return true;
+        }
+        String countSql =
+            "select count(1) from information_schema.columns where table_schema = (select database()) and table_name = ? and column_name = ?";
+        Integer columnCount = jdbcTemplate.queryForObject(countSql, Integer.class, FIN_RECEIPT_TABLE_NAME, columnName);
+        boolean columnExists = columnCount != null && columnCount.intValue() > 0;
+        if (columnExists)
+        {
+            finReceiptExistingColumnMap.put(columnName, Boolean.TRUE);
+        }
+        return columnExists;
     }
 }

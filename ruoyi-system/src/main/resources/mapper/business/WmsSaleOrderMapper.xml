@@ -11,6 +11,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="warehouseId"   column="warehouse_id" />
         <result property="totalQty"      column="total_qty" />
         <result property="totalAmount"   column="total_amount" />
+        <result property="receivableAmount" column="receivable_amount" />
+        <result property="receivedAmount" column="received_amount" />
+        <result property="remainReceivableAmount" column="remain_receivable_amount" />
+        <result property="outboundQuantity" column="outbound_quantity" />
+        <result property="remainQuantity" column="remain_quantity" />
         <result property="status"        column="status" />
         <result property="paymentStatus" column="payment_status" />
         <result property="auditBy"       column="audit_by" />
@@ -27,11 +32,54 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsSaleOrderVo">
-        select s.sale_order_id, s.order_no, s.customer_id, s.warehouse_id, s.total_qty, s.total_amount, s.status, s.payment_status,
+        select s.sale_order_id, s.order_no, s.customer_id, s.warehouse_id, s.total_qty, s.total_amount,
+               ifnull(receivable_summary.receivable_amount, 0) as receivable_amount,
+               ifnull(receivable_summary.received_amount, 0) as received_amount,
+               greatest(ifnull(receivable_summary.receivable_amount, 0) - ifnull(receivable_summary.received_amount, 0), 0) as remain_receivable_amount,
+               ifnull(outbound_summary_by_id.outbound_quantity, 0) + ifnull(outbound_summary_by_source.outbound_quantity, 0) as outbound_quantity,
+               greatest(
+                   ifnull(s.total_qty, 0)
+                   - ifnull(outbound_summary_by_id.outbound_quantity, 0)
+                   - ifnull(outbound_summary_by_source.outbound_quantity, 0),
+                   0
+               ) as remain_quantity,
+               s.status,
+               case
+                   when ifnull(receivable_summary.receivable_amount, 0) &lt;= 0 then ifnull(s.payment_status, 'unpaid')
+                   when greatest(ifnull(receivable_summary.receivable_amount, 0) - ifnull(receivable_summary.received_amount, 0), 0) = 0 then 'paid'
+                   when ifnull(receivable_summary.received_amount, 0) &gt; 0 then 'partial'
+                   else 'unpaid'
+               end as payment_status,
                s.audit_by, s.audit_time, s.manager_audit_by, s.manager_audit_time, s.manager_audit_comment, s.finance_audit_comment,
                s.create_by, s.create_time, s.update_by, s.update_time, s.remark
         from wms_sale_order s
-        left join sys_user su on su.user_name = s.create_by
+        left join (
+            select sale_order_id,
+                   sum(amount_due) as receivable_amount,
+                   sum(ifnull(amount_paid, 0)) as received_amount
+            from fin_receivable
+            group by sale_order_id
+        ) receivable_summary on receivable_summary.sale_order_id = s.sale_order_id
+        left join (
+            select outbound.sale_order_id,
+                   sum(outbound_item.quantity) as outbound_quantity
+            from wms_outbound outbound
+            join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
+            where outbound.status = 'audited'
+              and outbound.sale_order_id is not null
+            group by outbound.sale_order_id
+        ) outbound_summary_by_id on outbound_summary_by_id.sale_order_id = s.sale_order_id
+        left join (
+            select outbound.source_order_no,
+                   sum(outbound_item.quantity) as outbound_quantity
+            from wms_outbound outbound
+            join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
+            where outbound.status = 'audited'
+              and outbound.sale_order_id is null
+              and outbound.source_order_no is not null
+              and outbound.source_order_no != ''
+            group by outbound.source_order_no
+        ) outbound_summary_by_source on outbound_summary_by_source.source_order_no = s.order_no
     </sql>
 
     <select id="selectWmsSaleOrderById" parameterType="Long" resultMap="WmsSaleOrderResult">
@@ -57,12 +105,21 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="status != null and status != ''">
                 and s.status = #{status}
             </if>
-            <if test="paymentStatus != null and paymentStatus != ''">
-                and s.payment_status = #{paymentStatus}
-            </if>
             ${params.dataScope}
         </where>
+        <if test="paymentStatus != null and paymentStatus != ''">
+            having payment_status = #{paymentStatus}
+        </if>
         order by s.sale_order_id desc
+    </select>
+
+    <select id="selectWmsSaleOrderImportListByOrderNos" resultType="WmsSaleOrder">
+        select sale_order_id, order_no, status
+        from wms_sale_order
+        where order_no in
+        <foreach collection="list" item="orderNo" open="(" separator="," close=")">
+            #{orderNo}
+        </foreach>
     </select>
 
     <insert id="insertWmsSaleOrder" parameterType="WmsSaleOrder" useGeneratedKeys="true" keyProperty="saleOrderId">

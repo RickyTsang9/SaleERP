@@ -7,17 +7,78 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <resultMap type="WmsOutboundItem" id="WmsOutboundItemResult">
         <id     property="outboundItemId" column="outbound_item_id" />
         <result property="outboundId"     column="outbound_id"      />
+        <result property="saleOrderItemId" column="sale_order_item_id" />
         <result property="productId"      column="product_id"       />
         <result property="locationId"     column="location_id"      />
         <result property="batchNo"        column="batch_no"         />
         <result property="quantity"       column="quantity"         />
         <result property="price"          column="price"            />
         <result property="amount"         column="amount"           />
+        <result property="saleQuantity"   column="sale_quantity"    />
+        <result property="shippedQuantity" column="shipped_quantity" />
+        <result property="remainQuantity" column="remain_quantity"   />
     </resultMap>
 
     <sql id="selectWmsOutboundItemVo">
-        select outbound_item_id, outbound_id, product_id, location_id, batch_no, quantity, price, amount
-        from wms_outbound_item
+        select outbound_item.outbound_item_id, outbound_item.outbound_id, outbound_item.sale_order_item_id, outbound_item.product_id,
+               outbound_item.location_id, outbound_item.batch_no, outbound_item.quantity, outbound_item.price, outbound_item.amount,
+               case
+                   when outbound_item.sale_order_item_id is null then null
+                   else (
+                       select sale_order_item.quantity
+                       from wms_sale_order_item sale_order_item
+                       where sale_order_item.sale_order_item_id = outbound_item.sale_order_item_id
+                   )
+               end as sale_quantity,
+               case
+                   when outbound_item.sale_order_item_id is null then null
+                   else ifnull((
+                       select sum(history_item.quantity)
+                       from wms_outbound_item history_item
+                       left join wms_outbound history_outbound on history_outbound.outbound_id = history_item.outbound_id
+                       where history_outbound.status = 'audited'
+                         and (
+                             history_outbound.sale_order_id = current_outbound.sale_order_id
+                             or (
+                                 history_outbound.sale_order_id is null
+                                 and history_outbound.source_order_no = current_outbound.sale_order_no
+                             )
+                         )
+                         and (
+                             history_item.sale_order_item_id = outbound_item.sale_order_item_id
+                             or (history_item.sale_order_item_id is null and history_item.product_id = outbound_item.product_id)
+                         )
+                   ), 0)
+               end as shipped_quantity,
+               case
+                   when outbound_item.sale_order_item_id is null then null
+                   else greatest(
+                       ifnull((
+                           select sale_order_item.quantity
+                           from wms_sale_order_item sale_order_item
+                           where sale_order_item.sale_order_item_id = outbound_item.sale_order_item_id
+                       ), 0) - ifnull((
+                           select sum(history_item.quantity)
+                           from wms_outbound_item history_item
+                           left join wms_outbound history_outbound on history_outbound.outbound_id = history_item.outbound_id
+                           where history_outbound.status = 'audited'
+                             and (
+                                 history_outbound.sale_order_id = current_outbound.sale_order_id
+                                 or (
+                                     history_outbound.sale_order_id is null
+                                     and history_outbound.source_order_no = current_outbound.sale_order_no
+                                 )
+                             )
+                             and (
+                                 history_item.sale_order_item_id = outbound_item.sale_order_item_id
+                                 or (history_item.sale_order_item_id is null and history_item.product_id = outbound_item.product_id)
+                             )
+                       ), 0),
+                       0
+                   )
+               end as remain_quantity
+        from wms_outbound_item outbound_item
+        left join wms_outbound current_outbound on current_outbound.outbound_id = outbound_item.outbound_id
     </sql>
 
     <select id="selectWmsOutboundItemById" parameterType="Long" resultMap="WmsOutboundItemResult">
@@ -29,16 +90,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <include refid="selectWmsOutboundItemVo"/>
         <where>
             <if test="outboundId != null">
-                and outbound_id = #{outboundId}
+                and outbound_item.outbound_id = #{outboundId}
+            </if>
+            <if test="saleOrderItemId != null">
+                and outbound_item.sale_order_item_id = #{saleOrderItemId}
             </if>
             <if test="productId != null">
-                and product_id = #{productId}
+                and outbound_item.product_id = #{productId}
             </if>
             <if test="locationId != null">
-                and location_id = #{locationId}
+                and outbound_item.location_id = #{locationId}
             </if>
             <if test="batchNo != null and batchNo != ''">
-                and batch_no = #{batchNo}
+                and outbound_item.batch_no = #{batchNo}
             </if>
         </where>
     </select>
@@ -47,6 +111,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         insert into wms_outbound_item
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="outboundId != null">outbound_id,</if>
+            <if test="saleOrderItemId != null">sale_order_item_id,</if>
             <if test="productId != null">product_id,</if>
             <if test="locationId != null">location_id,</if>
             <if test="batchNo != null and batchNo != ''">batch_no,</if>
@@ -56,6 +121,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="outboundId != null">#{outboundId},</if>
+            <if test="saleOrderItemId != null">#{saleOrderItemId},</if>
             <if test="productId != null">#{productId},</if>
             <if test="locationId != null">#{locationId},</if>
             <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
@@ -69,6 +135,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         update wms_outbound_item
         <set>
             <if test="outboundId != null">outbound_id = #{outboundId},</if>
+            <if test="saleOrderItemId != null">sale_order_item_id = #{saleOrderItemId},</if>
             <if test="productId != null">product_id = #{productId},</if>
             <if test="locationId != null">location_id = #{locationId},</if>
             <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>

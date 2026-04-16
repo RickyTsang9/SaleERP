@@ -3,7 +3,6 @@ package com.ruoyi.business.service.impl;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -130,11 +129,8 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
         }
         for (WmsSaleReturnItem wmsSaleReturnItem : itemList)
         {
-            WmsStock stockQuery = new WmsStock();
-            stockQuery.setWarehouseId(databaseSaleReturn.getWarehouseId());
-            stockQuery.setProductId(wmsSaleReturnItem.getProductId());
-            List<WmsStock> stockList = wmsStockMapper.selectWmsStockList(stockQuery);
-            WmsStock databaseStock = stockList != null && !stockList.isEmpty() ? stockList.get(0) : null;
+            WmsStock databaseStock = wmsStockMapper.selectFirstWmsStockByWarehouseAndProduct(
+                databaseSaleReturn.getWarehouseId(), wmsSaleReturnItem.getProductId());
             BigDecimal beforeQuantity = BigDecimal.ZERO;
             BigDecimal afterQuantity;
             if (databaseStock == null)
@@ -189,6 +185,10 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
         {
             throw new ServiceException("销售退货单不存在");
         }
+        if (STATUS_CANCELLED.equals(databaseSaleReturn.getStatus()))
+        {
+            throw new ServiceException("销售退货单已作废，无需重复作废");
+        }
         if (STATUS_AUDITED.equals(databaseSaleReturn.getStatus()))
         {
             throw new ServiceException("已审核销售退货单不允许作废");
@@ -203,17 +203,52 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsSaleReturnById(Long saleReturnId)
     {
+        WmsSaleReturn databaseSaleReturn = wmsSaleReturnMapper.selectWmsSaleReturnById(saleReturnId);
+        if (databaseSaleReturn == null)
+        {
+            return 0;
+        }
+        validateSaleReturnCanBeDeleted(databaseSaleReturn, false);
         wmsSaleReturnItemMapper.deleteWmsSaleReturnItemBySaleReturnIds(new Long[] { saleReturnId });
         return wmsSaleReturnMapper.deleteWmsSaleReturnById(saleReturnId);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsSaleReturnByIds(Long[] saleReturnIds)
     {
+        for (Long saleReturnId : saleReturnIds)
+        {
+            WmsSaleReturn databaseSaleReturn = wmsSaleReturnMapper.selectWmsSaleReturnById(saleReturnId);
+            if (databaseSaleReturn == null)
+            {
+                continue;
+            }
+            validateSaleReturnCanBeDeleted(databaseSaleReturn, true);
+        }
         wmsSaleReturnItemMapper.deleteWmsSaleReturnItemBySaleReturnIds(saleReturnIds);
         return wmsSaleReturnMapper.deleteWmsSaleReturnByIds(saleReturnIds);
+    }
+
+    /**
+     * 校验销售退货单是否允许删除
+     *
+     * @param databaseSaleReturn 数据库中的销售退货单
+     * @param batchDelete 是否批量删除
+     */
+    private void validateSaleReturnCanBeDeleted(WmsSaleReturn databaseSaleReturn, boolean batchDelete)
+    {
+        if (!STATUS_DRAFT.equals(databaseSaleReturn.getStatus()))
+        {
+            if (batchDelete)
+            {
+                throw new ServiceException("仅草稿状态销售退货单允许删除，退货单号：" + databaseSaleReturn.getReturnNo());
+            }
+            throw new ServiceException("仅草稿状态销售退货单允许删除");
+        }
     }
 
     private String generateSaleReturnNo()
@@ -230,6 +265,11 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
         return noPrefix + String.format("%04d", nextSequenceValue);
     }
 
+    /**
+     * 使用销售退货金额冲减客户未结清应收台账
+     *
+     * @param databaseSaleReturn 销售退货单
+     */
     private void processReceivableOffset(WmsSaleReturn databaseSaleReturn)
     {
         if (databaseSaleReturn.getCustomerId() == null || databaseSaleReturn.getTotalAmount() == null
@@ -237,20 +277,11 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
         {
             return;
         }
-        FinReceivable receivableQuery = new FinReceivable();
-        receivableQuery.setCustomerId(databaseSaleReturn.getCustomerId());
-        List<FinReceivable> receivableList = finReceivableMapper.selectFinReceivableList(receivableQuery);
-        if (receivableList == null || receivableList.isEmpty())
+        List<FinReceivable> pendingReceivableList =
+            finReceivableMapper.selectPendingFinReceivableListByCustomerId(databaseSaleReturn.getCustomerId());
+        if (pendingReceivableList == null || pendingReceivableList.isEmpty())
         {
             return;
-        }
-        List<FinReceivable> pendingReceivableList = new ArrayList<FinReceivable>();
-        for (FinReceivable finReceivable : receivableList)
-        {
-            if ("unpaid".equals(finReceivable.getStatus()) || "partial".equals(finReceivable.getStatus()))
-            {
-                pendingReceivableList.add(finReceivable);
-            }
         }
         BigDecimal remainOffsetAmount = databaseSaleReturn.getTotalAmount();
         for (FinReceivable pendingReceivable : pendingReceivableList)

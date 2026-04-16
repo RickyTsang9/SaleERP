@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.business.domain.MdProduct;
 import com.ruoyi.business.service.IMdProductService;
 import com.ruoyi.common.annotation.Log;
@@ -45,6 +46,25 @@ public class MdProductController extends BaseController
         List<MdProduct> mdProductList = mdProductService.selectMdProductList(mdProduct);
         ExcelUtil<MdProduct> util = new ExcelUtil<MdProduct>(MdProduct.class);
         util.exportExcel(response, mdProductList, "商品资料数据");
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:product:import')")
+    @Log(title = "商品资料", businessType = BusinessType.IMPORT)
+    @PostMapping("/importData")
+    public AjaxResult importData(MultipartFile file, boolean updateSupport) throws Exception
+    {
+        ExcelUtil<MdProduct> util = new ExcelUtil<MdProduct>(MdProduct.class);
+        List<MdProduct> productList = util.importExcel(file.getInputStream());
+        String operName = getUsername();
+        String message = mdProductService.importMdProduct(productList, updateSupport, operName);
+        return success(message);
+    }
+
+    @PostMapping("/importTemplate")
+    public void importTemplate(javax.servlet.http.HttpServletResponse response)
+    {
+        ExcelUtil<MdProduct> util = new ExcelUtil<MdProduct>(MdProduct.class);
+        util.importTemplateExcel(response, "商品资料数据");
     }
 
     @PreAuthorize("@ss.hasPermi('business:product:query')")

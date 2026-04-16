@@ -11,7 +11,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import com.ruoyi.business.domain.BizDataBackup;
 import com.ruoyi.business.mapper.BizDataBackupMapper;
 import com.ruoyi.business.service.IBizDataBackupService;
@@ -21,6 +24,9 @@ import com.ruoyi.common.utils.StringUtils;
 @Service
 public class BizDataBackupServiceImpl implements IBizDataBackupService
 {
+    /** 恢复数据批次大小 */
+    private static final int RESTORE_BATCH_SIZE = 500;
+
     private static final String BACKUP_TYPE_MANUAL = "manual";
 
     private static final String BACKUP_TYPE_AUTO = "auto";
@@ -43,6 +49,9 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private PlatformTransactionManager platformTransactionManager;
 
     @Override
     public BizDataBackup selectBizDataBackupById(Long backupId)
@@ -114,13 +123,7 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
         }
         catch (Exception exception)
         {
-            BizDataBackup updateRecord = new BizDataBackup();
-            updateRecord.setBackupId(backupId);
-            updateRecord.setRestoreStatus(RESTORE_STATUS_FAILED);
-            updateRecord.setRestoreBy(operatorName);
-            updateRecord.setRestoreTime(new Date());
-            updateRecord.setUpdateBy(operatorName);
-            bizDataBackupMapper.updateBizDataBackup(updateRecord);
+            updateRestoreStatusInNewTransaction(backupId, RESTORE_STATUS_FAILED, operatorName);
             throw new ServiceException("恢复失败：" + exception.getMessage());
         }
     }
@@ -164,6 +167,34 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
         }
     }
 
+    /**
+     * 使用独立事务更新恢复状态，避免主恢复事务回滚时丢失失败标记。
+     *
+     * @param backupId 备份编号
+     * @param restoreStatus 恢复状态
+     * @param operatorName 操作人
+     */
+    private void updateRestoreStatusInNewTransaction(Long backupId, String restoreStatus, String operatorName)
+    {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(platformTransactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transactionTemplate.executeWithoutResult(transactionStatus -> {
+            BizDataBackup updateRecord = new BizDataBackup();
+            updateRecord.setBackupId(backupId);
+            updateRecord.setRestoreStatus(restoreStatus);
+            updateRecord.setRestoreBy(operatorName);
+            updateRecord.setRestoreTime(new Date());
+            updateRecord.setUpdateBy(operatorName);
+            bizDataBackupMapper.updateBizDataBackup(updateRecord);
+        });
+    }
+
+    /**
+     * 分批写入表数据，降低恢复时逐条插入带来的执行耗时。
+     *
+     * @param tableName 表名
+     * @param tableDataList 表数据列表
+     */
     private void insertTableData(String tableName, List<LinkedHashMap<String, Object>> tableDataList)
     {
         LinkedHashMap<String, Object> firstRecord = tableDataList.get(0);
@@ -181,6 +212,7 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
             placeHolderSqlBuilder.append("?");
         }
         String insertSql = "insert into " + tableName + " (" + columnNameSqlBuilder + ") values (" + placeHolderSqlBuilder + ")";
+        List<Object[]> batchParameterValueList = new ArrayList<Object[]>();
         for (LinkedHashMap<String, Object> rowData : tableDataList)
         {
             Object[] parameterValueArray = new Object[columnNameList.size()];
@@ -188,7 +220,16 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
             {
                 parameterValueArray[columnIndex] = rowData.get(columnNameList.get(columnIndex));
             }
-            jdbcTemplate.update(insertSql, parameterValueArray);
+            batchParameterValueList.add(parameterValueArray);
+            if (batchParameterValueList.size() >= RESTORE_BATCH_SIZE)
+            {
+                jdbcTemplate.batchUpdate(insertSql, batchParameterValueList);
+                batchParameterValueList.clear();
+            }
+        }
+        if (!batchParameterValueList.isEmpty())
+        {
+            jdbcTemplate.batchUpdate(insertSql, batchParameterValueList);
         }
     }
 
@@ -218,7 +259,10 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
         {
             return true;
         }
-        return "biz_message".equals(tableName) || "biz_message_read".equals(tableName);
+        return "biz_message".equals(tableName)
+            || "biz_message_read".equals(tableName)
+            || "biz_decision_budget_plan".equals(tableName)
+            || "biz_executive_brief_record".equals(tableName);
     }
 
     private String generateBackupName(String backupType)

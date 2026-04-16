@@ -64,6 +64,30 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </where>
     </select>
 
+    <select id="selectWmsStockWarningCount" parameterType="WmsStock" resultType="java.lang.Long">
+        select count(1)
+        from wms_stock
+        <where>
+            <if test="warehouseId != null">
+                and warehouse_id = #{warehouseId}
+            </if>
+            <if test="productId != null">
+                and product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and batch_no = #{batchNo}
+            </if>
+            and (
+                (warning_min_qty is not null and quantity &lt; warning_min_qty)
+                or
+                (warning_max_qty is not null and quantity &gt; warning_max_qty)
+            )
+        </where>
+    </select>
+
     <select id="selectWmsStockList" parameterType="WmsStock" resultMap="WmsStockResult">
         <include refid="selectWmsStockVo"/>
         <where>
@@ -80,6 +104,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 and batch_no = #{batchNo}
             </if>
         </where>
+    </select>
+
+    <select id="selectFirstWmsStockByWarehouseAndProduct" resultMap="WmsStockResult">
+        <include refid="selectWmsStockVo"/>
+        where warehouse_id = #{warehouseId}
+          and product_id = #{productId}
+        order by stock_id asc
+        limit 1
     </select>
 
     <insert id="insertWmsStock" parameterType="WmsStock" useGeneratedKeys="true" keyProperty="stockId">

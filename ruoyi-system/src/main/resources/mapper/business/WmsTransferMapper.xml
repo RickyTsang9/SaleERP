@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.WmsTransferMapper">
+    
+    <resultMap type="WmsTransfer" id="WmsTransferResult">
+        <result property="transferId"    column="transfer_id"    />
+        <result property="transferNo"    column="transfer_no"    />
+        <result property="outWarehouseId"    column="out_warehouse_id"    />
+        <result property="inWarehouseId"    column="in_warehouse_id"    />
+        <result property="transferDate"    column="transfer_date"    />
+        <result property="status"    column="status"    />
+        <result property="totalQuantity"    column="total_quantity"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <resultMap id="WmsTransferWmsTransferItemResult" type="WmsTransfer" extends="WmsTransferResult">
+        <collection property="wmsTransferItemList" notNullColumn="sub_transfer_item_id" javaType="java.util.List" resultMap="WmsTransferItemResult" />
+    </resultMap>
+
+    <resultMap type="WmsTransferItem" id="WmsTransferItemResult">
+        <result property="transferItemId"    column="sub_transfer_item_id"    />
+        <result property="transferId"    column="sub_transfer_id"    />
+        <result property="productId"    column="sub_product_id"    />
+        <result property="quantity"    column="sub_quantity"    />
+        <result property="remark"    column="sub_remark"    />
+    </resultMap>
+
+    <sql id="selectWmsTransferVo">
+        select transfer_id, transfer_no, out_warehouse_id, in_warehouse_id, transfer_date, status, total_quantity, remark, create_by, create_time, update_by, update_time from wms_transfer
+    </sql>
+
+    <select id="selectWmsTransferList" parameterType="WmsTransfer" resultMap="WmsTransferResult">
+        <include refid="selectWmsTransferVo"/>
+        <where>  
+            <if test="transferNo != null  and transferNo != ''"> and transfer_no like concat('%', #{transferNo}, '%')</if>
+            <if test="outWarehouseId != null "> and out_warehouse_id = #{outWarehouseId}</if>
+            <if test="inWarehouseId != null "> and in_warehouse_id = #{inWarehouseId}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+        </where>
+    </select>
+    
+    <select id="selectWmsTransferByTransferId" parameterType="Long" resultMap="WmsTransferWmsTransferItemResult">
+        select a.transfer_id, a.transfer_no, a.out_warehouse_id, a.in_warehouse_id, a.transfer_date, a.status, a.total_quantity, a.remark, a.create_by, a.create_time, a.update_by, a.update_time,
+            b.transfer_item_id as sub_transfer_item_id, b.transfer_id as sub_transfer_id, b.product_id as sub_product_id, b.quantity as sub_quantity, b.remark as sub_remark
+        from wms_transfer a
+        left join wms_transfer_item b on b.transfer_id = a.transfer_id
+        where a.transfer_id = #{transferId}
+    </select>
+        
+    <insert id="insertWmsTransfer" parameterType="WmsTransfer" useGeneratedKeys="true" keyProperty="transferId">
+        insert into wms_transfer
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="transferNo != null and transferNo != ''">transfer_no,</if>
+            <if test="outWarehouseId != null">out_warehouse_id,</if>
+            <if test="inWarehouseId != null">in_warehouse_id,</if>
+            <if test="transferDate != null">transfer_date,</if>
+            <if test="status != null">status,</if>
+            <if test="totalQuantity != null">total_quantity,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="transferNo != null and transferNo != ''">#{transferNo},</if>
+            <if test="outWarehouseId != null">#{outWarehouseId},</if>
+            <if test="inWarehouseId != null">#{inWarehouseId},</if>
+            <if test="transferDate != null">#{transferDate},</if>
+            <if test="status != null">#{status},</if>
+            <if test="totalQuantity != null">#{totalQuantity},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateWmsTransfer" parameterType="WmsTransfer">
+        update wms_transfer
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="transferNo != null and transferNo != ''">transfer_no = #{transferNo},</if>
+            <if test="outWarehouseId != null">out_warehouse_id = #{outWarehouseId},</if>
+            <if test="inWarehouseId != null">in_warehouse_id = #{inWarehouseId},</if>
+            <if test="transferDate != null">transfer_date = #{transferDate},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="totalQuantity != null">total_quantity = #{totalQuantity},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where transfer_id = #{transferId}
+    </update>
+
+    <delete id="deleteWmsTransferByTransferId" parameterType="Long">
+        delete from wms_transfer where transfer_id = #{transferId}
+    </delete>
+
+    <delete id="deleteWmsTransferByTransferIds" parameterType="String">
+        delete from wms_transfer where transfer_id in 
+        <foreach item="transferId" collection="array" open="(" separator="," close=")">
+            #{transferId}
+        </foreach>
+    </delete>
+    
+    <delete id="deleteWmsTransferItemByTransferIds" parameterType="String">
+        delete from wms_transfer_item where transfer_id in 
+        <foreach item="transferId" collection="array" open="(" separator="," close=")">
+            #{transferId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteWmsTransferItemByTransferId" parameterType="Long">
+        delete from wms_transfer_item where transfer_id = #{transferId}
+    </delete>
+
+    <update id="updateWmsTransferStatus">
+        update wms_transfer
+        set status = #{newStatus},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where transfer_id = #{transferId}
+          and status = #{oldStatus}
+    </update>
+
+    <insert id="batchWmsTransferItem">
+        insert into wms_transfer_item( transfer_item_id, transfer_id, product_id, quantity, remark) values
+        <foreach item="item" index="index" collection="list" separator=",">
+            ( #{item.transferItemId}, #{item.transferId}, #{item.productId}, #{item.quantity}, #{item.remark})
+        </foreach>
+    </insert>
+</mapper>

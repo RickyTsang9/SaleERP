@@ -23,9 +23,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectOverdueReceivableCount" resultType="java.lang.Long">
         select count(1)
         from fin_receivable
-        where status != 'paid'
+        where status in ('unpaid', 'partial')
           and due_date is not null
-          and due_date &lt; sysdate()
+          and due_date &lt; curdate()
     </select>
 
     <select id="selectStockWarningCount" resultType="java.lang.Long">
@@ -36,19 +36,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectSaleTrendList" resultType="java.util.HashMap">
-        select date_format(create_time, '%y-%m-%d') as date, ifnull(sum(total_amount), 0) as amount
-        from wms_sale_order
-        where status = 'audited'
-          and create_time &gt;= date_sub(curdate(), interval 6 day)
-        group by date_format(create_time, '%y-%m-%d')
-        order by date_format(create_time, '%y-%m-%d') asc
+        select date_format(sale_date, '%y-%m-%d') as date, amount
+        from (
+            select date(ifnull(audit_time, create_time)) as sale_date, ifnull(sum(total_amount), 0) as amount
+            from wms_sale_order
+            where status = 'audited'
+            group by date(ifnull(audit_time, create_time))
+            order by sale_date desc
+            limit 7
+        ) recent_sale_trend
+        order by sale_date asc
     </select>
 
     <select id="selectTopCustomerList" resultType="java.util.HashMap">
-        select cast(o.customer_id as char) as customer, ifnull(sum(o.total_amount), 0) as amount
+        select ifnull(c.customer_name, concat('客户', cast(o.customer_id as char))) as customer, ifnull(sum(o.total_amount), 0) as amount
         from wms_sale_order o
+        left join md_customer c on o.customer_id = c.customer_id
         where o.status = 'audited'
-        group by o.customer_id
+        group by o.customer_id, c.customer_name
         order by amount desc
         limit 5
     </select>
@@ -72,7 +77,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectLatestNoticeList" resultType="java.util.HashMap">
-        select cast(notice_id as char) as message_id, notice_title as message_title, create_time as message_time, 'notice' as message_type
+        select cast(notice_id as char) as message_id, notice_title as message_title, notice_content as message_content,
+               create_time as message_time, 'notice' as message_type
         from sys_notice
         where status = '0'
         order by notice_id desc
@@ -80,8 +86,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectLatestStockWarningMessageList" resultType="java.util.HashMap">
-        select cast(message_id as char) as message_id, message_title, create_time as message_time, message_type, message_level, business_type,
-               cast(business_id as char) as business_id
+        select cast(message_id as char) as message_id, message_title, message_content, create_time as message_time, message_type, message_level,
+               business_type, cast(business_id as char) as business_id
         from biz_message
         where status = '0'
           and message_type = 'stock_warning'
@@ -90,22 +96,360 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectLatestDueReceivableList" resultType="java.util.HashMap">
-        select cast(receivable_id as char) as message_id, concat('应收到期提醒，销售单：', sale_order_id) as message_title, due_date as message_time,
-               'receivable' as message_type, 'sale_order' as business_type, cast(sale_order_id as char) as business_id
-        from fin_receivable
-        where status in ('unpaid', 'partial')
-          and due_date is not null
-        order by due_date asc
+        select cast(fr.receivable_id as char) as message_id,
+               concat('应收到期提醒：', ifnull(so.order_no, concat('历史销售单id：', cast(fr.sale_order_id as char)))) as message_title,
+               fr.due_date as message_time,
+               concat('销售单号：', ifnull(so.order_no, concat('历史销售单id：', cast(fr.sale_order_id as char))),
+                      '，客户：', ifnull(mc.customer_name, '客户资料缺失'),
+                      '，预计到期：', date_format(fr.due_date, '%Y-%m-%d')) as message_content,
+               'receivable' as message_type, 'sale_order' as business_type, cast(fr.sale_order_id as char) as business_id
+        from fin_receivable fr
+        left join wms_sale_order so on fr.sale_order_id = so.sale_order_id
+        left join md_customer mc on fr.customer_id = mc.customer_id
+        where fr.status in ('unpaid', 'partial')
+          and fr.due_date is not null
+        order by fr.due_date asc
         limit 5
     </select>
 
     <select id="selectLatestSaleOrderAuditMessageList" resultType="java.util.HashMap">
-        select cast(message_id as char) as message_id, message_title, create_time as message_time, message_type, message_level, business_type,
-               cast(business_id as char) as business_id
+        select cast(message_id as char) as message_id, message_title, message_content, create_time as message_time, message_type, message_level,
+               business_type, cast(business_id as char) as business_id
         from biz_message
         where status = '0'
           and message_type = 'sale_order_audit'
         order by message_id desc
+        limit 5
+    </select>
+
+    <select id="selectProductCategorySales" resultType="java.util.HashMap">
+        select ifnull(p.category_name, '未分类') as categoryName, ifnull(sum(i.amount), 0) as amount
+        from wms_sale_order_item i
+        join wms_sale_order o on i.sale_order_id = o.sale_order_id
+        left join md_product p on i.product_id = p.product_id
+        where o.status = 'audited'
+        group by ifnull(p.category_name, '未分类')
+        order by amount desc
+    </select>
+
+    <select id="selectSaleReportList" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select o.order_no as orderNo, ifnull(o.audit_time, o.create_time) as saleDate, c.customer_name as customerName,
+               p.product_code as productCode, p.product_name as productName, p.category_name as categoryName,
+               i.quantity as quantity, i.price as price, i.amount as amount
+        from wms_sale_order_item i
+        join wms_sale_order o on i.sale_order_id = o.sale_order_id
+        left join md_customer c on o.customer_id = c.customer_id
+        left join md_product p on i.product_id = p.product_id
+        <where>
+            o.status = 'audited'
+            <if test="startDate != null and startDate != ''">
+                and ifnull(o.audit_time, o.create_time) &gt;= concat(#{startDate}, ' 00:00:00')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                and ifnull(o.audit_time, o.create_time) &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+            </if>
+            <if test="customerId != null">
+                and o.customer_id = #{customerId}
+            </if>
+            <if test="categoryName != null and categoryName != ''">
+                and p.category_name like concat('%', #{categoryName}, '%')
+            </if>
+            <if test="productName != null and productName != ''">
+                and p.product_name like concat('%', #{productName}, '%')
+            </if>
+        </where>
+        order by ifnull(o.audit_time, o.create_time) desc
+    </select>
+
+    <select id="selectReconciliationList" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select 'receivable' as reconcileType,
+               cast(fr.customer_id as char) as targetId,
+               ifnull(mc.customer_name, '客户资料缺失') as targetName,
+               ifnull(sum(fr.amount_due), 0) as dueAmount,
+               ifnull(sum(fr.amount_paid), 0) as paidAmount,
+               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as remainAmount
+        from fin_receivable fr
+        left join md_customer mc on fr.customer_id = mc.customer_id
+        <where>
+            fr.customer_id is not null
+            <if test="targetName != null and targetName != ''">
+                and mc.customer_name like concat('%', #{targetName}, '%')
+            </if>
+        </where>
+        group by fr.customer_id, mc.customer_name
+        union all
+        select 'payable' as reconcileType,
+               cast(fp.supplier_id as char) as targetId,
+               ifnull(ms.supplier_name, '供应商资料缺失') as targetName,
+               ifnull(sum(fp.amount_due), 0) as dueAmount,
+               ifnull(sum(fp.amount_paid), 0) as paidAmount,
+               ifnull(sum(fp.remain_amount), 0) as remainAmount
+        from fin_payable fp
+        left join md_supplier ms on fp.supplier_id = ms.supplier_id
+        <where>
+            fp.supplier_id is not null
+            <if test="targetName != null and targetName != ''">
+                and ms.supplier_name like concat('%', #{targetName}, '%')
+            </if>
+        </where>
+        group by fp.supplier_id, ms.supplier_name
+    </select>
+
+    <select id="selectInvoiceTaxList" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select 'sale_invoice' as invoiceType,
+               so.order_no as sourceNo,
+               ifnull(so.total_amount, 0) as invoiceAmount,
+               round(ifnull(so.total_amount, 0) / 1.13, 2) as amountWithoutTax,
+               round(ifnull(so.total_amount, 0) - ifnull(so.total_amount, 0) / 1.13, 2) as taxAmount,
+               ifnull(so.audit_time, so.create_time) as billTime
+        from wms_sale_order so
+        <where>
+            so.status = 'audited'
+            <if test="startDate != null and startDate != ''">
+                and ifnull(so.audit_time, so.create_time) &gt;= concat(#{startDate}, ' 00:00:00')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                and ifnull(so.audit_time, so.create_time) &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+            </if>
+        </where>
+        union all
+        select 'purchase_invoice' as invoiceType,
+               po.order_no as sourceNo,
+               ifnull(po.total_amount, 0) as invoiceAmount,
+               round(ifnull(po.total_amount, 0) / 1.13, 2) as amountWithoutTax,
+               round(ifnull(po.total_amount, 0) - ifnull(po.total_amount, 0) / 1.13, 2) as taxAmount,
+               ifnull(po.purchase_date, po.create_time) as billTime
+        from wms_purchase_order po
+        <where>
+            po.status in ('1', '2', '3')
+            <if test="startDate != null and startDate != ''">
+                and ifnull(po.purchase_date, po.create_time) &gt;= concat(#{startDate}, ' 00:00:00')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                and ifnull(po.purchase_date, po.create_time) &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+            </if>
+        </where>
+        order by billTime desc
+    </select>
+
+    <select id="selectCashFlowForecast" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select ifnull((
+                   select sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0))
+                   from fin_receivable fr
+                   where fr.status in ('unpaid', 'partial')
+                     and fr.due_date is not null
+                     and fr.due_date &lt;= date_add(curdate(), interval #{forecastDays} day)
+               ), 0) as receivableAmount,
+               ifnull((
+                   select sum(fp.remain_amount)
+                   from fin_payable fp
+                   where fp.status in ('0', '1')
+                     and fp.due_date is not null
+                     and fp.due_date &lt;= date_add(curdate(), interval #{forecastDays} day)
+               ), 0) as payableAmount
+    </select>
+
+    <select id="selectManagementPeriodSummary" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select ifnull((
+                   select sum(ifnull(so.total_amount, 0))
+                   from wms_sale_order so
+                   where so.status = 'audited'
+                     and ifnull(so.audit_time, so.create_time) &gt;= #{startTime}
+                     and ifnull(so.audit_time, so.create_time) &lt; #{endTime}
+               ), 0) as saleAmount,
+               ifnull((
+                   select sum(ifnull(fr.amount, 0))
+                   from fin_receipt fr
+                   where ifnull(fr.receipt_date, fr.create_time) &gt;= #{startTime}
+                     and ifnull(fr.receipt_date, fr.create_time) &lt; #{endTime}
+               ), 0) as receivedAmount,
+               ifnull((
+                   select sum(ifnull(po.total_amount, 0))
+                   from wms_purchase_order po
+                   where po.status in ('1', '2', '3')
+                     and ifnull(po.purchase_date, po.create_time) &gt;= #{startTime}
+                     and ifnull(po.purchase_date, po.create_time) &lt; #{endTime}
+               ), 0) as purchaseAmount,
+               ifnull((
+                   select sum(ifnull(soi.quantity, 0) * ifnull(mp.cost_price, 0))
+                   from wms_sale_order_item soi
+                   join wms_sale_order so on soi.sale_order_id = so.sale_order_id
+                   left join md_product mp on soi.product_id = mp.product_id
+                   where so.status = 'audited'
+                     and ifnull(so.audit_time, so.create_time) &gt;= #{startTime}
+                     and ifnull(so.audit_time, so.create_time) &lt; #{endTime}
+               ), 0) as saleCostAmount
+    </select>
+
+    <select id="selectManagementRiskOverview" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select ifnull(receivable_risk_summary.overdue_receivable_amount, 0) as overdueReceivableAmount,
+               ifnull(payable_risk_summary.due_soon_payable_amount, 0) as dueSoonPayableAmount,
+               ifnull(receivable_risk_summary.long_overdue_receivable_count, 0) as longOverdueReceivableCount,
+               ifnull(pending_approval_summary.pending_approval_timeout_count, 0) as pendingApprovalTimeoutCount
+        from (select 1 as summary_key) summary_base
+        left join (
+            select 1 as summary_key,
+                   ifnull(sum(case
+                                  when fr.due_date is not null
+                                   and fr.due_date &lt; curdate()
+                                  then ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)
+                                  else 0
+                              end), 0) as overdue_receivable_amount,
+                   ifnull(sum(case
+                                  when fr.due_date is not null
+                                   and fr.due_date &lt; date_sub(curdate(), interval 60 day)
+                                  then 1
+                                  else 0
+                              end), 0) as long_overdue_receivable_count
+            from fin_receivable fr
+            where fr.status in ('unpaid', 'partial')
+        ) receivable_risk_summary on receivable_risk_summary.summary_key = summary_base.summary_key
+        left join (
+            select 1 as summary_key,
+                   ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as due_soon_payable_amount
+            from fin_payable fp
+            where fp.status in ('0', '1')
+              and fp.due_date is not null
+              and fp.due_date &lt;= date_add(curdate(), interval #{payableRiskDays} day)
+        ) payable_risk_summary on payable_risk_summary.summary_key = summary_base.summary_key
+        left join (
+            select 1 as summary_key,
+                   ifnull(sum(timeout_count), 0) as pending_approval_timeout_count
+            from (
+                select count(1) as timeout_count
+                from wms_sale_order so
+                where so.status = 'submitted'
+                  and so.create_time is not null
+                  and so.create_time &lt; date_sub(now(), interval 3 day)
+                union all
+                select count(1) as timeout_count
+                from wms_inbound wi
+                where wi.status = 'submitted'
+                  and wi.create_time is not null
+                  and wi.create_time &lt; date_sub(now(), interval 3 day)
+                union all
+                select count(1) as timeout_count
+                from wms_outbound wo
+                where wo.status = 'submitted'
+                  and wo.create_time is not null
+                  and wo.create_time &lt; date_sub(now(), interval 3 day)
+                union all
+                select count(1) as timeout_count
+                from wms_purchase_order po
+                where po.status = '0'
+                  and po.create_time is not null
+                  and po.create_time &lt; date_sub(now(), interval 3 day)
+            ) pending_approval_timeout_union
+        ) pending_approval_summary on pending_approval_summary.summary_key = summary_base.summary_key
+    </select>
+
+    <select id="selectReceivableAgingList" resultType="java.util.HashMap">
+        select receivable_aging_bucket.bucket_name as bucketName,
+               receivable_aging_bucket.sort_order as sortOrder,
+               ifnull(receivable_aging_summary.amount, 0) as amount,
+               ifnull(receivable_aging_summary.record_count, 0) as recordCount
+        from (
+            select '未设置到期日' as bucket_name, 0 as sort_order
+            union all
+            select '未到期' as bucket_name, 1 as sort_order
+            union all
+            select '逾期1-30天' as bucket_name, 2 as sort_order
+            union all
+            select '逾期31-60天' as bucket_name, 3 as sort_order
+            union all
+            select '逾期61天以上' as bucket_name, 4 as sort_order
+        ) receivable_aging_bucket
+        left join (
+            select case
+                       when fr.due_date is null then 0
+                       when fr.due_date &gt;= curdate() then 1
+                       when datediff(curdate(), fr.due_date) between 1 and 30 then 2
+                       when datediff(curdate(), fr.due_date) between 31 and 60 then 3
+                       else 4
+                   end as sort_order,
+                   ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as amount,
+                   count(1) as record_count
+            from fin_receivable fr
+            where fr.status in ('unpaid', 'partial')
+            group by case
+                         when fr.due_date is null then 0
+                         when fr.due_date &gt;= curdate() then 1
+                         when datediff(curdate(), fr.due_date) between 1 and 30 then 2
+                         when datediff(curdate(), fr.due_date) between 31 and 60 then 3
+                         else 4
+                     end
+        ) receivable_aging_summary on receivable_aging_summary.sort_order = receivable_aging_bucket.sort_order
+        order by receivable_aging_bucket.sort_order asc
+    </select>
+
+    <select id="selectPayableAgingList" resultType="java.util.HashMap">
+        select payable_aging_bucket.bucket_name as bucketName,
+               payable_aging_bucket.sort_order as sortOrder,
+               ifnull(payable_aging_summary.amount, 0) as amount,
+               ifnull(payable_aging_summary.record_count, 0) as recordCount
+        from (
+            select '未设置到期日' as bucket_name, 0 as sort_order
+            union all
+            select '未到期' as bucket_name, 1 as sort_order
+            union all
+            select '逾期1-30天' as bucket_name, 2 as sort_order
+            union all
+            select '逾期31-60天' as bucket_name, 3 as sort_order
+            union all
+            select '逾期61天以上' as bucket_name, 4 as sort_order
+        ) payable_aging_bucket
+        left join (
+            select case
+                       when fp.due_date is null then 0
+                       when fp.due_date &gt;= curdate() then 1
+                       when datediff(curdate(), fp.due_date) between 1 and 30 then 2
+                       when datediff(curdate(), fp.due_date) between 31 and 60 then 3
+                       else 4
+                   end as sort_order,
+                   ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as amount,
+                   count(1) as record_count
+            from fin_payable fp
+            where fp.status in ('0', '1')
+            group by case
+                         when fp.due_date is null then 0
+                         when fp.due_date &gt;= curdate() then 1
+                         when datediff(curdate(), fp.due_date) between 1 and 30 then 2
+                         when datediff(curdate(), fp.due_date) between 31 and 60 then 3
+                         else 4
+                     end
+        ) payable_aging_summary on payable_aging_summary.sort_order = payable_aging_bucket.sort_order
+        order by payable_aging_bucket.sort_order asc
+    </select>
+
+    <select id="selectTopOverdueCustomerList" resultType="java.util.HashMap">
+        select cast(fr.customer_id as char) as targetId,
+               ifnull(mc.customer_name, '客户资料缺失') as targetName,
+               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as remainAmount,
+               max(datediff(curdate(), fr.due_date)) as overdueDays,
+               count(1) as recordCount
+        from fin_receivable fr
+        left join md_customer mc on fr.customer_id = mc.customer_id
+        where fr.status in ('unpaid', 'partial')
+          and fr.due_date is not null
+          and fr.due_date &lt; curdate()
+        group by fr.customer_id, mc.customer_name
+        order by remainAmount desc, overdueDays desc
+        limit 5
+    </select>
+
+    <select id="selectTopDueSupplierList" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select cast(fp.supplier_id as char) as targetId,
+               ifnull(ms.supplier_name, '供应商资料缺失') as targetName,
+               ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as remainAmount,
+               min(datediff(fp.due_date, curdate())) as dueInDays,
+               count(1) as recordCount
+        from fin_payable fp
+        left join md_supplier ms on fp.supplier_id = ms.supplier_id
+        where fp.status in ('0', '1')
+          and fp.due_date is not null
+          and fp.due_date &lt;= date_add(curdate(), interval #{payableRiskDays} day)
+        group by fp.supplier_id, ms.supplier_name
+        order by dueInDays asc, remainAmount desc
         limit 5
     </select>
 </mapper>

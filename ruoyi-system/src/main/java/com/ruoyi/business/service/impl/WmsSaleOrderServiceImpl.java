@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.business.domain.BizMessage;
 import com.ruoyi.business.domain.FinReceivable;
 import com.ruoyi.business.domain.MdCustomer;
+import com.ruoyi.business.domain.WmsOutbound;
 import com.ruoyi.business.domain.WmsSaleOrder;
 import com.ruoyi.business.domain.WmsSaleOrderItem;
 import com.ruoyi.business.domain.WmsSaleOrderStatusHistory;
@@ -21,6 +22,7 @@ import com.ruoyi.business.domain.WmsStock;
 import com.ruoyi.business.domain.WmsStockLog;
 import com.ruoyi.business.mapper.FinReceivableMapper;
 import com.ruoyi.business.mapper.MdCustomerMapper;
+import com.ruoyi.business.mapper.WmsOutboundMapper;
 import com.ruoyi.business.mapper.WmsSaleOrderItemMapper;
 import com.ruoyi.business.mapper.WmsSaleOrderMapper;
 import com.ruoyi.business.mapper.WmsSaleOrderStatusHistoryMapper;
@@ -73,6 +75,9 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
     private MdCustomerMapper mdCustomerMapper;
 
     @Autowired
+    private WmsOutboundMapper wmsOutboundMapper;
+
+    @Autowired
     private WmsSaleOrderStatusHistoryMapper wmsSaleOrderStatusHistoryMapper;
 
     @Autowired
@@ -91,6 +96,13 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         return wmsSaleOrderMapper.selectWmsSaleOrderList(wmsSaleOrder);
     }
 
+    /**
+     * 新增销售单
+     *
+     * @param wmsSaleOrder 销售单
+     * @return 结果
+     */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int insertWmsSaleOrder(WmsSaleOrder wmsSaleOrder)
     {
@@ -120,6 +132,13 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         return wmsSaleOrderMapper.updateWmsSaleOrder(wmsSaleOrder);
     }
 
+    /**
+     * 提交销售单
+     *
+     * @param saleOrderId 销售单编号
+     * @return 结果
+     */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int submitWmsSaleOrder(Long saleOrderId)
     {
@@ -182,7 +201,12 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
 
     /**
      * 经理审核销售单
+     *
+     * @param saleOrderId 销售单编号
+     * @param auditComment 审核意见
+     * @return 结果
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int managerAuditWmsSaleOrder(Long saleOrderId, String auditComment)
     {
@@ -350,6 +374,7 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
             }
             finReceivableMapper.deleteFinReceivableById(databaseReceivable.getReceivableId());
         }
+        validateNoLinkedOutboundForFinanceRollback(databaseSaleOrder);
         List<WmsSaleOrderItem> itemList = wmsSaleOrderItemMapper.selectWmsSaleOrderItemsByOrderId(saleOrderId);
         if (itemList == null || itemList.isEmpty())
         {
@@ -401,6 +426,13 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         return updateCount;
     }
 
+    /**
+     * 作废销售单
+     *
+     * @param saleOrderId 销售单编号
+     * @return 结果
+     */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int cancelWmsSaleOrder(Long saleOrderId)
     {
@@ -408,6 +440,10 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         if (databaseSaleOrder == null)
         {
             throw new ServiceException("销售单不存在");
+        }
+        if (STATUS_CANCELLED.equals(databaseSaleOrder.getStatus()))
+        {
+            throw new ServiceException("销售单已作废，无需重复作废");
         }
         if (STATUS_AUDITED.equals(databaseSaleOrder.getStatus()))
         {
@@ -424,18 +460,53 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         return updateCount;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int deleteWmsSaleOrderById(Long saleOrderId)
     {
+        WmsSaleOrder databaseSaleOrder = wmsSaleOrderMapper.selectWmsSaleOrderById(saleOrderId);
+        if (databaseSaleOrder == null)
+        {
+            return 0;
+        }
+        validateSaleOrderCanBeDeleted(databaseSaleOrder, false);
         wmsSaleOrderItemMapper.deleteWmsSaleOrderItemBySaleOrderIds(new Long[] { saleOrderId });
         return wmsSaleOrderMapper.deleteWmsSaleOrderById(saleOrderId);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int deleteWmsSaleOrderByIds(Long[] saleOrderIds)
     {
+        for (Long saleOrderId : saleOrderIds)
+        {
+            WmsSaleOrder databaseSaleOrder = wmsSaleOrderMapper.selectWmsSaleOrderById(saleOrderId);
+            if (databaseSaleOrder == null)
+            {
+                continue;
+            }
+            validateSaleOrderCanBeDeleted(databaseSaleOrder, true);
+        }
         wmsSaleOrderItemMapper.deleteWmsSaleOrderItemBySaleOrderIds(saleOrderIds);
         return wmsSaleOrderMapper.deleteWmsSaleOrderByIds(saleOrderIds);
+    }
+
+    /**
+     * 校验销售单是否允许删除
+     *
+     * @param databaseSaleOrder 数据库中的销售单
+     * @param batchDelete 是否批量删除
+     */
+    private void validateSaleOrderCanBeDeleted(WmsSaleOrder databaseSaleOrder, boolean batchDelete)
+    {
+        if (!STATUS_DRAFT.equals(databaseSaleOrder.getStatus()))
+        {
+            if (batchDelete)
+            {
+                throw new ServiceException("仅草稿状态销售单允许删除，销售单号：" + databaseSaleOrder.getOrderNo());
+            }
+            throw new ServiceException("仅草稿状态销售单允许删除");
+        }
     }
 
     /**
@@ -448,6 +519,7 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         {
             throw new ServiceException("导入销售订单数据不能为空");
         }
+        Map<String, WmsSaleOrder> importExistingSaleOrderMap = buildImportExistingSaleOrderMap(saleOrderList);
         int successCount = 0;
         int failureCount = 0;
         StringBuilder successMessageBuilder = new StringBuilder();
@@ -457,11 +529,12 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
             try
             {
                 validateImportData(saleOrder);
-                WmsSaleOrder databaseSaleOrder = wmsSaleOrderMapper.selectWmsSaleOrderByOrderNo(saleOrder.getOrderNo());
+                WmsSaleOrder databaseSaleOrder = importExistingSaleOrderMap.get(saleOrder.getOrderNo());
                 if (databaseSaleOrder == null)
                 {
                     saleOrder.setCreateBy(operatorName);
                     insertWmsSaleOrder(saleOrder);
+                    importExistingSaleOrderMap.put(saleOrder.getOrderNo(), saleOrder);
                     successCount++;
                     successMessageBuilder.append("<br/>").append(successCount).append("、销售单号 ").append(saleOrder.getOrderNo()).append(" 导入成功");
                     continue;
@@ -481,6 +554,7 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
                 saleOrder.setSaleOrderId(databaseSaleOrder.getSaleOrderId());
                 saleOrder.setUpdateBy(operatorName);
                 updateWmsSaleOrder(saleOrder);
+                importExistingSaleOrderMap.put(saleOrder.getOrderNo(), databaseSaleOrder);
                 successCount++;
                 successMessageBuilder.append("<br/>").append(successCount).append("、销售单号 ").append(saleOrder.getOrderNo()).append(" 更新成功");
             }
@@ -497,6 +571,39 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         }
         successMessageBuilder.insert(0, "导入成功，共 " + successCount + " 条数据，详情如下：");
         return successMessageBuilder.toString();
+    }
+
+    /**
+     * 批量构建导入销售订单已存在数据映射
+     *
+     * @param saleOrderList 导入销售订单集合
+     * @return 销售单号与销售订单映射
+     */
+    private Map<String, WmsSaleOrder> buildImportExistingSaleOrderMap(List<WmsSaleOrder> saleOrderList)
+    {
+        Map<String, WmsSaleOrder> existingSaleOrderMap = new HashMap<>();
+        List<String> orderNoList = new ArrayList<>();
+        for (WmsSaleOrder saleOrder : saleOrderList)
+        {
+            if (saleOrder != null && StringUtils.isNotEmpty(saleOrder.getOrderNo()))
+            {
+                orderNoList.add(saleOrder.getOrderNo());
+            }
+        }
+        if (orderNoList.isEmpty())
+        {
+            return existingSaleOrderMap;
+        }
+        List<WmsSaleOrder> existingSaleOrderList = wmsSaleOrderMapper.selectWmsSaleOrderImportListByOrderNos(orderNoList);
+        if (existingSaleOrderList == null || existingSaleOrderList.isEmpty())
+        {
+            return existingSaleOrderMap;
+        }
+        for (WmsSaleOrder existingSaleOrder : existingSaleOrderList)
+        {
+            existingSaleOrderMap.put(existingSaleOrder.getOrderNo(), existingSaleOrder);
+        }
+        return existingSaleOrderMap;
     }
 
     /**
@@ -615,5 +722,26 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         bizMessage.setStatus(MESSAGE_STATUS_ACTIVE);
         bizMessage.setCreateBy(operationUsername);
         bizMessageService.insertBizMessage(bizMessage);
+    }
+
+    /**
+     * 校验财务回退前是否已生成销售出库单
+     *
+     * @param databaseSaleOrder 销售单
+     */
+    private void validateNoLinkedOutboundForFinanceRollback(WmsSaleOrder databaseSaleOrder)
+    {
+        Long linkedOutboundCount =
+            wmsOutboundMapper.selectActiveOutboundCountBySaleOrderId(databaseSaleOrder.getSaleOrderId());
+        if (linkedOutboundCount != null && linkedOutboundCount.longValue() > 0L)
+        {
+            throw new ServiceException("销售单已生成销售出库单，请先处理相关出库单后再执行财务回退");
+        }
+        Long historicalOutboundCount =
+            wmsOutboundMapper.selectActiveOutboundCountBySourceOrderNo(databaseSaleOrder.getOrderNo());
+        if (historicalOutboundCount != null && historicalOutboundCount.longValue() > 0L)
+        {
+            throw new ServiceException("销售单已生成销售出库单，请先处理相关出库单后再执行财务回退");
+        }
     }
 }

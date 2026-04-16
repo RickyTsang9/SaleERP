@@ -13,6 +13,8 @@ public interface MdLocationMapper
 
     public int updateMdLocation(MdLocation mdLocation);
 
+    public int selectLocationReferenceCount(Long locationId);
+
     public int deleteMdLocationById(Long locationId);
 
     public int deleteMdLocationByIds(Long[] locationIds);

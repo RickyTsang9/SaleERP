@@ -22,6 +22,14 @@ public class WmsOutbound extends BaseEntity
     @Excel(name = "客户编号")
     private Long customerId;
 
+    /** 来源销售单编号 */
+    @Excel(name = "来源销售单编号")
+    private Long saleOrderId;
+
+    /** 来源销售单号 */
+    @Excel(name = "来源销售单号")
+    private String saleOrderNo;
+
     @Excel(name = "仓库编号")
     private Long warehouseId;
 
@@ -98,6 +106,46 @@ public class WmsOutbound extends BaseEntity
     public void setCustomerId(Long customerId)
     {
         this.customerId = customerId;
+    }
+
+    /**
+     * 获取来源销售单编号
+     *
+     * @return 来源销售单编号
+     */
+    public Long getSaleOrderId()
+    {
+        return saleOrderId;
+    }
+
+    /**
+     * 设置来源销售单编号
+     *
+     * @param saleOrderId 来源销售单编号
+     */
+    public void setSaleOrderId(Long saleOrderId)
+    {
+        this.saleOrderId = saleOrderId;
+    }
+
+    /**
+     * 获取来源销售单号
+     *
+     * @return 来源销售单号
+     */
+    public String getSaleOrderNo()
+    {
+        return saleOrderNo;
+    }
+
+    /**
+     * 设置来源销售单号
+     *
+     * @param saleOrderNo 来源销售单号
+     */
+    public void setSaleOrderNo(String saleOrderNo)
+    {
+        this.saleOrderNo = saleOrderNo;
     }
 
     public Long getWarehouseId()
@@ -238,6 +286,8 @@ public class WmsOutbound extends BaseEntity
             .append("outboundNo", getOutboundNo())
             .append("outboundType", getOutboundType())
             .append("customerId", getCustomerId())
+            .append("saleOrderId", getSaleOrderId())
+            .append("saleOrderNo", getSaleOrderNo())
             .append("warehouseId", getWarehouseId())
             .append("totalQty", getTotalQty())
             .append("totalAmount", getTotalAmount())

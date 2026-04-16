@@ -8,6 +8,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <id     property="inboundId"   column="inbound_id"   />
         <result property="inboundNo"   column="inbound_no"   />
         <result property="inboundType" column="inbound_type" />
+        <result property="purchaseOrderId" column="purchase_order_id" />
+        <result property="purchaseOrderNo" column="purchase_order_no" />
         <result property="supplierId"  column="supplier_id"  />
         <result property="warehouseId" column="warehouse_id" />
         <result property="totalQty"    column="total_qty"    />
@@ -23,33 +25,42 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsInboundVo">
-        select inbound_id, inbound_no, inbound_type, supplier_id, warehouse_id, total_qty, total_amount,
-               status, audit_by, audit_time, create_by, create_time, update_by, update_time, remark
-        from wms_inbound
+        select inbound.inbound_id, inbound.inbound_no, inbound.inbound_type, inbound.purchase_order_id,
+               purchase_order.order_no as purchase_order_no, inbound.supplier_id, inbound.warehouse_id,
+               inbound.total_qty, inbound.total_amount, inbound.status, inbound.audit_by, inbound.audit_time,
+               inbound.create_by, inbound.create_time, inbound.update_by, inbound.update_time, inbound.remark
+        from wms_inbound inbound
+        left join wms_purchase_order purchase_order on purchase_order.purchase_order_id = inbound.purchase_order_id
     </sql>
 
     <select id="selectWmsInboundById" parameterType="Long" resultMap="WmsInboundResult">
         <include refid="selectWmsInboundVo"/>
-        where inbound_id = #{inboundId}
+        where inbound.inbound_id = #{inboundId}
     </select>
 
     <select id="selectWmsInboundList" parameterType="WmsInbound" resultMap="WmsInboundResult">
         <include refid="selectWmsInboundVo"/>
         <where>
             <if test="inboundNo != null and inboundNo != ''">
-                and inbound_no like concat('%', #{inboundNo}, '%')
+                and inbound.inbound_no like concat('%', #{inboundNo}, '%')
             </if>
             <if test="inboundType != null and inboundType != ''">
-                and inbound_type = #{inboundType}
+                and inbound.inbound_type = #{inboundType}
+            </if>
+            <if test="purchaseOrderId != null">
+                and inbound.purchase_order_id = #{purchaseOrderId}
+            </if>
+            <if test="purchaseOrderNo != null and purchaseOrderNo != ''">
+                and purchase_order.order_no like concat('%', #{purchaseOrderNo}, '%')
             </if>
             <if test="supplierId != null">
-                and supplier_id = #{supplierId}
+                and inbound.supplier_id = #{supplierId}
             </if>
             <if test="warehouseId != null">
-                and warehouse_id = #{warehouseId}
+                and inbound.warehouse_id = #{warehouseId}
             </if>
             <if test="status != null and status != ''">
-                and status = #{status}
+                and inbound.status = #{status}
             </if>
         </where>
     </select>
@@ -59,6 +70,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="inboundNo != null and inboundNo != ''">inbound_no,</if>
             <if test="inboundType != null">inbound_type,</if>
+            <if test="purchaseOrderId != null">purchase_order_id,</if>
             <if test="supplierId != null">supplier_id,</if>
             <if test="warehouseId != null">warehouse_id,</if>
             <if test="totalQty != null">total_qty,</if>
@@ -74,6 +86,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="inboundNo != null and inboundNo != ''">#{inboundNo},</if>
             <if test="inboundType != null">#{inboundType},</if>
+            <if test="purchaseOrderId != null">#{purchaseOrderId},</if>
             <if test="supplierId != null">#{supplierId},</if>
             <if test="warehouseId != null">#{warehouseId},</if>
             <if test="totalQty != null">#{totalQty},</if>
@@ -93,6 +106,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <set>
             <if test="inboundNo != null and inboundNo != ''">inbound_no = #{inboundNo},</if>
             <if test="inboundType != null">inbound_type = #{inboundType},</if>
+            <if test="purchaseOrderId != null">purchase_order_id = #{purchaseOrderId},</if>
             <if test="supplierId != null">supplier_id = #{supplierId},</if>
             <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
             <if test="totalQty != null">total_qty = #{totalQty},</if>
@@ -128,5 +142,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             total_amount = ifnull((select sum(amount) from wms_inbound_item where inbound_id = #{inboundId}), 0),
             update_time = sysdate()
         where inbound_id = #{inboundId}
+    </update>
+
+    <update id="updateWmsInboundStatus">
+        update wms_inbound
+        set status = #{newStatus},
+            audit_by = #{auditBy},
+            audit_time = case when #{auditBy} is not null and #{auditBy} != '' then sysdate() else null end,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where inbound_id = #{inboundId}
+          and status = #{oldStatus}
     </update>
 </mapper>

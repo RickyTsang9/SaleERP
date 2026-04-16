@@ -28,6 +28,26 @@ public class WmsSaleOrder extends BaseEntity
     @Excel(name = "总金额")
     private BigDecimal totalAmount;
 
+    /** 应收金额 */
+    @Excel(name = "应收金额")
+    private BigDecimal receivableAmount;
+
+    /** 已收金额 */
+    @Excel(name = "已收金额")
+    private BigDecimal receivedAmount;
+
+    /** 未收金额 */
+    @Excel(name = "未收金额")
+    private BigDecimal remainReceivableAmount;
+
+    /** 已出库数量 */
+    @Excel(name = "已出库数量")
+    private BigDecimal outboundQuantity;
+
+    /** 待出库数量 */
+    @Excel(name = "待出库数量")
+    private BigDecimal remainQuantity;
+
     @Excel(name = "单据状态")
     private String status;
 
@@ -108,6 +128,106 @@ public class WmsSaleOrder extends BaseEntity
     public void setTotalAmount(BigDecimal totalAmount)
     {
         this.totalAmount = totalAmount;
+    }
+
+    /**
+     * 获取应收金额
+     *
+     * @return 应收金额
+     */
+    public BigDecimal getReceivableAmount()
+    {
+        return receivableAmount;
+    }
+
+    /**
+     * 设置应收金额
+     *
+     * @param receivableAmount 应收金额
+     */
+    public void setReceivableAmount(BigDecimal receivableAmount)
+    {
+        this.receivableAmount = receivableAmount;
+    }
+
+    /**
+     * 获取已收金额
+     *
+     * @return 已收金额
+     */
+    public BigDecimal getReceivedAmount()
+    {
+        return receivedAmount;
+    }
+
+    /**
+     * 设置已收金额
+     *
+     * @param receivedAmount 已收金额
+     */
+    public void setReceivedAmount(BigDecimal receivedAmount)
+    {
+        this.receivedAmount = receivedAmount;
+    }
+
+    /**
+     * 获取未收金额
+     *
+     * @return 未收金额
+     */
+    public BigDecimal getRemainReceivableAmount()
+    {
+        return remainReceivableAmount;
+    }
+
+    /**
+     * 设置未收金额
+     *
+     * @param remainReceivableAmount 未收金额
+     */
+    public void setRemainReceivableAmount(BigDecimal remainReceivableAmount)
+    {
+        this.remainReceivableAmount = remainReceivableAmount;
+    }
+
+    /**
+     * 获取已出库数量
+     *
+     * @return 已出库数量
+     */
+    public BigDecimal getOutboundQuantity()
+    {
+        return outboundQuantity;
+    }
+
+    /**
+     * 设置已出库数量
+     *
+     * @param outboundQuantity 已出库数量
+     */
+    public void setOutboundQuantity(BigDecimal outboundQuantity)
+    {
+        this.outboundQuantity = outboundQuantity;
+    }
+
+    /**
+     * 获取待出库数量
+     *
+     * @return 待出库数量
+     */
+    public BigDecimal getRemainQuantity()
+    {
+        return remainQuantity;
+    }
+
+    /**
+     * 设置待出库数量
+     *
+     * @param remainQuantity 待出库数量
+     */
+    public void setRemainQuantity(BigDecimal remainQuantity)
+    {
+        this.remainQuantity = remainQuantity;
     }
 
     public String getStatus()
@@ -200,6 +320,11 @@ public class WmsSaleOrder extends BaseEntity
             .append("warehouseId", getWarehouseId())
             .append("totalQty", getTotalQty())
             .append("totalAmount", getTotalAmount())
+            .append("receivableAmount", getReceivableAmount())
+            .append("receivedAmount", getReceivedAmount())
+            .append("remainReceivableAmount", getRemainReceivableAmount())
+            .append("outboundQuantity", getOutboundQuantity())
+            .append("remainQuantity", getRemainQuantity())
             .append("status", getStatus())
             .append("paymentStatus", getPaymentStatus())
             .append("auditBy", getAuditBy())

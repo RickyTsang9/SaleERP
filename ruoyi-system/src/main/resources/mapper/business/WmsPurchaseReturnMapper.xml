@@ -129,4 +129,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             update_time = sysdate()
         where purchase_return_id = #{purchaseReturnId}
     </update>
+
+    <update id="updateWmsPurchaseReturnStatus">
+        update wms_purchase_return
+        set status = #{newStatus},
+            audit_by = #{auditBy},
+            audit_time = case when #{auditBy} is not null and #{auditBy} != '' then sysdate() else null end,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where purchase_return_id = #{purchaseReturnId}
+          and status = #{oldStatus}
+    </update>
 </mapper>

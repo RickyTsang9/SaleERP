@@ -13,6 +13,12 @@ public interface IWmsInboundService
 
     public int updateWmsInbound(WmsInbound wmsInbound);
 
+    public int submitWmsInbound(Long inboundId);
+
+    public int auditWmsInbound(Long inboundId);
+
+    public int cancelWmsInbound(Long inboundId);
+
     public int deleteWmsInboundById(Long inboundId);
 
     public int deleteWmsInboundByIds(Long[] inboundIds);

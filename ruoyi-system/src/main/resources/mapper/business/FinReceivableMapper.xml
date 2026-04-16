@@ -48,16 +48,34 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="customerId != null">
                 and customer_id = #{customerId}
             </if>
-            <if test="status != null and status != ''">
-                and status = #{status}
-            </if>
+            <choose>
+                <when test="params.overdueQuery != null and params.overdueQuery != ''">
+                    and status in ('unpaid', 'partial')
+                    and amount_due - ifnull(amount_paid, 0) &gt; 0
+                    and due_date is not null
+                    and due_date &lt; curdate()
+                </when>
+                <otherwise>
+                    <if test="status != null and status != ''">
+                        and status = #{status}
+                    </if>
+                </otherwise>
+            </choose>
             <if test="params.beginDueDate != null and params.beginDueDate != ''">
-                and date_format(due_date, '%y%m%d') &gt;= date_format(#{params.beginDueDate}, '%y%m%d')
+                and due_date &gt;= concat(#{params.beginDueDate}, ' 00:00:00')
             </if>
             <if test="params.endDueDate != null and params.endDueDate != ''">
-                and date_format(due_date, '%y%m%d') &lt;= date_format(#{params.endDueDate}, '%y%m%d')
+                and due_date &lt; date_add(concat(#{params.endDueDate}, ' 00:00:00'), interval 1 day)
             </if>
         </where>
+        order by receivable_id desc
+    </select>
+
+    <select id="selectPendingFinReceivableListByCustomerId" parameterType="Long" resultMap="FinReceivableResult">
+        <include refid="selectFinReceivableVo"/>
+        where customer_id = #{customerId}
+          and status in ('unpaid', 'partial')
+          and amount_due - ifnull(amount_paid, 0) &gt; 0
         order by receivable_id desc
     </select>
 
@@ -70,8 +88,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where status in ('unpaid', 'partial')
           and amount_due - ifnull(amount_paid, 0) &gt; 0
           and due_date is not null
-          and date(due_date) &gt;= curdate()
-          and date(due_date) &lt;= date_add(curdate(), interval ifnull(#{remindDays}, 7) day)
+          and due_date &gt;= curdate()
+          and due_date &lt; date_add(date_add(curdate(), interval ifnull(#{remindDays}, 7) day), interval 1 day)
         order by due_date asc, receivable_id desc
     </select>
 
@@ -84,7 +102,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where status in ('unpaid', 'partial')
           and amount_due - ifnull(amount_paid, 0) &gt; 0
           and due_date is not null
-          and date(due_date) &lt; curdate()
+          and due_date &lt; curdate()
         order by overdue_days desc, receivable_id desc
     </select>
 
@@ -134,6 +152,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             update_time = sysdate(),
             <if test="remark != null">remark = #{remark},</if>
         </set>
+        where receivable_id = #{receivableId}
+    </update>
+
+    <update id="updateFinReceivableAdjustInfo" parameterType="FinReceivable">
+        update fin_receivable
+        set due_date = #{dueDate},
+            update_by = #{updateBy},
+            update_time = sysdate(),
+            remark = #{remark}
         where receivable_id = #{receivableId}
     </update>
 

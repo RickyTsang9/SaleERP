@@ -20,4 +20,6 @@ public interface WmsPurchaseReturnMapper
     public String selectMaxReturnNoByPrefix(String noPrefix);
 
     public int refreshTotalByPurchaseReturnId(Long purchaseReturnId);
+
+    public int updateWmsPurchaseReturnStatus(Long purchaseReturnId, String oldStatus, String newStatus, String auditBy, String updateBy);
 }
