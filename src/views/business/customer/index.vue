@@ -72,7 +72,13 @@
         <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:customer:edit']">修改</el-button>
       </el-col>
       <el-col :span="1.5">
+        <el-button type="primary" plain icon="ChatDotRound" :disabled="single" @click="handleViewCustomerFollow" v-hasPermi="['business:customerFollow:list']">客户跟进</el-button>
+      </el-col>
+      <el-col :span="1.5">
         <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:customer:remove']">删除</el-button>
+      </el-col>
+      <el-col :span="1.5">
+        <el-button type="info" plain icon="Upload" @click="handleImport" v-hasPermi="['business:customer:import']">导入</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:customer:export']">导出</el-button>
@@ -82,7 +88,6 @@
 
     <el-table v-loading="loading" :data="customerList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="客户编号" align="center" prop="customerId" />
       <el-table-column label="客户编码" align="center" prop="customerCode" />
       <el-table-column label="客户名称" align="center" prop="customerName" />
       <el-table-column label="联系人" align="center" prop="contactPerson" />
@@ -115,8 +120,9 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" align="center" class-name="small-padding fixed-width">
+      <el-table-column label="操作" width="240" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
+          <el-button link type="primary" icon="ChatDotRound" @click="handleViewCustomerFollow(scope.row)" v-hasPermi="['business:customerFollow:list']">跟进</el-button>
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:customer:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:customer:remove']">删除</el-button>
         </template>
@@ -214,11 +220,47 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 客户导入对话框 -->
+    <el-dialog :title="upload.title" v-model="upload.open" width="400px" append-to-body>
+      <el-upload
+        ref="uploadRef"
+        :limit="1"
+        accept=".xlsx, .xls"
+        :headers="upload.headers"
+        :action="upload.url + '?updateSupport=' + upload.updateSupport"
+        :disabled="upload.isUploading"
+        :on-progress="handleFileUploadProgress"
+        :on-success="handleFileSuccess"
+        :auto-upload="false"
+        drag
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+        <template #tip>
+          <div class="el-upload__tip text-center">
+            <div class="el-upload__tip">
+              <el-checkbox v-model="upload.updateSupport" /> 是否更新已经存在的客户数据
+            </div>
+            <span>仅允许导入xls、xlsx格式文件。</span>
+            <el-link type="primary" :underline="false" style="font-size:12px;vertical-align: baseline;" @click="importTemplate">下载模板</el-link>
+          </div>
+        </template>
+      </el-upload>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" @click="submitFileForm">确 定</el-button>
+          <el-button @click="upload.open = false">取 消</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup name="BusinessCustomer">
-import { listCustomer, getCustomer, addCustomer, updateCustomer, delCustomer, changeCustomerStatus } from "@/api/business/customer"
+import { listCustomer, getCustomer, addCustomer, updateCustomer, delCustomer, changeCustomerStatus, importTemplate as downloadImportTemplate } from "@/api/business/customer"
+import { getToken } from "@/utils/auth"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
@@ -232,16 +274,38 @@ const single = ref(true)
 const multiple = ref(true)
 const total = ref(0)
 const title = ref("")
+
+/*** 客户导入参数 */
+const upload = reactive({
+  // 是否显示弹出层
+  open: false,
+  // 弹出层标题
+  title: "",
+  // 是否禁用上传
+  isUploading: false,
+  // 是否更新已经存在的数据
+  updateSupport: 0,
+  // 设置上传的请求头部
+  headers: { Authorization: "Bearer " + getToken() },
+  // 上传的地址
+  url: import.meta.env.VITE_APP_BASE_API + "/business/customer/importData"
+})
+
 const paymentMethodOptions = ref([
   { label: "现金", value: "cash" },
   { label: "银行转账", value: "bank_transfer" },
-  { label: "赊销", value: "credit" }
+  { label: "赊销", value: "credit" },
+  { label: "月结", value: "month" },
+  { label: "银行转账", value: "bank" }
 ])
 const customerLevelOptions = ref([
   { label: "普通", value: "normal" },
   { label: "银牌", value: "silver" },
   { label: "金牌", value: "gold" },
-  { label: "vip", value: "vip" }
+  { label: "VIP", value: "vip" },
+  { label: "A级客户", value: "a" },
+  { label: "B级客户", value: "b" },
+  { label: "C级客户", value: "c" }
 ])
 
 const data = reactive({
@@ -303,6 +367,7 @@ function formatPaymentMethod(paymentMethod) {
   return targetOption ? targetOption.label : paymentMethod
 }
 
+// 将客户等级编码统一转换为业务人员可读的中文名称，兼容历史 a/b/c 级别数据。
 function formatCustomerLevel(customerLevel) {
   const targetOption = customerLevelOptions.value.find(option => option.value === customerLevel)
   return targetOption ? targetOption.label : customerLevel
@@ -322,6 +387,20 @@ function handleSelectionChange(selection) {
   ids.value = selection.map(item => item.customerId)
   single.value = selection.length !== 1
   multiple.value = !selection.length
+}
+
+// 打开客户跟进页，并自动带上当前客户筛选，减少销售二次查找。
+function handleViewCustomerFollow(row) {
+  const customerRow = row || customerList.value.find(customerItem => customerItem.customerId === ids.value[0])
+  if (!customerRow?.customerId) {
+    return
+  }
+  proxy.$router.push({
+    path: "/base/customerFollow",
+    query: {
+      customerId: customerRow.customerId
+    }
+  })
 }
 
 function handleAdd() {
@@ -360,10 +439,18 @@ function submitForm() {
   })
 }
 
+// 删除按钮操作，兼容单条删除和批量删除，并在空选择时及时提醒用户。
 function handleDelete(row) {
-  const customerIds = row.customerId || ids.value
-  proxy.$modal.confirm('是否确认删除客户编号为"' + customerIds + '"的数据项？').then(function () {
-    return delCustomer(customerIds)
+  const customerIdList = row?.customerId ? [row.customerId] : ids.value
+  if (!customerIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的客户")
+    return
+  }
+  const displayCustomerText = row?.customerId
+    ? `${row.customerName || row.customerCode || row.customerId}`
+    : `已选中的 ${ids.value.length} 个客户`
+  proxy.$modal.confirm(`是否确认删除“${displayCustomerText}”？`).then(function () {
+    return delCustomer(customerIdList)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")
@@ -385,6 +472,38 @@ function handleExport() {
   proxy.download("business/customer/export", {
     ...queryParams.value
   }, `customer_${new Date().getTime()}.xlsx`)
+}
+
+/** 导入按钮操作 */
+function handleImport() {
+  upload.title = "客户导入";
+  upload.open = true;
+}
+
+/** 下载模板操作 */
+function importTemplate() {
+  downloadImportTemplate().then(response => {
+    proxy.download.saveAs(response, `customer_template_${new Date().getTime()}.xlsx`)
+  })
+}
+
+/**文件上传中处理 */
+const handleFileUploadProgress = (event, file, fileList) => {
+  upload.isUploading = true;
+};
+
+/** 文件上传成功处理 */
+const handleFileSuccess = (response, file, fileList) => {
+  upload.open = false;
+  upload.isUploading = false;
+  proxy.$refs["uploadRef"].handleRemove(file);
+  proxy.$alert("<div style='overflow: auto;overflow-x: hidden;max-height: 70vh;padding: 10px 20px 0;'>" + response.msg + "</div>", "导入结果", { dangerouslyUseHTMLString: true });
+  getList();
+};
+
+/** 提交上传文件 */
+function submitFileForm() {
+  proxy.$refs["uploadRef"].submit();
 }
 
 getList()

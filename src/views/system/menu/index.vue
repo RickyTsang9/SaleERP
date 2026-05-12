@@ -292,6 +292,7 @@
 import { addMenu, delMenu, getMenu, listMenu, updateMenu } from "@/api/system/menu"
 import SvgIcon from "@/components/SvgIcon"
 import IconSelect from "@/components/IconSelect"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_show_hide, sys_normal_disable } = proxy.useDict("sys_show_hide", "sys_normal_disable")
@@ -440,6 +441,10 @@ function submitForm() {
 
 /** 删除按钮操作 */
 function handleDelete(row) {
+  if (!row?.menuId) {
+    proxy.$modal.msgWarning("请选择要删除的菜单")
+    return
+  }
   proxy.$modal.confirm('是否确认删除名称为"' + row.menuName + '"的数据项?').then(function() {
     return delMenu(row.menuId)
   }).then(() => {

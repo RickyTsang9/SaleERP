@@ -50,6 +50,7 @@ import { getNormalPath } from '@/utils/ruoyi'
 import { isHttp } from '@/utils/validate'
 import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
+import { resolveMenuIcon } from '@/utils/menuIcon'
 
 const search = ref('')
 const options = ref([])
@@ -134,7 +135,7 @@ function generateRoutes(routes, basePath = '', prefixTitle = []) {
 
     if (r.meta && r.meta.title) {
       data.title = [...data.title, r.meta.title]
-      data.icon = r.meta.icon
+      data.icon = resolveMenuIcon(r)
       if (r.redirect !== "noRedirect") {
         // only push the routes with title
         // special case: need to exclude parent router without redirect

@@ -219,6 +219,7 @@ import useAppStore from '@/store/modules/app'
 import { changeUserStatus, listUser, resetUserPwd, delUser, getUser, updateUser, addUser, deptTreeSelect } from "@/api/system/user"
 import { Splitpanes, Pane } from "splitpanes"
 import "splitpanes/dist/splitpanes.css"
+import { parseTime } from "@/utils/ruoyi"
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -354,6 +355,10 @@ function resetQuery() {
 /** 删除按钮操作 */
 function handleDelete(row) {
   const userIds = row.userId || ids.value
+  if (!userIds || (Array.isArray(userIds) && !userIds.length)) {
+    proxy.$modal.msgWarning("请选择要删除的用户")
+    return
+  }
   proxy.$modal.confirm('是否确认删除用户编号为"' + userIds + '"的数据项？').then(function () {
     return delUser(userIds)
   }).then(() => {

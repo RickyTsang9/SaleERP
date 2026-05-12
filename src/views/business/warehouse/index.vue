@@ -29,6 +29,9 @@
         <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:warehouse:edit']">修改</el-button>
       </el-col>
       <el-col :span="1.5">
+        <el-button type="primary" plain icon="Grid" :disabled="single" @click="handleViewLocation" v-hasPermi="['business:location:list']">查看库位</el-button>
+      </el-col>
+      <el-col :span="1.5">
         <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:warehouse:remove']">删除</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -39,7 +42,6 @@
 
     <el-table v-loading="loading" :data="warehouseList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="仓库编号" align="center" prop="warehouseId" />
       <el-table-column label="仓库编码" align="center" prop="warehouseCode" />
       <el-table-column label="仓库名称" align="center" prop="warehouseName" />
       <el-table-column label="联系人" align="center" prop="contactName" />
@@ -55,8 +57,9 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" align="center" class-name="small-padding fixed-width">
+      <el-table-column label="操作" width="240" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
+          <el-button link type="primary" icon="Grid" @click="handleViewLocation(scope.row)" v-hasPermi="['business:location:list']">库位</el-button>
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:warehouse:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:warehouse:remove']">删除</el-button>
         </template>
@@ -125,6 +128,7 @@
 
 <script setup name="BusinessWarehouse">
 import { listWarehouse, getWarehouse, addWarehouse, updateWarehouse, delWarehouse } from "@/api/business/warehouse"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
@@ -201,6 +205,20 @@ function handleSelectionChange(selection) {
   multiple.value = !selection.length
 }
 
+// 打开库位管理页，并带上仓库筛选，减少仓库管理员二次定位成本。
+function handleViewLocation(row) {
+  const warehouseRow = row || warehouseList.value.find(warehouseItem => warehouseItem.warehouseId === ids.value[0])
+  if (!warehouseRow?.warehouseId) {
+    return
+  }
+  proxy.$router.push({
+    path: "/warehouseGroup/location",
+    query: {
+      warehouseId: warehouseRow.warehouseId
+    }
+  })
+}
+
 function handleAdd() {
   reset()
   open.value = true
@@ -237,10 +255,18 @@ function submitForm() {
   })
 }
 
+// 删除按钮操作，兼容单条删除和批量删除，并在空选择时及时提醒用户。
 function handleDelete(row) {
-  const warehouseIds = row.warehouseId || ids.value
-  proxy.$modal.confirm('是否确认删除仓库编号为"' + warehouseIds + '"的数据项？').then(function () {
-    return delWarehouse(warehouseIds)
+  const warehouseIdList = row?.warehouseId ? [row.warehouseId] : ids.value
+  if (!warehouseIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的仓库")
+    return
+  }
+  const displayWarehouseText = row?.warehouseId
+    ? `${row.warehouseName || row.warehouseCode || row.warehouseId}`
+    : `已选中的 ${ids.value.length} 个仓库`
+  proxy.$modal.confirm(`是否确认删除“${displayWarehouseText}”？`).then(function () {
+    return delWarehouse(warehouseIdList)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")

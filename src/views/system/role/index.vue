@@ -244,6 +244,7 @@
 <script setup name="Role">
 import { addRole, changeRoleStatus, dataScope, delRole, getRole, listRole, updateRole, deptTreeSelect } from "@/api/system/role"
 import { roleMenuTreeselect, treeselect as menuTreeselect } from "@/api/system/menu"
+import { parseTime } from "@/utils/ruoyi"
 
 const router = useRouter()
 const { proxy } = getCurrentInstance()
@@ -322,6 +323,10 @@ function resetQuery() {
 /** 删除按钮操作 */
 function handleDelete(row) {
   const roleIds = row.roleId || ids.value
+  if (!roleIds || (Array.isArray(roleIds) && !roleIds.length)) {
+    proxy.$modal.msgWarning("请选择要删除的角色")
+    return
+  }
   proxy.$modal.confirm('是否确认删除角色编号为"' + roleIds + '"的数据项?').then(function () {
     return delRole(roleIds)
   }).then(() => {

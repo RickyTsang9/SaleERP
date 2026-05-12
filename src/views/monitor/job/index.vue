@@ -287,6 +287,7 @@
 <script setup name="Job">
 import Crontab from '@/components/Crontab'
 import { listJob, getJob, delJob, addJob, updateJob, runJob, changeJobStatus } from "@/api/monitor/job"
+import { parseTime } from "@/utils/ruoyi"
 
 const router = useRouter()
 const { proxy } = getCurrentInstance()
@@ -483,6 +484,10 @@ function submitForm() {
 /** 删除按钮操作 */
 function handleDelete(row) {
   const jobIds = row.jobId || ids.value
+  if (!jobIds || (Array.isArray(jobIds) && !jobIds.length)) {
+    proxy.$modal.msgWarning("请选择要删除的定时任务")
+    return
+  }
   proxy.$modal.confirm('是否确认删除定时任务编号为"' + jobIds + '"的数据项?').then(function () {
     return delJob(jobIds)
   }).then(() => {

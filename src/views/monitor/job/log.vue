@@ -173,6 +173,7 @@
 <script setup name="JobLog">
 import { getJob } from "@/api/monitor/job"
 import { listJobLog, delJobLog, cleanJobLog } from "@/api/monitor/jobLog"
+import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const { sys_common_status, sys_job_group } = proxy.useDict("sys_common_status", "sys_job_group")
@@ -243,6 +244,10 @@ function handleView(row) {
 
 /** 删除按钮操作 */
 function handleDelete(row) {
+  if (!ids.value.length) {
+    proxy.$modal.msgWarning("请选择要删除的调度日志")
+    return
+  }
   proxy.$modal.confirm('是否确认删除调度日志编号为"' + ids.value + '"的数据项?').then(function () {
     return delJobLog(ids.value)
   }).then(() => {

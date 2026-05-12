@@ -189,7 +189,8 @@ onActivated(() => {
   const time = route.query.t
   if (time != null && time != uniqueId.value) {
     uniqueId.value = time
-    queryParams.value.pageNum = Number(route.query.pageNum)
+    const routePageNumber = Number(route.query.pageNum)
+    queryParams.value.pageNum = Number.isFinite(routePageNumber) && routePageNumber > 0 ? routePageNumber : 1
     dateRange.value = []
     proxy.resetForm("queryForm")
     getList()
@@ -297,6 +298,10 @@ function handleEditTable(row) {
 /** 删除按钮操作 */
 function handleDelete(row) {
   const tableIds = row.tableId || ids.value
+  if (!tableIds || (Array.isArray(tableIds) && !tableIds.length)) {
+    proxy.$modal.msgWarning("请选择要删除的代码生成表")
+    return
+  }
   proxy.$modal.confirm('是否确认删除表编号为"' + tableIds + '"的数据项？').then(function () {
     return delTable(tableIds)
   }).then(() => {

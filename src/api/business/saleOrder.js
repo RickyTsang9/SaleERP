@@ -98,6 +98,14 @@ export function listSaleOrderStatusHistory(saleOrderId) {
   })
 }
 
+// 查询销售订单全链路追踪
+export function getSaleOrderChain(saleOrderId) {
+  return request({
+    url: '/business/saleOrder/chain/' + saleOrderId,
+    method: 'get'
+  })
+}
+
 export function importSaleOrderTemplate() {
   return request({
     url: '/business/saleOrder/importTemplate',

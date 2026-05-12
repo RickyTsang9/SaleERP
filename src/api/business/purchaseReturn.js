@@ -31,6 +31,27 @@ export function updatePurchaseReturn(data) {
   })
 }
 
+export function submitPurchaseReturn(purchaseReturnId) {
+  return request({
+    url: '/business/purchaseReturn/submit/' + purchaseReturnId,
+    method: 'post'
+  })
+}
+
+export function auditPurchaseReturn(purchaseReturnId) {
+  return request({
+    url: '/business/purchaseReturn/audit/' + purchaseReturnId,
+    method: 'post'
+  })
+}
+
+export function cancelPurchaseReturn(purchaseReturnId) {
+  return request({
+    url: '/business/purchaseReturn/cancel/' + purchaseReturnId,
+    method: 'post'
+  })
+}
+
 export function delPurchaseReturn(purchaseReturnId) {
   return request({
     url: '/business/purchaseReturn/' + purchaseReturnId,

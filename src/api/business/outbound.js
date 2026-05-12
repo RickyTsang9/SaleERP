@@ -31,6 +31,27 @@ export function updateOutbound(data) {
   })
 }
 
+export function submitOutbound(outboundId) {
+  return request({
+    url: '/business/outbound/submit/' + outboundId,
+    method: 'post'
+  })
+}
+
+export function auditOutbound(outboundId) {
+  return request({
+    url: '/business/outbound/audit/' + outboundId,
+    method: 'post'
+  })
+}
+
+export function cancelOutbound(outboundId) {
+  return request({
+    url: '/business/outbound/cancel/' + outboundId,
+    method: 'post'
+  })
+}
+
 export function delOutbound(outboundId) {
   return request({
     url: '/business/outbound/' + outboundId,

@@ -1,8 +1,8 @@
 {
-  "name": "ruoyi",
+  "name": "sale-erp",
   "version": "3.9.1",
-  "description": "若依管理系统",
-  "author": "若依",
+  "description": "Sales management system",
+  "author": "SaleERP",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -21,7 +21,7 @@
     "@vueuse/core": "14.1.0",
     "axios": "1.13.2",
     "clipboard": "2.0.11",
-    "echarts": "5.6.0",
+    "echarts": "^5.6.0",
     "element-plus": "2.13.1",
     "file-saver": "2.0.5",
     "fuse.js": "7.1.0",
@@ -34,6 +34,7 @@
     "vue": "3.5.26",
     "vue-cropper": "1.1.1",
     "vue-router": "4.6.4",
+    "vue3-print-nb": "^0.1.4",
     "vuedraggable": "4.1.0"
   },
   "devDependencies": {

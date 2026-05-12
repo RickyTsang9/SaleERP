@@ -6,3 +6,43 @@ export function getDashboard() {
     method: 'get'
   })
 }
+
+export function listSaleReport(query) {
+  return request({
+    url: '/business/report/saleList',
+    method: 'get',
+    params: query
+  })
+}
+
+export function listReconciliation(query) {
+  return request({
+    url: '/business/report/reconciliationList',
+    method: 'get',
+    params: query
+  })
+}
+
+export function listInvoiceTax(query) {
+  return request({
+    url: '/business/report/invoiceTaxList',
+    method: 'get',
+    params: query
+  })
+}
+
+export function getCashFlowForecast(query) {
+  return request({
+    url: '/business/report/cashFlowForecast',
+    method: 'get',
+    params: query
+  })
+}
+
+// 查询统一待办中心数据
+export function getTodoCenter() {
+  return request({
+    url: '/business/report/todoCenter',
+    method: 'get'
+  })
+}

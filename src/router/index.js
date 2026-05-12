@@ -83,6 +83,70 @@ export const constantRoutes = [
         meta: { title: '个人中心', icon: 'user' }
       }
     ]
+  },
+  {
+    path: '/purchase',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: 'purchaseOrder',
+        component: () => import('@/views/business/purchaseOrder/index.vue'),
+        name: 'PurchaseOrder',
+        meta: { title: '采购订单' }
+      },
+      {
+        path: 'supplier',
+        component: () => import('@/views/business/supplier/index.vue'),
+        name: 'Supplier',
+        meta: { title: '供应商资料', activeMenu: '/purchase/purchaseOrder' }
+      }
+    ]
+  },
+  {
+    path: '/finance',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: 'payable',
+        component: () => import('@/views/business/payable/index.vue'),
+        name: 'Payable',
+        meta: { title: '应付台账' }
+      },
+      {
+        path: 'payment',
+        component: () => import('@/views/business/payment/index.vue'),
+        name: 'Payment',
+        meta: { title: '付款流水' }
+      }
+    ]
+  },
+  {
+    path: '/base',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: 'customerFollow',
+        component: () => import('@/views/business/customerFollow/index.vue'),
+        name: 'CustomerFollow',
+        meta: { title: '客户跟进', activeMenu: '/base/customer' }
+      }
+    ]
+  },
+  {
+    path: '/business',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: 'report',
+        component: () => import('@/views/business/report/index.vue'),
+        name: 'BusinessReportAlias',
+        meta: { title: '经营看板', activeMenu: '/finance/report' }
+      }
+    ]
   }
 ]
 

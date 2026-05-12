@@ -94,6 +94,7 @@
 <script setup name="AuthUser">
 import selectUser from "./selectUser"
 import { allocatedUserList, authUserCancel, authUserCancelAll } from "@/api/system/role"
+import { parseTime } from "@/utils/ruoyi"
 
 const route = useRoute()
 const { proxy } = getCurrentInstance()

@@ -8,8 +8,7 @@
     <template v-for="(item, index) in topMenus">
       <el-menu-item :style="{'--theme': theme}" :index="item.path" :key="index" v-if="index < visibleNumber">
         <svg-icon
-        v-if="item.meta && item.meta.icon && item.meta.icon !== '#'"
-        :icon-class="item.meta.icon"/>
+        :icon-class="resolveMenuIcon(item)"/>
         {{ item.meta.title }}
       </el-menu-item>
     </template>
@@ -23,8 +22,7 @@
           :key="index"
           v-if="index >= visibleNumber">
         <svg-icon
-          v-if="item.meta && item.meta.icon && item.meta.icon !== '#'"
-          :icon-class="item.meta.icon"/>
+          :icon-class="resolveMenuIcon(item)"/>
         {{ item.meta.title }}
         </el-menu-item>
       </template>
@@ -38,6 +36,7 @@ import { isHttp } from '@/utils/validate'
 import useAppStore from '@/store/modules/app'
 import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
+import { resolveMenuIcon } from '@/utils/menuIcon'
 
 // 顶部栏初始数
 const visibleNumber = ref(null)

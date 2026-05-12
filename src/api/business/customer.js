@@ -45,3 +45,12 @@ export function delCustomer(customerId) {
     method: 'delete'
   })
 }
+
+// 获取导入模板
+export function importTemplate() {
+  return request({
+    url: '/business/customer/importTemplate',
+    method: 'post',
+    responseType: 'blob'
+  })
+}

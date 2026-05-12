@@ -45,3 +45,12 @@ export function delProduct(productId) {
     method: 'delete'
   })
 }
+
+// 获取导入模板
+export function importTemplate() {
+  return request({
+    url: '/business/product/importTemplate',
+    method: 'post',
+    responseType: 'blob'
+  })
+}

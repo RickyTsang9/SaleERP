@@ -8,20 +8,28 @@ export function listMessage(query) {
   })
 }
 
-export function getUnreadMessageCount(messageType) {
-  return request({
-    url: '/business/message/unreadCount',
-    method: 'get',
-    params: { messageType: messageType }
-  })
-}
-
-export function listPopupMessage(messageType, limitCount) {
+export function popupList(query) {
   return request({
     url: '/business/message/popupList',
     method: 'get',
-    params: { messageType: messageType, limitCount: limitCount }
+    params: query
   })
+}
+
+export function unreadCount(query) {
+  return request({
+    url: '/business/message/unreadCount',
+    method: 'get',
+    params: query
+  })
+}
+
+export function getUnreadMessageCount(query) {
+  return unreadCount(query)
+}
+
+export function listPopupMessage(query) {
+  return popupList(query)
 }
 
 export function readMessage(messageId) {
@@ -31,10 +39,10 @@ export function readMessage(messageId) {
   })
 }
 
-export function readAllMessage(messageType) {
+export function readAllMessage(data) {
   return request({
     url: '/business/message/readAll',
     method: 'post',
-    params: { messageType: messageType }
+    params: data
   })
 }

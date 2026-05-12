@@ -22,33 +22,3 @@ export function remindWarningStock() {
     method: 'post'
   })
 }
-
-export function getStock(stockId) {
-  return request({
-    url: '/business/stock/' + stockId,
-    method: 'get'
-  })
-}
-
-export function addStock(data) {
-  return request({
-    url: '/business/stock',
-    method: 'post',
-    data: data
-  })
-}
-
-export function updateStock(data) {
-  return request({
-    url: '/business/stock',
-    method: 'put',
-    data: data
-  })
-}
-
-export function delStock(stockId) {
-  return request({
-    url: '/business/stock/' + stockId,
-    method: 'delete'
-  })
-}

@@ -31,6 +31,27 @@ export function updateInbound(data) {
   })
 }
 
+export function submitInbound(inboundId) {
+  return request({
+    url: '/business/inbound/submit/' + inboundId,
+    method: 'post'
+  })
+}
+
+export function auditInbound(inboundId) {
+  return request({
+    url: '/business/inbound/audit/' + inboundId,
+    method: 'post'
+  })
+}
+
+export function cancelInbound(inboundId) {
+  return request({
+    url: '/business/inbound/cancel/' + inboundId,
+    method: 'post'
+  })
+}
+
 export function delInbound(inboundId) {
   return request({
     url: '/business/inbound/' + inboundId,
