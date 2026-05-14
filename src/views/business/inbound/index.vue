@@ -1181,17 +1181,17 @@ function handleExport() {
   }, `inbound_${new Date().getTime()}.xlsx`)
 }
 
-// 判断当前是否来自采购订单的一键新建入库入口，满足条件时直接打开新增弹窗。
-function shouldAutoOpenLinkedInboundFromRoute() {
-  return route.query.mode === "create" && !!queryParams.value.purchaseOrderId
+// 判断当前是否来自一键新建入库入口，支持首页入口和采购订单联动入口。
+function shouldAutoOpenInboundFromRoute() {
+  return route.query.mode === "create"
 }
 
-// 初始化页面基础数据和列表，并在需要时自动打开来源采购单的新建入库弹窗。
+// 初始化页面基础数据和列表，并在需要时自动打开新建入库弹窗。
 async function initializePage() {
   initializeQueryParamsFromRoute()
   await initBasicData()
   await getList()
-  if (shouldAutoOpenLinkedInboundFromRoute()) {
+  if (shouldAutoOpenInboundFromRoute()) {
     handleAdd()
   }
 }

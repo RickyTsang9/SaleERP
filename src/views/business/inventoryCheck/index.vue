@@ -279,6 +279,7 @@ import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
+const route = useRoute()
 
 const inventoryCheckList = ref([])
 const warehouseList = ref([])
@@ -849,6 +850,28 @@ function canCancelStatus(statusValue) {
   return statusValue === "draft" || statusValue === "submitted"
 }
 
+// 判断当前是否来自首页一键盘点库存入口。
+function shouldAutoOpenInventoryCheckFromRoute() {
+  return route.query.mode === "create"
+}
+
+// 初始化页面基础数据和列表，并在需要时自动打开新建盘点单弹窗。
+function initializePage() {
+  initBasicData()
+  getList()
+  if (shouldAutoOpenInventoryCheckFromRoute()) {
+    handleAdd()
+  }
+}
+
+// 监听路由参数变化，保证首页重复进入盘点页时新增入口会重新生效。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
 // 监听盘点明细关键数字字段变化，实时展示差异数量和差异金额。
 watch(
   () => [inventoryCheckItemForm.value.stockQty, inventoryCheckItemForm.value.actualQty, inventoryCheckItemForm.value.price],
@@ -857,6 +880,5 @@ watch(
   }
 )
 
-initBasicData()
-getList()
+initializePage()
 </script>

@@ -714,6 +714,11 @@ function initializeQueryParamsFromRoute() {
   queryParams.value.status = route.query.status || undefined
 }
 
+// 判断当前是否来自首页一键开销售单入口。
+function shouldAutoOpenSaleOrderFromRoute() {
+  return route.query.mode === "create"
+}
+
 // 初始化客户和仓库远程下拉数据，避免页面初始阶段一次性加载过多基础资料。
 function initBasicData() {
   loadCustomerOptionList()
@@ -1581,6 +1586,9 @@ async function initializePage() {
   initializeQueryParamsFromRoute()
   await initBasicData()
   await getList()
+  if (shouldAutoOpenSaleOrderFromRoute()) {
+    handleAdd()
+  }
 }
 
 // 监听同一路由下的查询参数变化，避免销售订单页沿用旧的状态或单据筛选。

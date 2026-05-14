@@ -9,16 +9,16 @@
             <div class="quick-actions-subtitle">常用业务入口集中处理，减少菜单来回切换。</div>
           </div>
           <div class="quick-actions-container">
-            <el-button type="primary" @click="navigateTo(businessRoutePathMap.saleOrder)">
+            <el-button type="primary" @click="navigateTo(businessRoutePathMap.saleOrder, { mode: 'create' })">
               <el-icon><ShoppingCart /></el-icon> 开销售单
             </el-button>
-            <el-button type="success" @click="navigateTo(businessRoutePathMap.inbound)">
+            <el-button type="success" @click="navigateTo(businessRoutePathMap.inbound, { mode: 'create' })">
               <el-icon><Goods /></el-icon> 采购入库
             </el-button>
-            <el-button type="warning" @click="navigateTo(businessRoutePathMap.inventoryCheck)">
+            <el-button type="warning" @click="navigateTo(businessRoutePathMap.inventoryCheck, { mode: 'create' })">
               <el-icon><Box /></el-icon> 盘点库存
             </el-button>
-            <el-button type="info" @click="navigateTo(businessRoutePathMap.customer)">
+            <el-button type="info" @click="navigateTo(businessRoutePathMap.customer, { mode: 'create' })">
               <el-icon><User /></el-icon> 新增客户
             </el-button>
           </div>

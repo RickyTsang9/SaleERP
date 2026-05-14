@@ -263,6 +263,7 @@ import { getToken } from "@/utils/auth"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
+const route = useRoute()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
 
 const customerList = ref([])
@@ -506,5 +507,26 @@ function submitFileForm() {
   proxy.$refs["uploadRef"].submit();
 }
 
-getList()
+// 判断当前是否来自首页一键新增客户入口。
+function shouldAutoOpenCustomerFromRoute() {
+  return route.query.mode === "create"
+}
+
+// 初始化客户页面列表，并在需要时自动打开新增客户弹窗。
+function initializePage() {
+  getList()
+  if (shouldAutoOpenCustomerFromRoute()) {
+    handleAdd()
+  }
+}
+
+// 监听路由参数变化，保证首页重复进入客户页时新增入口会重新生效。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>
