@@ -1,5 +1,27 @@
 <template>
   <div class="app-container home">
+    <section class="home-overview">
+      <div class="home-overview__main">
+        <div class="home-overview__eyebrow">销售进销存工作台</div>
+        <h2>经营首页</h2>
+        <p>聚合销售、库存、应收和审批状态，进入系统后先处理最需要关注的业务。</p>
+      </div>
+      <div class="home-overview__stats">
+        <div class="home-stat">
+          <span>当前日期</span>
+          <strong>{{ todayText }}</strong>
+        </div>
+        <div class="home-stat">
+          <span>待处理事项</span>
+          <strong>{{ pendingTaskCount }}</strong>
+        </div>
+        <div class="home-stat">
+          <span>应收回款率</span>
+          <strong>{{ receivableRateText }}</strong>
+        </div>
+      </div>
+    </section>
+
     <!-- Quick Actions -->
     <el-row :gutter="16" class="panel-group">
       <el-col :span="24">
@@ -237,15 +259,17 @@
 </template>
 
 <script setup name="Index">
-import { ref, computed, onMounted, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getDashboard } from '@/api/business/report'
 import * as echarts from 'echarts'
 import { parseTime } from '@/utils/ruoyi'
 import { businessDashboardRoutePathMap, normalizeDashboardSummaryData } from '@/utils/businessDashboard'
 import { useDashboardMessageCenter } from '@/composables/useDashboardMessageCenter'
+import useSettingsStore from '@/store/modules/settings'
 
 const router = useRouter()
+const settingsStore = useSettingsStore()
 
 const businessRoutePathMap = businessDashboardRoutePathMap
 
@@ -269,6 +293,35 @@ const dashboardData = ref({
   pendingInboundCount: 0,
   pendingOutboundCount: 0,
   messageCenter: []
+})
+
+// 生成首页当前日期文案，保持概览区只展示用户需要的日期信息。
+const todayText = computed(() => {
+  return new Date().toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long'
+  })
+})
+
+// 汇总首页待处理业务数量，作为管理者进入系统后的第一优先级提示。
+const pendingTaskCount = computed(() => {
+  return Number(dashboardData.value.pendingSaleOrderCount || 0)
+    + Number(dashboardData.value.pendingInboundCount || 0)
+    + Number(dashboardData.value.pendingOutboundCount || 0)
+    + Number(dashboardData.value.stockWarningCount || 0)
+    + Number(dashboardData.value.overdueCount || 0)
+})
+
+// 计算应收回款率，避免无应收金额时出现异常百分比。
+const receivableRateText = computed(() => {
+  const totalReceivableAmount = Number(dashboardData.value.totalReceivableAmount || 0)
+  const totalReceivedAmount = Number(dashboardData.value.totalReceivedAmount || 0)
+  if (!totalReceivableAmount) {
+    return '0%'
+  }
+  return `${Math.min(100, Math.round((totalReceivedAmount / totalReceivableAmount) * 100))}%`
 })
 
 const saleTrendChartRef = ref(null)
@@ -337,6 +390,7 @@ const pendingWorkbenchList = computed(() => [
   }
 ])
 
+// 初始化首页图表实例，后续数据刷新时复用同一批图表对象。
 const initCharts = () => {
   if (saleTrendChartRef.value) {
     saleTrendChart = echarts.init(saleTrendChartRef.value)
@@ -349,16 +403,36 @@ const initCharts = () => {
   }
 }
 
+// 读取当前主题变量，确保图表在深色和浅色模式下都保持可读。
+const getCssVariableValue = (variableName, fallbackValue) => {
+  if (typeof window === 'undefined') {
+    return fallbackValue
+  }
+  const variableValue = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim()
+  return variableValue || fallbackValue
+}
+
+// 根据最新业务数据和当前主题色刷新首页图表。
 const updateCharts = (saleTrend, topCustomer, productCategorySales) => {
+  const themePrimaryColor = getCssVariableValue('--menu-active-text', '#1E6F7A')
+  const panelBackgroundColor = getCssVariableValue('--app-panel-bg', '#ffffff')
+  const textColor = getCssVariableValue('--app-text', '#25313b')
+  const mutedTextColor = getCssVariableValue('--app-text-muted', '#667781')
+  const borderColor = getCssVariableValue('--app-border', '#dce7ea')
+
   if (saleTrendChart && saleTrend) {
     saleTrendChart.setOption({
       tooltip: { trigger: 'axis' },
       xAxis: {
         type: 'category',
-        data: saleTrend.dateList || []
+        data: saleTrend.dateList || [],
+        axisLabel: { color: mutedTextColor },
+        axisLine: { lineStyle: { color: borderColor } }
       },
       yAxis: {
-        type: 'value'
+        type: 'value',
+        axisLabel: { color: mutedTextColor },
+        splitLine: { lineStyle: { color: borderColor } }
       },
       series: [
         {
@@ -366,7 +440,7 @@ const updateCharts = (saleTrend, topCustomer, productCategorySales) => {
           type: 'line',
           smooth: true,
           areaStyle: {},
-          itemStyle: { color: '#409EFF' }
+          itemStyle: { color: themePrimaryColor }
         }
       ]
     })
@@ -378,10 +452,13 @@ const updateCharts = (saleTrend, topCustomer, productCategorySales) => {
       xAxis: {
         type: 'category',
         data: topCustomer.customerList || [],
-        axisLabel: { interval: 0, rotate: 30 }
+        axisLabel: { interval: 0, rotate: 30, color: mutedTextColor },
+        axisLine: { lineStyle: { color: borderColor } }
       },
       yAxis: {
-        type: 'value'
+        type: 'value',
+        axisLabel: { color: mutedTextColor },
+        splitLine: { lineStyle: { color: borderColor } }
       },
       series: [
         {
@@ -402,7 +479,8 @@ const updateCharts = (saleTrend, topCustomer, productCategorySales) => {
       },
       legend: {
         orient: 'horizontal',
-        bottom: 'bottom'
+        bottom: 'bottom',
+        textStyle: { color: mutedTextColor }
       },
       series: [
         {
@@ -412,7 +490,7 @@ const updateCharts = (saleTrend, topCustomer, productCategorySales) => {
           avoidLabelOverlap: false,
           itemStyle: {
             borderRadius: 10,
-            borderColor: '#fff',
+            borderColor: panelBackgroundColor,
             borderWidth: 2
           },
           label: {
@@ -423,7 +501,8 @@ const updateCharts = (saleTrend, topCustomer, productCategorySales) => {
             label: {
               show: true,
               fontSize: 16,
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              color: textColor
             }
           },
           labelLine: {
@@ -436,6 +515,7 @@ const updateCharts = (saleTrend, topCustomer, productCategorySales) => {
   }
 }
 
+// 响应页面尺寸变化，避免图表容器变化后出现挤压或空白。
 const handleResize = () => {
   saleTrendChart?.resize()
   topCustomerChart?.resize()
@@ -453,6 +533,12 @@ const fetchData = () => {
     updateCharts(dashboardData.value.saleTrend, dashboardData.value.topCustomer, dashboardData.value.productCategorySales)
   })
 }
+
+watch(() => settingsStore.isDark, () => {
+  nextTick(() => {
+    updateCharts(dashboardData.value.saleTrend, dashboardData.value.topCustomer, dashboardData.value.productCategorySales)
+  })
+})
 
 onMounted(() => {
   nextTick(() => {
@@ -481,12 +567,83 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .home {
-  padding: 20px;
-  min-height: calc(100vh - 84px);
-  background-color: #f5f7f8;
+  padding: 22px;
+  min-height: calc(100vh - 92px);
+  background:
+    radial-gradient(circle at top right, rgba(42, 157, 143, 0.09), transparent 32%),
+    var(--app-bg);
 
   .panel-group {
     margin-bottom: 16px;
+  }
+
+  .home-overview {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 18px;
+    padding: 24px;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--app-panel-bg) 0%, var(--app-panel-bg-soft) 100%);
+    box-shadow: 0 14px 34px rgba(22, 36, 43, 0.06);
+  }
+
+  .home-overview__main {
+    min-width: 280px;
+
+    h2 {
+      margin: 8px 0 8px;
+      color: var(--app-heading);
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    p {
+      max-width: 520px;
+      margin: 0;
+      color: var(--app-text-muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+  }
+
+  .home-overview__eyebrow {
+    color: #1e6f7a;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .home-overview__stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    gap: 12px;
+    min-width: 420px;
+  }
+
+  .home-stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 86px;
+    padding: 14px 16px;
+    border: 1px solid var(--app-accent-soft);
+    border-radius: 8px;
+    background: var(--app-panel-bg-muted);
+
+    span {
+      margin-bottom: 8px;
+      color: var(--app-text-muted);
+      font-size: 12px;
+    }
+
+    strong {
+      color: var(--app-heading);
+      font-size: 20px;
+      line-height: 1.25;
+    }
   }
 
   .quick-actions-card {
@@ -495,10 +652,10 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     gap: 18px;
     padding: 18px 20px;
-    border: 1px solid #e8edf3;
+    border: 1px solid var(--app-border);
     border-radius: 8px;
-    background: #ffffff;
-    box-shadow: 0 1px 3px rgba(18, 35, 52, 0.04);
+    background: var(--app-panel-bg);
+    box-shadow: 0 8px 24px rgba(18, 35, 52, 0.04);
 
     .quick-actions-main {
       min-width: 190px;
@@ -508,14 +665,14 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       gap: 6px;
-      color: #1f2d3d;
+      color: var(--app-heading);
       font-size: 16px;
       font-weight: 700;
     }
 
     .quick-actions-subtitle {
       margin-top: 6px;
-      color: #7b8794;
+      color: var(--app-text-muted);
       font-size: 13px;
     }
 
@@ -530,6 +687,7 @@ onBeforeUnmount(() => {
         border-radius: 6px;
         min-width: 112px;
         font-weight: 600;
+        box-shadow: none;
       }
     }
   }
@@ -537,16 +695,17 @@ onBeforeUnmount(() => {
   .metric-card {
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: flex;
     align-items: center;
     min-height: 112px;
     margin-bottom: 16px;
-    border: 0;
+    border: 1px solid var(--app-border);
+    box-shadow: 0 8px 24px rgba(18, 35, 52, 0.04);
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 18px rgba(18, 35, 52, 0.08);
+      box-shadow: 0 14px 28px rgba(18, 35, 52, 0.09);
     }
 
     :deep(.el-card__body) {
@@ -569,24 +728,24 @@ onBeforeUnmount(() => {
       flex: 1;
       .metric-title {
         font-size: 14px;
-        color: #909399;
+        color: var(--app-text-muted);
         margin-bottom: 8px;
       }
       .metric-value {
         font-size: 23px;
-        font-weight: bold;
-        color: #303133;
+        font-weight: 700;
+        color: var(--app-heading);
         word-break: break-all;
       }
     }
 
-    &.bg-primary .metric-icon { background: linear-gradient(135deg, #409EFF, #66b1ff); }
+    &.bg-primary .metric-icon { background: linear-gradient(135deg, #1E6F7A, #2a9d8f); }
     &.bg-success .metric-icon { background: linear-gradient(135deg, #67C23A, #85ce61); }
     &.bg-info .metric-icon { background: linear-gradient(135deg, #909399, #a6a9ad); }
     &.bg-danger .metric-icon { background: linear-gradient(135deg, #F56C6C, #f78989); }
 
     &.op-warning .metric-icon { color: #E6A23C; background: rgba(230, 162, 60, 0.1); }
-    &.op-primary .metric-icon { color: #409EFF; background: rgba(64, 158, 255, 0.1); }
+    &.op-primary .metric-icon { color: #1E6F7A; background: rgba(30, 111, 122, 0.1); }
     &.op-success .metric-icon { color: #67C23A; background: rgba(103, 194, 58, 0.1); }
     &.op-info .metric-icon { color: #909399; background: rgba(144, 147, 153, 0.1); }
   }
@@ -600,9 +759,11 @@ onBeforeUnmount(() => {
 
   .workbench-card {
     border-radius: 8px;
+    border: 1px solid var(--app-border);
+    box-shadow: 0 8px 24px rgba(18, 35, 52, 0.04);
 
     .workbench-subtitle {
-      color: #909399;
+      color: var(--app-text-muted);
       font-size: 12px;
       font-weight: normal;
     }
@@ -614,20 +775,20 @@ onBeforeUnmount(() => {
       min-height: 108px;
       padding: 18px 16px;
       margin-bottom: 16px;
-      background: linear-gradient(135deg, #ffffff, #f6f8fb);
-      border: 1px solid #ebeef5;
+      background: linear-gradient(135deg, var(--app-panel-bg), var(--app-panel-bg-soft));
+      border: 1px solid var(--app-border);
       border-radius: 8px;
     }
 
     .workbench-item-title {
-      color: #303133;
+      color: var(--app-heading);
       font-size: 16px;
       font-weight: 600;
     }
 
     .workbench-item-desc {
       margin-top: 10px;
-      color: #909399;
+      color: var(--app-text-muted);
       font-size: 13px;
       line-height: 1.6;
     }
@@ -647,7 +808,7 @@ onBeforeUnmount(() => {
     }
 
     .workbench-item-count.is-primary {
-      color: #409eff;
+      color: #1e6f7a;
     }
 
     .workbench-item-count.is-success {
@@ -655,7 +816,7 @@ onBeforeUnmount(() => {
     }
 
     .workbench-item-count.is-info {
-      color: #909399;
+      color: var(--app-text-muted);
     }
 
     .workbench-item-count.is-warning {
@@ -668,7 +829,7 @@ onBeforeUnmount(() => {
   }
 
   .message-center-subtitle {
-    color: #909399;
+    color: var(--app-text-muted);
     font-size: 12px;
     font-weight: normal;
   }
@@ -685,6 +846,16 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) {
   .home {
     padding: 12px;
+
+    .home-overview {
+      flex-direction: column;
+      padding: 18px;
+    }
+
+    .home-overview__stats {
+      grid-template-columns: 1fr;
+      min-width: 0;
+    }
 
     .quick-actions-card {
       align-items: flex-start;

@@ -70,6 +70,7 @@ const activeMenu = computed(() => {
 
 <style lang="scss" scoped>
 .sidebar-container {
+  padding: 0 10px 12px;
   background-color: v-bind(getMenuBackground);
   
   .scrollbar-wrapper {
@@ -82,8 +83,16 @@ const activeMenu = computed(() => {
     width: 100% !important;
     
     .el-menu-item, .el-sub-menu__title {
+      height: 42px;
+      line-height: 42px;
+      margin: 4px 0;
+      border-radius: 8px;
+      color: v-bind(getMenuTextColor);
+      transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+
       &:hover {
-        background-color: var(--menu-hover, rgba(0, 0, 0, 0.06)) !important;
+        background-color: var(--app-accent-hover) !important;
+        transform: translateX(2px);
       }
     }
 
@@ -92,7 +101,8 @@ const activeMenu = computed(() => {
       
       &.is-active {
         color: var(--menu-active-text, #409eff);
-        background-color: var(--menu-hover, rgba(0, 0, 0, 0.06)) !important;
+        background-color: var(--app-accent-soft) !important;
+        font-weight: 600;
       }
     }
 

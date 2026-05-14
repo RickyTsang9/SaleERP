@@ -261,11 +261,11 @@ function handleScroll() {
 
 <style lang="scss" scoped>
 .tags-view-container {
-  height: 34px;
+  height: 36px;
   width: 100%;
   background: var(--tags-bg, #fff);
-  border-bottom: 1px solid var(--tags-item-border, #d8dce5);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .12), 0 0 3px 0 rgba(0, 0, 0, .04);
+  border-bottom: 1px solid var(--app-border);
+  box-shadow: none;
 
   .tags-view-wrapper {
     .tags-view-item {
@@ -274,13 +274,15 @@ function handleScroll() {
       cursor: pointer;
       height: 26px;
       line-height: 26px;
-      border: 1px solid var(--tags-item-border, #d8dce5);
+      border: 1px solid transparent;
+      border-radius: 999px;
       color: var(--tags-item-text, #495060);
-      background: var(--tags-item-bg, #fff);
-      padding: 0 8px;
+      background: var(--tags-item-bg, #f5f8f9);
+      padding: 0 10px;
       font-size: 12px;
-      margin-left: 5px;
-      margin-top: 4px;
+      margin-left: 6px;
+      margin-top: 5px;
+      transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 
       &:first-of-type {
         margin-left: 15px;
@@ -291,19 +293,12 @@ function handleScroll() {
       }
 
       &.active {
-        background-color: #42b983;
+        background-color: #1e6f7a;
         color: #fff;
-        border-color: #42b983;
+        border-color: #1e6f7a;
 
         &::before {
-          content: '';
-          background: #fff;
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          position: relative;
-          margin-right: 5px;
+          content: none;
         }
       }
     }

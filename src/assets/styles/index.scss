@@ -12,6 +12,8 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif;
+  background: var(--app-bg);
+  color: var(--app-text);
 }
 
 label {
@@ -123,6 +125,25 @@ aside {
 //main-container全局样式
 .app-container {
   padding: 20px;
+}
+
+.el-card {
+  border-color: var(--app-border) !important;
+  border-radius: 8px !important;
+}
+
+.el-table {
+  border-radius: 8px;
+}
+
+.el-button {
+  border-radius: 6px;
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: 6px !important;
 }
 
 .components-container {

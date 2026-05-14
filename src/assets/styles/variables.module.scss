@@ -1,6 +1,6 @@
 // base color
-$blue: #324157;
-$light-blue: #333c46;
+$blue: #1e6f7a;
+$light-blue: #2a9d8f;
 $red: #C03639;
 $pink: #E65D6E;
 $green: #30B08F;
@@ -10,15 +10,15 @@ $panGreen: #30B08F;
 
 // 默认主题变量
 $menuText: #bfcbd9;
-$menuActiveText: #409eff;
-$menuBg: #304156;
-$menuHover: #263445;
+$menuActiveText: #1E6F7A;
+$menuBg: #16242b;
+$menuHover: #20343d;
 
 // 浅色主题theme-light
-$menuLightBg: #ffffff;
-$menuLightHover: #f0f1f5;
-$menuLightText: #303133;
-$menuLightActiveText: #409EFF;
+$menuLightBg: #f8fbfc;
+$menuLightHover: #eaf4f5;
+$menuLightText: #41515c;
+$menuLightActiveText: #1E6F7A;
 
 // 基础变量
 $base-sidebar-width: 200px;
@@ -27,12 +27,12 @@ $sideBarWidth: 200px;
 // 菜单暗色变量
 $base-menu-color: #bfcbd9;
 $base-menu-color-active: #f4f4f5;
-$base-menu-background: #304156;
-$base-sub-menu-background: #1f2d3d;
-$base-sub-menu-hover: #001528;
+$base-menu-background: #16242b;
+$base-sub-menu-background: #101c22;
+$base-sub-menu-hover: #20343d;
 
 // 组件变量
-$--color-primary: #409EFF;
+$--color-primary: #1E6F7A;
 $--color-success: #67C23A;
 $--color-warning: #E6A23C;
 $--color-danger: #F56C6C;
@@ -71,6 +71,17 @@ $--color-info: #909399;
   --sidebar-bg: #{$menuBg};
   --sidebar-text: #{$menuText};
   --menu-hover: #{$menuHover};
+  --menu-active-text: #{$menuActiveText};
+  --app-bg: #f3f7f8;
+  --app-panel-bg: #ffffff;
+  --app-panel-bg-soft: #f7fbfb;
+  --app-panel-bg-muted: rgba(255, 255, 255, 0.74);
+  --app-border: #dce7ea;
+  --app-heading: #16242b;
+  --app-text: #25313b;
+  --app-text-muted: #667781;
+  --app-accent-soft: rgba(30, 111, 122, 0.12);
+  --app-accent-hover: rgba(30, 111, 122, 0.08);
   
   --navbar-bg: #ffffff;
   --navbar-text: #303133;
@@ -103,6 +114,16 @@ html.dark {
   --navbar-bg: #141414;
   --navbar-text: #ffffff;
   --navbar-hover: #141414;
+  --app-bg: #101417;
+  --app-panel-bg: #1d1e1f;
+  --app-panel-bg-soft: #182024;
+  --app-panel-bg-muted: rgba(29, 30, 31, 0.74);
+  --app-border: #303840;
+  --app-heading: #f4f7f8;
+  --app-text: #d8e0e3;
+  --app-text-muted: #a9b3ba;
+  --app-accent-soft: rgba(42, 157, 143, 0.16);
+  --app-accent-hover: rgba(42, 157, 143, 0.12);
 
   /* 标签栏 */
   --tags-bg: #141414;

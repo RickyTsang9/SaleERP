@@ -153,21 +153,23 @@ async function toggleTheme(event) {
 }
 
 .navbar {
-  height: 50px;
-  overflow: hidden;
+  height: 56px;
+  overflow: visible;
   position: relative;
   background: var(--navbar-bg);
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  border-bottom: 1px solid var(--app-border);
+  box-shadow: none;
   display: flex;
   align-items: center;
+  padding: 0 16px 0 8px;
   // padding: 0 8px;
   box-sizing: border-box;
 
   .hamburger-container {
-    line-height: 46px;
-    height: 100%;
+    line-height: 40px;
+    height: 40px;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: background 0.2s ease, color 0.2s ease;
     -webkit-tap-highlight-color: transparent;
     display: flex;
     align-items: center;
@@ -175,7 +177,8 @@ async function toggleTheme(event) {
     margin-right: 8px;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.025);
+      background: var(--app-accent-hover);
+      border-radius: 8px;
     }
   }
 
@@ -204,29 +207,36 @@ async function toggleTheme(event) {
 
   .right-menu {
     height: 100%;
-    line-height: 50px;
+    line-height: 56px;
     display: flex;
     align-items: center;
     margin-left: auto;
+    gap: 6px;
 
     &:focus {
       outline: none;
     }
 
     .right-menu-item {
-      display: inline-block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 0 8px;
-      height: 100%;
+      min-width: 38px;
+      height: 38px;
       font-size: 18px;
-      color: #5a5e66;
+      color: var(--app-text-muted);
+      border-radius: 8px;
       vertical-align: text-bottom;
 
       &.hover-effect {
         cursor: pointer;
-        transition: background 0.3s;
+        transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 
         &:hover {
-          background: rgba(0, 0, 0, 0.025);
+          color: #1e6f7a;
+          background: var(--app-accent-hover);
+          transform: translateY(-1px);
         }
       }
 
@@ -249,24 +259,32 @@ async function toggleTheme(event) {
       padding-right: 0px;
 
       .avatar-wrapper {
-        margin-top: 10px;
-        right: 8px;
-        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        height: 38px;
+        padding: 0 10px 0 6px;
+        border: 1px solid var(--app-border);
+        border-radius: 999px;
+        background: var(--app-panel-bg);
 
         .user-avatar {
           cursor: pointer;
           width: 30px;
           height: 30px;
-          margin-right: 8px;
           border-radius: 50%;
         }
 
         .user-nickname{
-          position: relative;
-          left: 0px;
-          bottom: 10px;
           font-size: 14px;
-          font-weight: bold;
+          font-weight: 600;
+          line-height: 1;
+          color: var(--navbar-text);
+          max-width: 120px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         i {
