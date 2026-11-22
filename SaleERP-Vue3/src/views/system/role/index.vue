@@ -1,143 +1,169 @@
 <template>
-   <div class="app-container">
-      <el-form :model="queryParams" ref="queryRef" v-show="showSearch" :inline="true" label-width="68px">
-         <el-form-item label="角色名称" prop="roleName">
-            <el-input
-               v-model="queryParams.roleName"
-               placeholder="请输入角色名称"
-               clearable
-               style="width: 240px"
-               @keyup.enter="handleQuery"
-            />
-         </el-form-item>
-         <el-form-item label="权限字符" prop="roleKey">
-            <el-input
-               v-model="queryParams.roleKey"
-               placeholder="请输入权限字符"
-               clearable
-               style="width: 240px"
-               @keyup.enter="handleQuery"
-            />
-         </el-form-item>
-         <el-form-item label="状态" prop="status">
-            <el-select
-               v-model="queryParams.status"
-               placeholder="角色状态"
-               clearable
-               style="width: 240px"
-            >
-               <el-option
-                  v-for="dict in sys_normal_disable"
-                  :key="dict.value"
-                  :label="dict.label"
-                  :value="dict.value"
+   <div class="app-container erp-page">
+      <erp-page-header
+         eyebrow="系统管理"
+         title="角色管理"
+         subtitle="定义 RBAC 角色、菜单操作权限、部门数据范围及成员授权。"
+         icon="Lock"
+         tone="indigo"
+      >
+         <template #actions>
+            <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['system:role:add']">新增角色</el-button>
+            <el-button icon="Download" @click="handleExport" v-hasPermi="['system:role:export']">导出</el-button>
+         </template>
+      </erp-page-header>
+
+      <div class="erp-filter-card" v-show="showSearch">
+         <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="68px">
+            <el-form-item label="角色名称" prop="roleName">
+               <el-input
+                  v-model="queryParams.roleName"
+                  placeholder="请输入角色名称"
+                  clearable
+                  style="width: 220px"
+                  @keyup.enter="handleQuery"
                />
-            </el-select>
-         </el-form-item>
-         <el-form-item label="创建时间" style="width: 308px">
-            <el-date-picker
-               v-model="dateRange"
-               value-format="YYYY-MM-DD"
-               type="daterange"
-               range-separator="-"
-               start-placeholder="开始日期"
-               end-placeholder="结束日期"
-            ></el-date-picker>
-         </el-form-item>
-         <el-form-item>
-            <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-         </el-form-item>
-      </el-form>
-      <el-row :gutter="10" class="mb8">
-         <el-col :span="1.5">
-            <el-button
-               type="primary"
-               plain
-               icon="Plus"
-               @click="handleAdd"
-               v-hasPermi="['system:role:add']"
-            >新增</el-button>
-         </el-col>
-         <el-col :span="1.5">
-            <el-button
-               type="success"
-               plain
-               icon="Edit"
-               :disabled="single"
-               @click="handleUpdate"
-               v-hasPermi="['system:role:edit']"
-            >修改</el-button>
-         </el-col>
-         <el-col :span="1.5">
-            <el-button
-               type="danger"
-               plain
-               icon="Delete"
-               :disabled="multiple"
-               @click="handleDelete"
-               v-hasPermi="['system:role:remove']"
-            >删除</el-button>
-         </el-col>
-         <el-col :span="1.5">
-            <el-button
-               type="warning"
-               plain
-               icon="Download"
-               @click="handleExport"
-               v-hasPermi="['system:role:export']"
-            >导出</el-button>
-         </el-col>
-         <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-      </el-row>
+            </el-form-item>
+            <el-form-item label="权限字符" prop="roleKey">
+               <el-input
+                  v-model="queryParams.roleKey"
+                  placeholder="请输入权限字符"
+                  clearable
+                  style="width: 220px"
+                  @keyup.enter="handleQuery"
+               />
+            </el-form-item>
+            <el-form-item label="状态" prop="status">
+               <el-select
+                  v-model="queryParams.status"
+                  placeholder="角色状态"
+                  clearable
+                  style="width: 160px"
+               >
+                  <el-option
+                     v-for="dict in sys_normal_disable"
+                     :key="dict.value"
+                     :label="dict.label"
+                     :value="dict.value"
+                  />
+               </el-select>
+            </el-form-item>
+            <el-form-item label="创建时间" style="width: 308px">
+               <el-date-picker
+                  v-model="dateRange"
+                  value-format="YYYY-MM-DD"
+                  type="daterange"
+                  range-separator="-"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+               ></el-date-picker>
+            </el-form-item>
+            <el-form-item>
+               <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            </el-form-item>
+         </el-form>
+      </div>
 
-      <!-- 表格数据 -->
-      <el-table v-loading="loading" :data="roleList" @selection-change="handleSelectionChange">
-         <el-table-column type="selection" width="55" align="center" />
-         <el-table-column label="角色编号" prop="roleId" width="120" />
-         <el-table-column label="角色名称" prop="roleName" :show-overflow-tooltip="true" width="150" />
-         <el-table-column label="权限字符" prop="roleKey" :show-overflow-tooltip="true" width="150" />
-         <el-table-column label="显示顺序" prop="roleSort" width="100" />
-         <el-table-column label="状态" align="center" width="100">
-            <template #default="scope">
-               <el-switch
-                  v-model="scope.row.status"
-                  active-value="0"
-                  inactive-value="1"
-                  @change="handleStatusChange(scope.row)"
-               ></el-switch>
-            </template>
-         </el-table-column>
-         <el-table-column label="创建时间" align="center" prop="createTime">
-            <template #default="scope">
-               <span>{{ parseTime(scope.row.createTime) }}</span>
-            </template>
-         </el-table-column>
-         <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
-            <template #default="scope">
-              <el-tooltip content="修改" placement="top" v-if="scope.row.roleId !== 1">
-                <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:role:edit']"></el-button>
-              </el-tooltip>
-              <el-tooltip content="删除" placement="top" v-if="scope.row.roleId !== 1">
-                <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:role:remove']"></el-button>
-              </el-tooltip>
-              <el-tooltip content="数据权限" placement="top" v-if="scope.row.roleId !== 1">
-                <el-button link type="primary" icon="CircleCheck" @click="handleDataScope(scope.row)" v-hasPermi="['system:role:edit']"></el-button>
-              </el-tooltip>
-              <el-tooltip content="分配用户" placement="top" v-if="scope.row.roleId !== 1">
-                <el-button link type="primary" icon="User" @click="handleAuthUser(scope.row)" v-hasPermi="['system:role:edit']"></el-button>
-              </el-tooltip>
-            </template>
-         </el-table-column>
-      </el-table>
+      <div class="erp-table-card">
+         <el-row :gutter="10" class="erp-toolbar-row">
+            <el-col :span="1.5">
+               <el-button
+                  type="primary"
+                  plain
+                  icon="Plus"
+                  @click="handleAdd"
+                  v-hasPermi="['system:role:add']"
+               >新增</el-button>
+            </el-col>
+            <el-col :span="1.5">
+               <el-button
+                  type="success"
+                  plain
+                  icon="Edit"
+                  :disabled="single"
+                  @click="handleUpdate"
+                  v-hasPermi="['system:role:edit']"
+               >修改</el-button>
+            </el-col>
+            <el-col :span="1.5">
+               <el-button
+                  type="danger"
+                  plain
+                  icon="Delete"
+                  :disabled="multiple"
+                  @click="handleDelete"
+                  v-hasPermi="['system:role:remove']"
+               >删除</el-button>
+            </el-col>
+            <el-col :span="1.5">
+               <el-button
+                  type="warning"
+                  plain
+                  icon="Download"
+                  @click="handleExport"
+                  v-hasPermi="['system:role:export']"
+               >导出</el-button>
+            </el-col>
+            <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
+         </el-row>
 
-      <pagination
-         v-show="total > 0"
-         :total="total"
-         v-model:page="queryParams.pageNum"
-         v-model:limit="queryParams.pageSize"
-         @pagination="getList"
-      />
+         <!-- 表格数据 -->
+         <el-table v-loading="loading" :data="roleList" @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="55" align="center" />
+            <el-table-column label="角色编号" prop="roleId" width="110" align="center" />
+            <el-table-column label="角色名称" prop="roleName" :show-overflow-tooltip="true" width="160">
+               <template #default="scope">
+                  <span class="erp-cell-title">{{ scope.row.roleName }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="权限字符" prop="roleKey" :show-overflow-tooltip="true" width="170">
+               <template #default="scope">
+                  <span class="erp-code-chip">{{ scope.row.roleKey }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="显示顺序" prop="roleSort" width="100" align="center" />
+            <el-table-column label="状态" align="center" width="100">
+               <template #default="scope">
+                  <el-switch
+                     v-model="scope.row.status"
+                     active-value="0"
+                     inactive-value="1"
+                     @change="handleStatusChange(scope.row)"
+                  ></el-switch>
+               </template>
+            </el-table-column>
+            <el-table-column label="创建时间" align="center" prop="createTime" width="170">
+               <template #default="scope">
+                  <span>{{ parseTime(scope.row.createTime) }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+               <template #default="scope">
+                 <el-tooltip content="修改" placement="top" v-if="scope.row.roleId !== 1">
+                   <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:role:edit']"></el-button>
+                 </el-tooltip>
+                 <el-tooltip content="删除" placement="top" v-if="scope.row.roleId !== 1">
+                   <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:role:remove']"></el-button>
+                 </el-tooltip>
+                 <el-tooltip content="数据权限" placement="top" v-if="scope.row.roleId !== 1">
+                   <el-button link type="primary" icon="CircleCheck" @click="handleDataScope(scope.row)" v-hasPermi="['system:role:edit']"></el-button>
+                 </el-tooltip>
+                 <el-tooltip content="分配用户" placement="top" v-if="scope.row.roleId !== 1">
+                   <el-button link type="primary" icon="User" @click="handleAuthUser(scope.row)" v-hasPermi="['system:role:edit']"></el-button>
+                 </el-tooltip>
+               </template>
+            </el-table-column>
+         </el-table>
+
+         <pagination
+            v-show="total > 0"
+            :total="total"
+            v-model:page="queryParams.pageNum"
+            v-model:limit="queryParams.pageSize"
+            @pagination="getList"
+         />
+      </div>
 
       <!-- 添加或修改角色配置对话框 -->
       <el-dialog :title="title" v-model="open" width="500px" append-to-body>
@@ -323,6 +349,10 @@ function resetQuery() {
 /** 删除按钮操作 */
 function handleDelete(row) {
   const roleIds = row.roleId || ids.value
+  if (!roleIds || (Array.isArray(roleIds) && !roleIds.length)) {
+    proxy.$modal.msgWarning("请选择要删除的角色")
+    return
+  }
   proxy.$modal.confirm('是否确认删除角色编号为"' + roleIds + '"的数据项?').then(function () {
     return delRole(roleIds)
   }).then(() => {

@@ -1,171 +1,135 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="90px">
-      <el-form-item label="客户" prop="customerId">
-        <el-select
-          v-model="queryParams.customerId"
-          placeholder="请选择客户"
-          clearable
-          filterable
-          remote
-          reserve-keyword
-          remote-show-suffix
-          :remote-method="loadCustomerOptionList"
-          :loading="customerListLoading"
-          style="width: 220px"
-        >
-          <el-option
-            v-for="customer in customerSelectOptionList"
-            :key="customer.customerId"
-            :label="customer.customerName"
-            :value="customer.customerId"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="跟进方式" prop="followType">
-        <el-select v-model="queryParams.followType" placeholder="请选择跟进方式" clearable style="width: 180px">
-          <el-option label="电话" value="电话" />
-          <el-option label="上门" value="上门" />
-          <el-option label="微信" value="微信" />
-          <el-option label="邮件" value="邮件" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="请选择状态" clearable style="width: 180px" @change="handleStatusChange">
-          <el-option label="进行中" value="0" />
-          <el-option label="已转化" value="1" />
-          <el-option label="已流失" value="2" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
-
-    <el-row :gutter="12" class="mb8">
-      <el-col :xs="24" :sm="8">
-        <div class="follow-summary-card" :class="{ 'is-active': queryParams.todoType === 'processing' }" @click="handleTodoFilter('processing')">
-          <div class="follow-summary-label">进行中跟进</div>
-          <div class="follow-summary-value">{{ getTodoSummaryCount("processing_count") }}</div>
-          <div class="follow-summary-desc">仍需持续推进的客户跟进</div>
-        </div>
-      </el-col>
-      <el-col :xs="24" :sm="8">
-        <div class="follow-summary-card" :class="{ 'is-active': queryParams.todoType === 'today' }" @click="handleTodoFilter('today')">
-          <div class="follow-summary-label">今日待跟进</div>
-          <div class="follow-summary-value warning">{{ getTodoSummaryCount("today_count") }}</div>
-          <div class="follow-summary-desc">今天需要完成的客户触达</div>
-        </div>
-      </el-col>
-      <el-col :xs="24" :sm="8">
-        <div class="follow-summary-card" :class="{ 'is-active': queryParams.todoType === 'overdue' }" @click="handleTodoFilter('overdue')">
-          <div class="follow-summary-label">已逾期待跟进</div>
-          <div class="follow-summary-value danger">{{ getTodoSummaryCount("overdue_count") }}</div>
-          <div class="follow-summary-desc">需要优先补跟进的客户</div>
-        </div>
-      </el-col>
-    </el-row>
-
-    <el-alert
-      :title="getTodoAlertTitle()"
-      type="info"
-      :closable="false"
-      class="mb8"
-    />
-
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          @click="handleAdd"
-          v-hasPermi="['business:customerFollow:add']"
-        >新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="success"
-          plain
-          icon="Edit"
-          :disabled="single"
-          @click="handleUpdate"
-          v-hasPermi="['business:customerFollow:edit']"
-        >修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="danger"
-          plain
-          icon="Delete"
-          :disabled="multiple"
-          @click="handleDelete"
-          v-hasPermi="['business:customerFollow:remove']"
-        >删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="warning"
-          plain
-          icon="Download"
-          @click="handleExport"
-          v-hasPermi="['business:customerFollow:export']"
-        >导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="handleQuery"></right-toolbar>
-    </el-row>
-
-    <el-table
-      v-loading="loading"
-      :data="customerFollowList"
-      :row-class-name="getCustomerFollowRowClassName"
-      @selection-change="handleSelectionChange"
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="CRM 客户运营"
+      title="客户跟进与回访"
+      subtitle="按逾期与今日优先级推进客户触达，完整沉淀沟通记录与下次跟进计划。"
+      icon="ChatDotRound"
+      tone="violet"
+      :badge="`共 ${total} 条记录`"
     >
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="客户" align="center" prop="customerId" min-width="180">
-        <template #default="scope">
-          <span>{{ getCustomerName(scope.row.customerId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="跟进状态" align="center" prop="status" width="120">
-        <template #default="scope">
-          <el-tag :type="getStatusType(scope.row.status)">{{ getStatusName(scope.row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="待办提醒" align="center" width="130">
-        <template #default="scope">
-          <el-tag :type="getTodoReminderType(scope.row)">{{ getTodoReminderLabel(scope.row) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="下次跟进时间" align="center" prop="nextFollowTime" width="180">
-        <template #default="scope">
-          <span :class="getNextFollowTimeClassName(scope.row)">{{ formatNextFollowTime(scope.row.nextFollowTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="最近跟进时间" align="center" prop="followTime" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.followTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="跟进方式" align="center" prop="followType" width="120" />
-      <el-table-column label="跟进内容" align="center" prop="followContent" min-width="260" show-overflow-tooltip />
-      <el-table-column label="跟进人" align="center" prop="createBy" width="120" />
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
-        <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:customerFollow:edit']">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:customerFollow:remove']">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      <template #actions>
+        <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:customerFollow:export']">导出</el-button>
+        <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:customerFollow:add']">新建跟进</el-button>
+      </template>
+    </erp-page-header>
 
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+    <erp-stat-strip :items="followStatItems" :columns="3" @select="handleStatSelect" />
+
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="82px">
+        <el-form-item label="客户" prop="customerId">
+          <el-select
+            v-model="queryParams.customerId"
+            placeholder="请选择客户"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            remote-show-suffix
+            :remote-method="loadCustomerOptionList"
+            :loading="customerListLoading"
+            style="width: 210px"
+          >
+            <el-option
+              v-for="customer in customerSelectOptionList"
+              :key="customer.customerId"
+              :label="customer.customerName"
+              :value="customer.customerId"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="跟进方式" prop="followType">
+          <el-select v-model="queryParams.followType" placeholder="全部方式" clearable style="width: 150px">
+            <el-option label="电话" value="电话" />
+            <el-option label="上门" value="上门" />
+            <el-option label="微信" value="微信" />
+            <el-option label="邮件" value="邮件" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="queryParams.status" placeholder="全部状态" clearable style="width: 140px" @change="handleStatusChange">
+            <el-option label="进行中" value="0" />
+            <el-option label="已转化" value="1" />
+            <el-option label="已流失" value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
+
+    <el-alert :title="getTodoAlertTitle()" type="info" :closable="false" />
+
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs :model-value="queryParams.todoType || ''" :items="followTabItems" @change="handleQuickTodoTab" />
+          <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:customerFollow:edit']">修改</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:customerFollow:remove']">删除</el-button>
+        </div>
+        <div class="erp-toolbar-right">
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="handleQuery" />
+        </div>
+      </div>
+
+      <el-table
+        v-loading="loading"
+        :data="customerFollowList"
+        :row-class-name="getCustomerFollowRowClassName"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="客户" align="left" prop="customerId" min-width="175" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.customerName || getCustomerName(scope.row.customerId) }}</div>
+            <div class="erp-cell-sub">跟进人：{{ scope.row.createBy || '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="跟进状态" align="center" prop="status" width="105">
+          <template #default="scope">
+            <el-tag :type="getStatusType(scope.row.status)" effect="light">{{ getStatusName(scope.row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="待办提醒" align="center" width="110">
+          <template #default="scope">
+            <el-tag :type="getTodoReminderType(scope.row)" effect="light">{{ getTodoReminderLabel(scope.row) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="下次跟进时间" align="center" prop="nextFollowTime" width="170">
+          <template #default="scope">
+            <span :class="getNextFollowTimeClassName(scope.row)">{{ formatNextFollowTime(scope.row.nextFollowTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="最近跟进时间" align="center" prop="followTime" width="170">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.followTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="方式" align="center" prop="followType" width="88">
+          <template #default="scope">
+            <el-tag size="small" type="info" effect="plain">{{ getFollowTypeLabel(scope.row.followType) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="跟进内容" align="left" prop="followContent" min-width="240" show-overflow-tooltip />
+        <el-table-column label="操作" align="center" fixed="right" width="150">
+          <template #default="scope">
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:customerFollow:edit']">修改</el-button>
+            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:customerFollow:remove']">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
     <!-- 添加或修改客户跟进记录对话框 -->
     <el-dialog :title="title" v-model="open" width="600px" append-to-body>
@@ -310,6 +274,64 @@ const data = reactive({
 const { queryParams, form, rules } = toRefs(data);
 const customerSelectOptionList = computed(() => buildCustomerSelectOptionList());
 
+const followStatItems = computed(() => [
+  {
+    key: "processing",
+    label: "进行中跟进",
+    value: getTodoSummaryCount("processing_count"),
+    suffix: "项",
+    hint: "点击筛选全部进行中跟进",
+    icon: "ChatLineRound",
+    tone: "indigo",
+    clickable: true,
+    active: queryParams.value.todoType === "processing"
+  },
+  {
+    key: "today",
+    label: "今日待跟进",
+    value: getTodoSummaryCount("today_count"),
+    suffix: "项",
+    hint: "点击筛选今日计划触达客户",
+    icon: "Clock",
+    tone: "amber",
+    clickable: true,
+    active: queryParams.value.todoType === "today"
+  },
+  {
+    key: "overdue",
+    label: "已逾期待跟进",
+    value: getTodoSummaryCount("overdue_count"),
+    suffix: "项",
+    hint: "请优先补齐逾期回访动作",
+    icon: "Warning",
+    tone: "rose",
+    clickable: true,
+    active: queryParams.value.todoType === "overdue"
+  }
+]);
+
+const followTabItems = computed(() => [
+  { label: "全部记录", value: "" },
+  { label: "进行中", value: "processing", dot: "indigo", count: getTodoSummaryCount("processing_count") },
+  { label: "今日待办", value: "today", dot: "amber", count: getTodoSummaryCount("today_count") },
+  { label: "已逾期", value: "overdue", dot: "rose", count: getTodoSummaryCount("overdue_count") }
+]);
+
+function handleStatSelect(item) {
+  if (item?.key) {
+    handleTodoFilter(item.key);
+  }
+}
+
+function handleQuickTodoTab(val) {
+  queryParams.value.pageNum = 1;
+  queryParams.value.todoType = val || undefined;
+  if (queryParams.value.todoType) {
+    queryParams.value.status = undefined;
+  }
+  getList();
+}
+
 // 根据路由参数恢复筛选条件，保证从客户页跳转后可以直接落到对应客户的跟进待办。
 function initializeQueryParamsFromRoute() {
   queryParams.value.customerId = convertRouteNumberValue(route.query.customerId);
@@ -376,6 +398,19 @@ function buildCustomerSelectOptionList() {
 function getCustomerName(customerId) {
   const customer = customerList.value.find(customerItem => customerItem.customerId === customerId);
   return customer ? customer.customerName : (customerId ? "客户资料缺失" : "");
+}
+
+// 返回跟进方式中文名称，兼容历史英文编码值（phone/visit/wechat/email）。
+function getFollowTypeLabel(followType) {
+  const followTypeMap = {
+    phone: "电话",
+    visit: "上门",
+    wechat: "微信",
+    email: "邮件",
+    sms: "短信",
+    meeting: "面谈"
+  };
+  return followTypeMap[String(followType || "").toLowerCase()] || followType || "-";
 }
 
 // 返回跟进状态名称，统一列表和弹窗口径。
@@ -687,12 +722,16 @@ function buildDeleteFollowDisplayText(row) {
   return `已选中的 ${ids.value.length} 条跟进记录`;
 }
 
-// 删除按钮操作
+// 删除按钮操作，兼容单条删除和批量删除，并在空选择时及时提醒用户。
 function handleDelete(row) {
-  const followIds = row?.followId || ids.value;
+  const followIdList = row?.followId ? [row.followId] : ids.value;
+  if (!followIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的跟进记录");
+    return;
+  }
   const displayFollowText = buildDeleteFollowDisplayText(row);
   proxy.$modal.confirm(`是否确认删除“${displayFollowText}”？`).then(function() {
-    return delCustomerFollow(followIds);
+    return delCustomerFollow(followIdList);
   }).then(async () => {
     await refreshPageData();
     proxy.$modal.msgSuccess("删除成功");
@@ -727,9 +766,9 @@ initializePage();
 <style scoped>
 .follow-summary-card {
   padding: 18px 20px;
-  border: 1px solid var(--el-border-color-light);
+  border: 1px solid var(--app-border, var(--el-border-color-light));
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #fafbfd 100%);
+  background: linear-gradient(180deg, var(--app-panel-bg, #ffffff) 0%, var(--app-panel-bg-soft, #fafbfd) 100%);
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -783,10 +822,10 @@ initializePage();
 }
 
 :deep(.el-table .todo-overdue-row) {
-  --el-table-tr-bg-color: #fff4f4;
+  --el-table-tr-bg-color: rgba(245, 108, 108, 0.1);
 }
 
 :deep(.el-table .todo-today-row) {
-  --el-table-tr-bg-color: #fff9ef;
+  --el-table-tr-bg-color: rgba(230, 162, 60, 0.1);
 }
 </style>

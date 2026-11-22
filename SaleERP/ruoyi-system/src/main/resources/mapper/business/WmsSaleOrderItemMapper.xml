@@ -37,7 +37,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                      )
                      and (
                          outbound_item.sale_order_item_id = item.sale_order_item_id
-                         or (outbound_item.sale_order_item_id is null and outbound_item.product_id = item.product_id)
+                         or (
+                             outbound_item.sale_order_item_id is null
+                             and outbound_item.product_id = item.product_id
+                             and (
+                                 (outbound_item.location_id is null and item.location_id is null)
+                                 or outbound_item.location_id = item.location_id
+                             )
+                             and ifnull(outbound_item.batch_no, '') = ifnull(item.batch_no, '')
+                         )
                      )
                ), 0) as outbound_quantity,
                greatest(
@@ -59,7 +67,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                          )
                          and (
                              outbound_item.sale_order_item_id = item.sale_order_item_id
-                             or (outbound_item.sale_order_item_id is null and outbound_item.product_id = item.product_id)
+                             or (
+                                 outbound_item.sale_order_item_id is null
+                                 and outbound_item.product_id = item.product_id
+                                 and (
+                                     (outbound_item.location_id is null and item.location_id is null)
+                                     or outbound_item.location_id = item.location_id
+                                 )
+                                 and ifnull(outbound_item.batch_no, '') = ifnull(item.batch_no, '')
+                             )
                          )
                    ), 0),
                    0

@@ -37,6 +37,9 @@ public class WmsOutboundItem extends BaseEntity
     @Excel(name = "金额")
     private BigDecimal amount;
 
+    /** 出库审核时单位成本快照 */
+    private BigDecimal costPriceSnapshot;
+
     /** 销售数量 */
     @Excel(name = "销售数量")
     private BigDecimal saleQuantity;
@@ -147,6 +150,16 @@ public class WmsOutboundItem extends BaseEntity
     public void setAmount(BigDecimal amount)
     {
         this.amount = amount;
+    }
+
+    public BigDecimal getCostPriceSnapshot()
+    {
+        return costPriceSnapshot;
+    }
+
+    public void setCostPriceSnapshot(BigDecimal costPriceSnapshot)
+    {
+        this.costPriceSnapshot = costPriceSnapshot;
     }
 
     /**

@@ -17,6 +17,14 @@ export function getPurchaseOrder(purchaseOrderId) {
   })
 }
 
+// 查询采购订单全链路追踪
+export function getPurchaseOrderChain(purchaseOrderId) {
+  return request({
+    url: '/business/purchaseOrder/chain/' + purchaseOrderId,
+    method: 'get'
+  })
+}
+
 // 新增采购订单
 export function addPurchaseOrder(data) {
   return request({
@@ -48,6 +56,32 @@ export function auditPurchaseOrder(purchaseOrderId) {
   return request({
     url: '/business/purchaseOrder/audit/' + purchaseOrderId,
     method: 'post'
+  })
+}
+
+// 驳回采购订单
+export function rejectPurchaseOrder(purchaseOrderId, rejectReason) {
+  return request({
+    url: '/business/purchaseOrder/reject/' + purchaseOrderId,
+    method: 'post',
+    data: { rejectReason }
+  })
+}
+
+// 反审核采购订单（仅未入库未付款已审订单）
+export function reverseAuditPurchaseOrder(purchaseOrderId) {
+  return request({
+    url: '/business/purchaseOrder/reverseAudit/' + purchaseOrderId,
+    method: 'post'
+  })
+}
+
+// 采购单短装结案（按实收调整应付）
+export function forceClosePurchaseOrder(purchaseOrderId, remark) {
+  return request({
+    url: '/business/purchaseOrder/forceClose/' + purchaseOrderId,
+    method: 'post',
+    data: { remark }
   })
 }
 

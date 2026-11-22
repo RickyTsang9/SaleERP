@@ -14,6 +14,9 @@ public class MdWarehouseServiceImpl implements IMdWarehouseService
     @Autowired
     private MdWarehouseMapper mdWarehouseMapper;
 
+    @Autowired(required = false)
+    private com.ruoyi.business.service.support.BizComplianceHelper complianceHelper;
+
     @Override
     public MdWarehouse selectMdWarehouseById(Long warehouseId)
     {
@@ -35,6 +38,17 @@ public class MdWarehouseServiceImpl implements IMdWarehouseService
     @Override
     public int updateMdWarehouse(MdWarehouse mdWarehouse)
     {
+        if (mdWarehouse != null && "1".equals(mdWarehouse.getStatus()) && mdWarehouse.getWarehouseId() != null && complianceHelper != null)
+        {
+            java.math.BigDecimal remainStock = complianceHelper.queryBigDecimal(
+                "SELECT IFNULL(SUM(IFNULL(quantity, 0)), 0) FROM wms_stock WHERE warehouse_id = ?",
+                mdWarehouse.getWarehouseId()
+            );
+            if (remainStock.compareTo(java.math.BigDecimal.ZERO) > 0)
+            {
+                throw new ServiceException("该仓库当前仍有在库库存（" + remainStock + "），禁止停用");
+            }
+        }
         return mdWarehouseMapper.updateMdWarehouse(mdWarehouse);
     }
 

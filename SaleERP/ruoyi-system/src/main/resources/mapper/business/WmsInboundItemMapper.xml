@@ -11,6 +11,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="productId"     column="product_id"      />
         <result property="locationId"    column="location_id"     />
         <result property="batchNo"       column="batch_no"        />
+        <result property="expireDate"    column="expire_date"     />
         <result property="quantity"      column="quantity"        />
         <result property="price"         column="price"           />
         <result property="amount"        column="amount"          />
@@ -21,7 +22,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <sql id="selectWmsInboundItemVo">
         select inbound_item.inbound_item_id, inbound_item.inbound_id, inbound_item.purchase_order_item_id,
-               inbound_item.product_id, inbound_item.location_id, inbound_item.batch_no, inbound_item.quantity, inbound_item.price, inbound_item.amount,
+               inbound_item.product_id, inbound_item.location_id, inbound_item.batch_no, inbound_item.expire_date, inbound_item.quantity, inbound_item.price, inbound_item.amount,
                purchase_order_item.quantity as purchase_quantity,
                ifnull((
                    select sum(history_item.quantity)
@@ -33,6 +34,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                          or (
                              inbound_item.purchase_order_item_id is null
                              and inbound.purchase_order_id is not null
+                             and ifnull(purchase_order_item_product_summary.product_item_count, 0) = 1
                              and history_inbound.purchase_order_id = inbound.purchase_order_id
                              and history_item.product_id = inbound_item.product_id
                          )
@@ -51,6 +53,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                                  or (
                                      inbound_item.purchase_order_item_id is null
                                      and inbound.purchase_order_id is not null
+                                     and ifnull(purchase_order_item_product_summary.product_item_count, 0) = 1
                                      and history_inbound.purchase_order_id = inbound.purchase_order_id
                                      and history_item.product_id = inbound_item.product_id
                                  )
@@ -62,6 +65,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from wms_inbound_item inbound_item
         left join wms_inbound inbound on inbound.inbound_id = inbound_item.inbound_id
         left join wms_purchase_order_item purchase_order_item on purchase_order_item.purchase_order_item_id = inbound_item.purchase_order_item_id
+        left join (
+            select purchase_order_id,
+                   product_id,
+                   count(1) as product_item_count
+            from wms_purchase_order_item
+            group by purchase_order_id, product_id
+        ) purchase_order_item_product_summary
+            on purchase_order_item_product_summary.purchase_order_id = inbound.purchase_order_id
+           and purchase_order_item_product_summary.product_id = inbound_item.product_id
     </sql>
 
     <select id="selectWmsInboundItemById" parameterType="Long" resultMap="WmsInboundItemResult">
@@ -98,6 +110,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="productId != null">product_id,</if>
             <if test="locationId != null">location_id,</if>
             <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="expireDate != null">expire_date,</if>
             <if test="quantity != null">quantity,</if>
             <if test="price != null">price,</if>
             <if test="amount != null">amount,</if>
@@ -108,6 +121,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="productId != null">#{productId},</if>
             <if test="locationId != null">#{locationId},</if>
             <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="expireDate != null">#{expireDate},</if>
             <if test="quantity != null">#{quantity},</if>
             <if test="price != null">#{price},</if>
             <if test="amount != null">#{amount},</if>
@@ -122,6 +136,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="productId != null">product_id = #{productId},</if>
             <if test="locationId != null">location_id = #{locationId},</if>
             <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="expireDate != null">expire_date = #{expireDate},</if>
             <if test="quantity != null">quantity = #{quantity},</if>
             <if test="price != null">price = #{price},</if>
             <if test="amount != null">amount = #{amount},</if>

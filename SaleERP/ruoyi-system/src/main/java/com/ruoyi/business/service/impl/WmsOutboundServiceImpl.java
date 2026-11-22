@@ -3,17 +3,22 @@ package com.ruoyi.business.service.impl;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.business.domain.MdProduct;
 import com.ruoyi.business.domain.WmsOutbound;
 import com.ruoyi.business.domain.WmsOutboundItem;
 import com.ruoyi.business.domain.WmsSaleOrder;
 import com.ruoyi.business.domain.WmsSaleOrderItem;
 import com.ruoyi.business.domain.WmsStock;
 import com.ruoyi.business.domain.WmsStockLog;
+import com.ruoyi.business.mapper.MdProductMapper;
 import com.ruoyi.business.mapper.WmsOutboundItemMapper;
 import com.ruoyi.business.mapper.WmsOutboundMapper;
 import com.ruoyi.business.mapper.WmsSaleOrderItemMapper;
@@ -21,6 +26,9 @@ import com.ruoyi.business.mapper.WmsSaleOrderMapper;
 import com.ruoyi.business.mapper.WmsStockLogMapper;
 import com.ruoyi.business.mapper.WmsStockMapper;
 import com.ruoyi.business.service.IWmsOutboundService;
+import com.ruoyi.business.service.IWmsStockService;
+import com.ruoyi.business.service.support.BizComplianceHelper;
+import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.StringUtils;
@@ -54,25 +62,23 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
     @Autowired
     private WmsStockLogMapper wmsStockLogMapper;
 
-    /**
-     * 查询销售出库单
-     *
-     * @param outboundId 销售出库单编号
-     * @return 销售出库单
-     */
+    @Autowired
+    private IWmsStockService wmsStockService;
+
+    @Autowired(required = false)
+    private MdProductMapper mdProductMapper;
+
+    @Autowired(required = false)
+    private BizComplianceHelper complianceHelper;
+
     @Override
     public WmsOutbound selectWmsOutboundById(Long outboundId)
     {
         return wmsOutboundMapper.selectWmsOutboundById(outboundId);
     }
 
-    /**
-     * 查询销售出库单列表
-     *
-     * @param wmsOutbound 销售出库单
-     * @return 销售出库单集合
-     */
     @Override
+    @DataScope(deptAlias = "su", userAlias = "su", permission = "business:outbound:list")
     public List<WmsOutbound> selectWmsOutboundList(WmsOutbound wmsOutbound)
     {
         return wmsOutboundMapper.selectWmsOutboundList(wmsOutbound);
@@ -178,12 +184,32 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
         {
             throw new ServiceException("仅已提交出库单允许审核");
         }
+        if (complianceHelper != null)
+        {
+            complianceHelper.assertPeriodOpen(new Date(), "审核销售出库单");
+            complianceHelper.assertNotSelfAudit(databaseOutbound.getCreateBy(), "销售出库单审核");
+            if (databaseOutbound.getWarehouseId() != null)
+            {
+                complianceHelper.assertEntityEnabled("md_warehouse", "warehouse_id", databaseOutbound.getWarehouseId(), "仓库");
+            }
+            if (databaseOutbound.getCustomerId() != null)
+            {
+                complianceHelper.assertEntityEnabled("md_customer", "customer_id", databaseOutbound.getCustomerId(), "客户");
+            }
+        }
         List<WmsOutboundItem> outboundItemList = wmsOutboundItemMapper.selectWmsOutboundItemList(buildOutboundItemQuery(outboundId));
         if (outboundItemList == null || outboundItemList.isEmpty())
         {
             throw new ServiceException("出库明细不能为空");
         }
         validateLinkedSaleOrderItems(databaseOutbound, outboundItemList);
+        boolean isLegacyDeductedOrder = false;
+        if (databaseOutbound.getSaleOrderId() != null)
+        {
+            WmsSaleOrder linkedOrder = wmsSaleOrderMapper.selectWmsSaleOrderById(databaseOutbound.getSaleOrderId());
+            isLegacyDeductedOrder = linkedOrder != null && "legacy_deducted".equals(linkedOrder.getStockDeductMode());
+        }
+        String auditUsername = SecurityUtils.getUsername();
         for (WmsOutboundItem wmsOutboundItem : outboundItemList)
         {
             if (wmsOutboundItem.getProductId() == null || wmsOutboundItem.getLocationId() == null || StringUtils.isEmpty(wmsOutboundItem.getBatchNo())
@@ -191,28 +217,48 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
             {
                 throw new ServiceException("出库明细信息不完整");
             }
-            if (databaseOutbound.getSaleOrderId() != null)
+            // 记录出库审核时刻的单位成本快照，确保历史毛利不受后续进价波动污染
+            BigDecimal costSnapshot = BigDecimal.ZERO;
+            if (mdProductMapper != null)
+            {
+                MdProduct product = mdProductMapper.selectMdProductById(wmsOutboundItem.getProductId());
+                if (product != null && product.getCostPrice() != null)
+                {
+                    costSnapshot = product.getCostPrice();
+                }
+            }
+            WmsOutboundItem costPatch = new WmsOutboundItem();
+            costPatch.setOutboundItemId(wmsOutboundItem.getOutboundItemId());
+            costPatch.setCostPriceSnapshot(costSnapshot);
+            wmsOutboundItemMapper.updateWmsOutboundItem(costPatch);
+            if (isLegacyDeductedOrder)
             {
                 continue;
             }
-            WmsStock stockQuery = new WmsStock();
-            stockQuery.setWarehouseId(databaseOutbound.getWarehouseId());
-            stockQuery.setProductId(wmsOutboundItem.getProductId());
-            stockQuery.setLocationId(wmsOutboundItem.getLocationId());
-            stockQuery.setBatchNo(wmsOutboundItem.getBatchNo());
-            WmsStock databaseStock = wmsStockMapper.selectWmsStockByKey(stockQuery);
-            if (databaseStock == null || databaseStock.getQuantity() == null)
+            BigDecimal[] qtyPair;
+            if (databaseOutbound.getSaleOrderId() != null)
             {
-                throw new ServiceException("库存不存在，商品编号：" + wmsOutboundItem.getProductId());
+                qtyPair = wmsStockService.shipLockedStockByKeyAtomically(
+                    databaseOutbound.getWarehouseId(),
+                    wmsOutboundItem.getProductId(),
+                    wmsOutboundItem.getLocationId(),
+                    wmsOutboundItem.getBatchNo(),
+                    wmsOutboundItem.getQuantity(),
+                    auditUsername
+                );
             }
-            BigDecimal beforeQuantity = databaseStock.getQuantity();
-            if (beforeQuantity.compareTo(wmsOutboundItem.getQuantity()) < 0)
+            else
             {
-                throw new ServiceException("库存不足，商品编号：" + wmsOutboundItem.getProductId());
+                qtyPair = wmsStockService.deductAvailableStockByKeyAtomically(
+                    databaseOutbound.getWarehouseId(),
+                    wmsOutboundItem.getProductId(),
+                    wmsOutboundItem.getLocationId(),
+                    wmsOutboundItem.getBatchNo(),
+                    wmsOutboundItem.getQuantity(),
+                    auditUsername,
+                    true
+                );
             }
-            BigDecimal afterQuantity = beforeQuantity.subtract(wmsOutboundItem.getQuantity());
-            databaseStock.setQuantity(afterQuantity);
-            wmsStockMapper.updateWmsStock(databaseStock);
             WmsStockLog wmsStockLog = new WmsStockLog();
             wmsStockLog.setWarehouseId(databaseOutbound.getWarehouseId());
             wmsStockLog.setProductId(wmsOutboundItem.getProductId());
@@ -225,11 +271,10 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
             wmsStockLog.setQuantity(wmsOutboundItem.getQuantity());
             wmsStockLog.setPrice(wmsOutboundItem.getPrice());
             wmsStockLog.setAmount(wmsOutboundItem.getAmount());
-            wmsStockLog.setBeforeQty(beforeQuantity);
-            wmsStockLog.setAfterQty(afterQuantity);
+            wmsStockLog.setBeforeQty(qtyPair[0]);
+            wmsStockLog.setAfterQty(qtyPair[1]);
             wmsStockLogMapper.insertWmsStockLog(wmsStockLog);
         }
-        String auditUsername = SecurityUtils.getUsername();
         int updateCount = wmsOutboundMapper.updateWmsOutboundStatus(
             outboundId, STATUS_SUBMITTED, STATUS_AUDITED, auditUsername, auditUsername);
         if (updateCount == 0)
@@ -237,6 +282,85 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
             throw new ServiceException("出库单状态已变更，请刷新后重试");
         }
         return updateCount;
+    }
+
+    @Override
+    public int rejectWmsOutbound(Long outboundId, String rejectReason)
+    {
+        WmsOutbound databaseOutbound = wmsOutboundMapper.selectWmsOutboundById(outboundId);
+        if (databaseOutbound == null)
+        {
+            throw new ServiceException("出库单不存在");
+        }
+        if (!STATUS_SUBMITTED.equals(databaseOutbound.getStatus()))
+        {
+            throw new ServiceException("仅已提交待审状态的出库单允许驳回");
+        }
+        String reason = StringUtils.isEmpty(rejectReason) ? "审核驳回重改" : rejectReason.trim();
+        int updateCount = wmsOutboundMapper.rejectWmsOutboundStatus(outboundId, reason, SecurityUtils.getUsername());
+        if (updateCount == 0)
+        {
+            throw new ServiceException("出库单状态已变更，请刷新后重试");
+        }
+        return updateCount;
+    }
+
+    /**
+     * 更新已审核出库单配送物流状态（pending -> shipping -> delivered）
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int updateWmsOutboundDelivery(Long outboundId, String deliveryStatus, String carrier, String waybillNo, BigDecimal freightCost)
+    {
+        WmsOutbound databaseOutbound = wmsOutboundMapper.selectWmsOutboundById(outboundId);
+        if (databaseOutbound == null)
+        {
+            throw new ServiceException("出库单不存在");
+        }
+        if (!STATUS_AUDITED.equals(databaseOutbound.getStatus()))
+        {
+            throw new ServiceException("仅已审核出库单允许维护配送物流状态");
+        }
+        String targetStatus = StringUtils.isEmpty(deliveryStatus) ? "shipping" : deliveryStatus.trim().toLowerCase();
+        if (!"pending".equals(targetStatus) && !"shipping".equals(targetStatus) && !"delivered".equals(targetStatus))
+        {
+            throw new ServiceException("不支持的配送状态：" + deliveryStatus);
+        }
+        String currentDelivery = StringUtils.isEmpty(databaseOutbound.getDeliveryStatus()) ? "pending" : databaseOutbound.getDeliveryStatus();
+        if ("delivered".equals(currentDelivery) && !"delivered".equals(targetStatus))
+        {
+            throw new ServiceException("该出库单已签收，不允许回退配送状态");
+        }
+        if ("shipping".equals(targetStatus) && StringUtils.isEmpty(carrier) && StringUtils.isEmpty(databaseOutbound.getCarrier()))
+        {
+            throw new ServiceException("开始配送时请填写承运商");
+        }
+        if (freightCost != null && freightCost.compareTo(BigDecimal.ZERO) < 0)
+        {
+            throw new ServiceException("运费不能小于0");
+        }
+        WmsOutbound patch = new WmsOutbound();
+        patch.setOutboundId(outboundId);
+        patch.setDeliveryStatus(targetStatus);
+        if (carrier != null)
+        {
+            patch.setCarrier(carrier.trim());
+        }
+        if (waybillNo != null)
+        {
+            patch.setWaybillNo(waybillNo.trim());
+        }
+        if (freightCost != null)
+        {
+            patch.setFreightCost(freightCost);
+        }
+        patch.setUpdateBy(SecurityUtils.getUsername());
+        int rows = wmsOutboundMapper.updateWmsOutboundDelivery(patch);
+        if (rows == 0)
+        {
+            throw new ServiceException("配送状态更新失败，请刷新后重试");
+        }
+        return rows;
     }
 
     /**
@@ -276,7 +400,14 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
      * @param outboundId 销售出库单编号
      * @return 结果
      */
+    /**
+     * 删除销售出库单
+     *
+     * @param outboundId 出库单编号
+     * @return 删除结果
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsOutboundById(Long outboundId)
     {
         WmsOutbound databaseOutbound = wmsOutboundMapper.selectWmsOutboundById(outboundId);
@@ -298,7 +429,14 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
      * @param outboundIds 销售出库单编号集合
      * @return 结果
      */
+    /**
+     * 批量删除销售出库单
+     *
+     * @param outboundIds 出库单编号集合
+     * @return 删除结果
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsOutboundByIds(Long[] outboundIds)
     {
         for (Long outboundId : outboundIds)
@@ -410,6 +548,7 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
         {
             throw new ServiceException("来源销售订单不存在可出库明细");
         }
+        Map<Long, BigDecimal> saleOrderItemQuantityMap = new HashMap<Long, BigDecimal>();
         for (int outboundItemIndex = 0; outboundItemIndex < outboundItemList.size(); outboundItemIndex++)
         {
             WmsOutboundItem wmsOutboundItem = outboundItemList.get(outboundItemIndex);
@@ -439,11 +578,36 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
                 throw new ServiceException("第" + (outboundItemIndex + 1) + "行出库数量必须大于0");
             }
             BigDecimal remainQuantity = saleOrderItem.getRemainQuantity() == null ? BigDecimal.ZERO : saleOrderItem.getRemainQuantity();
-            if (wmsOutboundItem.getQuantity().compareTo(remainQuantity) > 0)
+            BigDecimal accumulatedOutboundQuantity = accumulateOutboundQuantity(
+                saleOrderItemQuantityMap, wmsOutboundItem.getSaleOrderItemId(), wmsOutboundItem.getQuantity());
+            if (accumulatedOutboundQuantity.compareTo(remainQuantity) > 0)
             {
-                throw new ServiceException("第" + (outboundItemIndex + 1) + "行出库数量不能超过待出库数量");
+                throw new ServiceException("第" + (outboundItemIndex + 1) + "行对应来源销售明细的累计出库数量不能超过待出库数量");
             }
         }
+    }
+
+    /**
+     * 按来源销售明细累计本次出库数量
+     *
+     * @param saleOrderItemQuantityMap 来源销售明细累计出库数量映射
+     * @param saleOrderItemId 来源销售明细编号
+     * @param currentOutboundQuantity 当前出库数量
+     * @return 累计出库数量
+     */
+    private BigDecimal accumulateOutboundQuantity(Map<Long, BigDecimal> saleOrderItemQuantityMap, Long saleOrderItemId,
+        BigDecimal currentOutboundQuantity)
+    {
+        BigDecimal historyOutboundQuantity = saleOrderItemQuantityMap.get(saleOrderItemId);
+        if (historyOutboundQuantity == null)
+        {
+            historyOutboundQuantity = BigDecimal.ZERO;
+        }
+        BigDecimal validCurrentOutboundQuantity =
+            currentOutboundQuantity == null ? BigDecimal.ZERO : currentOutboundQuantity;
+        BigDecimal accumulatedOutboundQuantity = historyOutboundQuantity.add(validCurrentOutboundQuantity);
+        saleOrderItemQuantityMap.put(saleOrderItemId, accumulatedOutboundQuantity);
+        return accumulatedOutboundQuantity;
     }
 
     /**
@@ -518,47 +682,18 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
      */
     private void validateNoPendingLinkedOutbound(WmsSaleOrder databaseSaleOrder, Long currentOutboundId)
     {
-        WmsOutbound linkedOutboundQuery = new WmsOutbound();
-        linkedOutboundQuery.setSaleOrderId(databaseSaleOrder.getSaleOrderId());
-        List<WmsOutbound> linkedOutboundList = wmsOutboundMapper.selectWmsOutboundList(linkedOutboundQuery);
-        if (hasPendingLinkedOutbound(linkedOutboundList, currentOutboundId))
+        Long linkedOutboundCount =
+            wmsOutboundMapper.selectPendingLinkedOutboundCountBySaleOrderId(databaseSaleOrder.getSaleOrderId(), currentOutboundId);
+        if (linkedOutboundCount != null && linkedOutboundCount.longValue() > 0L)
         {
             throw new ServiceException("来源销售订单已存在未完成的销售出库单，请先处理原单据");
         }
-        WmsOutbound historicalOutboundQuery = new WmsOutbound();
-        historicalOutboundQuery.setSourceOrderNo(databaseSaleOrder.getOrderNo());
-        List<WmsOutbound> historicalOutboundList = wmsOutboundMapper.selectWmsOutboundList(historicalOutboundQuery);
-        if (hasPendingLinkedOutbound(historicalOutboundList, currentOutboundId))
+        Long historicalOutboundCount =
+            wmsOutboundMapper.selectPendingLinkedOutboundCountBySourceOrderNo(databaseSaleOrder.getOrderNo(), currentOutboundId);
+        if (historicalOutboundCount != null && historicalOutboundCount.longValue() > 0L)
         {
             throw new ServiceException("来源销售订单已存在未完成的销售出库单，请先处理原单据");
         }
-    }
-
-    /**
-     * 判断是否存在未完成的关联出库单
-     *
-     * @param outboundList 出库单列表
-     * @param currentOutboundId 当前出库单编号
-     * @return 是否存在未完成出库单
-     */
-    private boolean hasPendingLinkedOutbound(List<WmsOutbound> outboundList, Long currentOutboundId)
-    {
-        if (outboundList == null || outboundList.isEmpty())
-        {
-            return false;
-        }
-        for (WmsOutbound databaseOutbound : outboundList)
-        {
-            if (Objects.equals(databaseOutbound.getOutboundId(), currentOutboundId))
-            {
-                continue;
-            }
-            if (STATUS_DRAFT.equals(databaseOutbound.getStatus()) || STATUS_SUBMITTED.equals(databaseOutbound.getStatus()))
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**

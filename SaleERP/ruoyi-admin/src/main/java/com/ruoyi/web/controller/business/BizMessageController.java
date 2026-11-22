@@ -25,7 +25,7 @@ public class BizMessageController extends BaseController
     @Autowired
     private IBizMessageService bizMessageService;
 
-    @PreAuthorize("@ss.hasPermi('business:stock:list')")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/list")
     public TableDataInfo list(BizMessage bizMessage)
     {
@@ -35,7 +35,7 @@ public class BizMessageController extends BaseController
         return getDataTable(bizMessageList);
     }
 
-    @PreAuthorize("@ss.hasPermi('business:stock:list')")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/popupList")
     public AjaxResult popupList(@RequestParam(required = false) String messageType, @RequestParam(required = false) Integer limitCount)
     {
@@ -48,7 +48,7 @@ public class BizMessageController extends BaseController
         return ajaxResult;
     }
 
-    @PreAuthorize("@ss.hasPermi('business:stock:list')")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/unreadCount")
     public AjaxResult unreadCount(@RequestParam(required = false) String messageType)
     {
@@ -59,7 +59,7 @@ public class BizMessageController extends BaseController
         return ajaxResult;
     }
 
-    @PreAuthorize("@ss.hasPermi('business:stock:list')")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/read/{messageId}")
     public AjaxResult read(@PathVariable Long messageId)
     {
@@ -67,7 +67,7 @@ public class BizMessageController extends BaseController
         return toAjax(bizMessageService.markBizMessageRead(messageId, userId));
     }
 
-    @PreAuthorize("@ss.hasPermi('business:stock:list')")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/readAll")
     public AjaxResult readAll(@RequestParam(required = false) String messageType)
     {

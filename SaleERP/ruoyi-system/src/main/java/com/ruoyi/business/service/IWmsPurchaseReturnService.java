@@ -17,6 +17,8 @@ public interface IWmsPurchaseReturnService
 
     public int auditWmsPurchaseReturn(Long purchaseReturnId);
 
+    public int rejectWmsPurchaseReturn(Long purchaseReturnId, String rejectReason);
+
     public int cancelWmsPurchaseReturn(Long purchaseReturnId);
 
     public int deleteWmsPurchaseReturnById(Long purchaseReturnId);

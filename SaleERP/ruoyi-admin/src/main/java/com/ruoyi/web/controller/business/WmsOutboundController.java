@@ -90,6 +90,29 @@ public class WmsOutboundController extends BaseController
         return toAjax(wmsOutboundService.auditWmsOutbound(outboundId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:outbound:audit')")
+    @Log(title = "销售出库单驳回", businessType = BusinessType.UPDATE)
+    @PostMapping("/reject/{outboundId}")
+    public AjaxResult reject(@PathVariable Long outboundId, @RequestBody(required = false) WmsOutbound body)
+    {
+        String reason = body == null ? null : body.getRejectReason();
+        return toAjax(wmsOutboundService.rejectWmsOutbound(outboundId, reason));
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:outbound:edit,business:outbound:audit')")
+    @Log(title = "销售出库单配送流转", businessType = BusinessType.UPDATE)
+    @PostMapping("/delivery/{outboundId}")
+    public AjaxResult updateDelivery(@PathVariable Long outboundId, @RequestBody WmsOutbound body)
+    {
+        return toAjax(wmsOutboundService.updateWmsOutboundDelivery(
+            outboundId,
+            body == null ? null : body.getDeliveryStatus(),
+            body == null ? null : body.getCarrier(),
+            body == null ? null : body.getWaybillNo(),
+            body == null ? null : body.getFreightCost()
+        ));
+    }
+
     @PreAuthorize("@ss.hasPermi('business:outbound:edit')")
     @Log(title = "销售出库单", businessType = BusinessType.UPDATE)
     @PostMapping("/cancel/{outboundId}")

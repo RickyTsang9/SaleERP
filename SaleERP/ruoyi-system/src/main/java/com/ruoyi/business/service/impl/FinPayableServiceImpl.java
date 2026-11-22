@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import com.ruoyi.business.mapper.FinPayableMapper;
 import com.ruoyi.business.domain.FinPayable;
 import com.ruoyi.business.service.IFinPayableService;
+import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.SecurityUtils;
 
@@ -40,6 +41,7 @@ public class FinPayableServiceImpl implements IFinPayableService
      * @return 应付账款
      */
     @Override
+    @DataScope(deptAlias = "su", userAlias = "su", permission = "business:payable:list")
     public List<FinPayable> selectFinPayableList(FinPayable finPayable)
     {
         return finPayableMapper.selectFinPayableList(finPayable);

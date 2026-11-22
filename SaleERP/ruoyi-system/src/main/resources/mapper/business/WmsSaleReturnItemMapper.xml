@@ -8,13 +8,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <id     property="saleReturnItemId" column="sale_return_item_id" />
         <result property="saleReturnId"     column="sale_return_id" />
         <result property="productId"        column="product_id" />
+        <result property="locationId"       column="location_id" />
+        <result property="batchNo"          column="batch_no" />
         <result property="quantity"         column="quantity" />
         <result property="price"            column="price" />
         <result property="amount"           column="amount" />
+        <result property="costPriceSnapshot" column="cost_price_snapshot" />
     </resultMap>
 
     <sql id="selectWmsSaleReturnItemVo">
-        select sale_return_item_id, sale_return_id, product_id, quantity, price, amount
+        select sale_return_item_id, sale_return_id, product_id, location_id, batch_no, quantity, price, amount, cost_price_snapshot
         from wms_sale_return_item
     </sql>
 
@@ -45,16 +48,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="saleReturnId != null">sale_return_id,</if>
             <if test="productId != null">product_id,</if>
+            <if test="locationId != null">location_id,</if>
+            <if test="batchNo != null and batchNo != ''">batch_no,</if>
             <if test="quantity != null">quantity,</if>
             <if test="price != null">price,</if>
             <if test="amount != null">amount,</if>
+            <if test="costPriceSnapshot != null">cost_price_snapshot,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="saleReturnId != null">#{saleReturnId},</if>
             <if test="productId != null">#{productId},</if>
+            <if test="locationId != null">#{locationId},</if>
+            <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
             <if test="quantity != null">#{quantity},</if>
             <if test="price != null">#{price},</if>
             <if test="amount != null">#{amount},</if>
+            <if test="costPriceSnapshot != null">#{costPriceSnapshot},</if>
         </trim>
     </insert>
 
@@ -63,9 +72,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <set>
             <if test="saleReturnId != null">sale_return_id = #{saleReturnId},</if>
             <if test="productId != null">product_id = #{productId},</if>
+            <if test="locationId != null">location_id = #{locationId},</if>
+            <if test="batchNo != null">batch_no = #{batchNo},</if>
             <if test="quantity != null">quantity = #{quantity},</if>
             <if test="price != null">price = #{price},</if>
             <if test="amount != null">amount = #{amount},</if>
+            <if test="costPriceSnapshot != null">cost_price_snapshot = #{costPriceSnapshot},</if>
         </set>
         where sale_return_item_id = #{saleReturnItemId}
     </update>

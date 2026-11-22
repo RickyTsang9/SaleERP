@@ -1,141 +1,141 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-      <el-form-item label="客户编码" prop="customerCode">
-        <el-input
-          v-model="queryParams.customerCode"
-          placeholder="请输入客户编码"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="客户名称" prop="customerName">
-        <el-input
-          v-model="queryParams.customerName"
-          placeholder="请输入客户名称"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="联系人" prop="contactPerson">
-        <el-input
-          v-model="queryParams.contactPerson"
-          placeholder="请输入联系人"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="付款方式" prop="paymentMethod">
-        <el-select v-model="queryParams.paymentMethod" clearable style="width: 200px" placeholder="请选择付款方式">
-          <el-option
-            v-for="option in paymentMethodOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="客户等级" prop="customerLevel">
-        <el-select v-model="queryParams.customerLevel" clearable style="width: 200px" placeholder="请选择客户等级">
-          <el-option
-            v-for="option in customerLevelOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" clearable style="width: 200px" placeholder="请选择状态">
-          <el-option
-            v-for="dict in sys_normal_disable"
-            :key="dict.value"
-            :label="dict.label"
-            :value="dict.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="基础主数据 · CRM"
+      title="客户资料管理"
+      subtitle="维护客户档案、授信额度、等级与结算偏好，一键洞察客户360°经营画像与跟进动态。"
+      icon="User"
+      tone="blue"
+      :badge="`共 ${total} 家客户`"
+    >
+      <template #actions>
+        <el-button icon="Upload" plain @click="handleImport" v-hasPermi="['business:customer:import']">批量导入</el-button>
+        <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:customer:export']">导出</el-button>
+        <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:customer:add']">新增客户</el-button>
+      </template>
+    </erp-page-header>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['business:customer:add']">新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:customer:edit']">修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="ChatDotRound" :disabled="single" @click="handleViewCustomerFollow" v-hasPermi="['business:customerFollow:list']">客户跟进</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:customer:remove']">删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="info" plain icon="Upload" @click="handleImport" v-hasPermi="['business:customer:import']">导入</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:customer:export']">导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+    <erp-stat-strip :items="customerStatItems" :columns="4" />
 
-    <el-table v-loading="loading" :data="customerList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="客户编码" align="center" prop="customerCode" />
-      <el-table-column label="客户名称" align="center" prop="customerName" />
-      <el-table-column label="联系人" align="center" prop="contactPerson" />
-      <el-table-column label="联系电话" align="center" prop="contactPhone" />
-      <el-table-column label="邮箱" align="center" prop="contactEmail" />
-      <el-table-column label="地址" align="center" prop="address" min-width="180" show-overflow-tooltip />
-      <el-table-column label="信用额度" align="center" prop="creditLimit" />
-      <el-table-column label="付款方式" align="center" prop="paymentMethod">
-        <template #default="scope">
-          <span>{{ formatPaymentMethod(scope.row.paymentMethod) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="客户等级" align="center" prop="customerLevel">
-        <template #default="scope">
-          <span>{{ formatCustomerLevel(scope.row.customerLevel) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" align="center" prop="status" width="120">
-        <template #default="scope">
-          <el-switch
-            v-model="scope.row.status"
-            active-value="0"
-            inactive-value="1"
-            @change="handleStatusChange(scope.row)"
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true">
+        <el-form-item label="客户编码" prop="customerCode">
+          <el-input v-model="queryParams.customerCode" placeholder="请输入客户编码" clearable style="width: 180px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="客户名称" prop="customerName">
+          <el-input v-model="queryParams.customerName" placeholder="请输入客户名称" clearable style="width: 190px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="联系人" prop="contactPerson">
+          <el-input v-model="queryParams.contactPerson" placeholder="请输入联系人" clearable style="width: 160px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="付款方式" prop="paymentMethod">
+          <el-select v-model="queryParams.paymentMethod" clearable style="width: 150px" placeholder="全部方式">
+            <el-option v-for="option in paymentMethodOptions" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="客户等级" prop="customerLevel">
+          <el-select v-model="queryParams.customerLevel" clearable style="width: 150px" placeholder="全部等级">
+            <el-option v-for="option in customerLevelOptions" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="queryParams.status" clearable style="width: 130px" placeholder="全部状态">
+            <el-option v-for="dict in sys_normal_disable" :key="dict.value" :label="dict.label" :value="dict.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
+
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs
+            :model-value="queryParams.status ?? ''"
+            :items="statusTabItems"
+            @change="handleQuickStatus"
           />
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="240" align="center" class-name="small-padding fixed-width">
-        <template #default="scope">
-          <el-button link type="primary" icon="ChatDotRound" @click="handleViewCustomerFollow(scope.row)" v-hasPermi="['business:customerFollow:list']">跟进</el-button>
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:customer:edit']">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:customer:remove']">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+          <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:customer:edit']">修改</el-button>
+          <el-button type="primary" plain icon="ChatDotRound" :disabled="single" @click="handleViewCustomerFollow" v-hasPermi="['business:customerFollow:list']">客户跟进</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:customer:remove']">删除</el-button>
+        </div>
+        <div class="erp-toolbar-right">
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        </div>
+      </div>
 
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+      <el-table v-loading="loading" :data="customerList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="客户编码" align="center" prop="customerCode" min-width="125" show-overflow-tooltip>
+          <template #default="scope">
+            <span class="erp-code-chip">{{ scope.row.customerCode }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="客户名称 / 地址" align="left" prop="customerName" min-width="200" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.customerName }}</div>
+            <div class="erp-cell-sub">{{ scope.row.address || '未填写地址' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="联系人 / 电话" align="left" min-width="150" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.contactPerson || '-' }}</div>
+            <div class="erp-cell-sub">{{ scope.row.contactPhone || scope.row.contactEmail || '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="授信额度" align="right" prop="creditLimit" min-width="115">
+          <template #default="scope">
+            <span class="erp-amount">¥{{ formatMoney(scope.row.creditLimit) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="付款方式" align="center" prop="paymentMethod" min-width="96">
+          <template #default="scope">
+            <el-tag size="small" type="info" effect="plain">{{ formatPaymentMethod(scope.row.paymentMethod) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="客户等级" align="center" prop="customerLevel" min-width="96">
+          <template #default="scope">
+            <el-tag size="small" :type="['vip', 'gold', 'a'].includes(scope.row.customerLevel) ? 'warning' : 'primary'" effect="light">
+              {{ formatCustomerLevel(scope.row.customerLevel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" align="center" prop="status" width="84">
+          <template #default="scope">
+            <el-switch
+              v-model="scope.row.status"
+              active-value="0"
+              inactive-value="1"
+              @change="handleStatusChange(scope.row)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" align="center" prop="createTime" width="160">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="240" fixed="right" align="center">
+          <template #default="scope">
+            <el-button link type="primary" icon="DataAnalysis" @click="handleViewProfile(scope.row)" v-hasPermi="['business:customer:query']">画像</el-button>
+            <el-button link type="primary" icon="ChatDotRound" @click="handleViewCustomerFollow(scope.row)" v-hasPermi="['business:customerFollow:list']">跟进</el-button>
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:customer:edit']">修改</el-button>
+            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:customer:remove']">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
     <el-dialog :title="title" v-model="open" width="700px" append-to-body>
       <el-form ref="customerRef" :model="form" :rules="rules" label-width="100px">
@@ -254,15 +254,105 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 客户360度经营画像抽屉 -->
+    <el-drawer v-model="profileOpen" title="客户经营画像" size="740px" append-to-body>
+      <div v-loading="profileLoading" class="profile-drawer-body">
+        <template v-if="profileData && profileData.customer">
+          <div class="profile-header-card">
+            <div class="profile-header-top">
+              <div>
+                <div class="profile-title">{{ profileData.customer.customerName }}</div>
+                <div class="profile-subtitle">
+                  编码：{{ profileData.customer.customerCode || '-' }} · 等级：{{ formatCustomerLevel(profileData.customer.customerLevel) || '-' }} · 联系人：{{ profileData.customer.contactPerson || '-' }}（{{ profileData.customer.contactPhone || '-' }}）
+                </div>
+              </div>
+              <el-tag :type="getProfileRiskTagType(profileData.summary?.riskLevel)" effect="dark" size="large">
+                {{ profileData.summary?.riskLevel || '正常' }}
+              </el-tag>
+            </div>
+            <div class="profile-risk-note">{{ profileData.summary?.riskReason }}</div>
+          </div>
+
+          <div class="profile-kpi-grid">
+            <div class="profile-kpi-item">
+              <div class="profile-kpi-label">审核销售额</div>
+              <div class="profile-kpi-value">¥{{ formatMoney(profileData.summary?.totalSaleAmount) }}</div>
+              <div class="profile-kpi-sub">累计订单 {{ profileData.summary?.totalOrderCount || 0 }} 笔</div>
+            </div>
+            <div class="profile-kpi-item">
+              <div class="profile-kpi-label">应收 / 已收</div>
+              <div class="profile-kpi-value">¥{{ formatMoney(profileData.summary?.totalReceivableAmount) }}</div>
+              <div class="profile-kpi-sub">已收 ¥{{ formatMoney(profileData.summary?.totalReceivedAmount) }}（回款率 {{ formatRate(profileData.summary?.collectionRate) }}%）</div>
+            </div>
+            <div class="profile-kpi-item">
+              <div class="profile-kpi-label">未收 / 逾期</div>
+              <div class="profile-kpi-value" :class="{ 'is-danger': Number(profileData.summary?.overdueAmount || 0) > 0 }">
+                ¥{{ formatMoney(profileData.summary?.remainReceivableAmount) }}
+              </div>
+              <div class="profile-kpi-sub">逾期 ¥{{ formatMoney(profileData.summary?.overdueAmount) }}（{{ profileData.summary?.overdueCount || 0 }} 笔）</div>
+            </div>
+            <div class="profile-kpi-item">
+              <div class="profile-kpi-label">信用额度占用</div>
+              <div class="profile-kpi-value">{{ formatRate(profileData.summary?.creditUsageRate) }}%</div>
+              <div class="profile-kpi-sub">授信 ¥{{ formatMoney(profileData.summary?.creditLimit) }}</div>
+            </div>
+          </div>
+
+          <div class="profile-section-title">常购商品 Top 5</div>
+          <el-table :data="profileData.topProductList || []" size="small" border class="mb16">
+            <el-table-column label="商品编码" prop="productCode" min-width="110" />
+            <el-table-column label="商品名称" prop="productName" min-width="160" show-overflow-tooltip />
+            <el-table-column label="累计采购量" prop="totalQty" align="right" width="100" />
+            <el-table-column label="累计金额" align="right" width="120">
+              <template #default="scope">¥{{ formatMoney(scope.row.totalAmount) }}</template>
+            </el-table-column>
+          </el-table>
+
+          <div class="profile-section-title">
+            <span>最近销售订单</span>
+            <el-button link type="primary" @click="jumpCustomerSaleOrders">查看全部订单</el-button>
+          </div>
+          <el-table :data="profileData.recentOrderList || []" size="small" border class="mb16">
+            <el-table-column label="销售单号" prop="orderNo" min-width="150" />
+            <el-table-column label="数量" prop="totalQty" align="right" width="80" />
+            <el-table-column label="金额" align="right" width="110">
+              <template #default="scope">¥{{ formatMoney(scope.row.totalAmount) }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="95" align="center">
+              <template #default="scope">{{ formatOrderStatus(scope.row.status) }}</template>
+            </el-table-column>
+            <el-table-column label="下单时间" width="150" align="center">
+              <template #default="scope">{{ parseTime(scope.row.createTime) }}</template>
+            </el-table-column>
+          </el-table>
+
+          <div class="profile-section-title">
+            <span>最近跟进记录</span>
+            <el-button link type="primary" @click="handleViewCustomerFollow(profileData.customer)">去跟进</el-button>
+          </div>
+          <el-table :data="profileData.recentFollowList || []" size="small" border>
+            <el-table-column label="跟进方式" width="90" align="center">
+              <template #default="scope">{{ formatFollowType(scope.row.followType) }}</template>
+            </el-table-column>
+            <el-table-column label="跟进内容" prop="followContent" min-width="200" show-overflow-tooltip />
+            <el-table-column label="跟进时间" width="150" align="center">
+              <template #default="scope">{{ parseTime(scope.row.followTime) }}</template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup name="BusinessCustomer">
-import { listCustomer, getCustomer, addCustomer, updateCustomer, delCustomer, changeCustomerStatus, importTemplate as downloadImportTemplate } from "@/api/business/customer"
+import { listCustomer, getCustomer, getCustomerProfile, addCustomer, updateCustomer, delCustomer, changeCustomerStatus, importTemplate as downloadImportTemplate } from "@/api/business/customer"
 import { getToken } from "@/utils/auth"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
+const route = useRoute()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
 
 const customerList = ref([])
@@ -274,6 +364,9 @@ const single = ref(true)
 const multiple = ref(true)
 const total = ref(0)
 const title = ref("")
+const profileOpen = ref(false)
+const profileLoading = ref(false)
+const profileData = ref(null)
 
 /*** 客户导入参数 */
 const upload = reactive({
@@ -295,8 +388,7 @@ const paymentMethodOptions = ref([
   { label: "现金", value: "cash" },
   { label: "银行转账", value: "bank_transfer" },
   { label: "赊销", value: "credit" },
-  { label: "月结", value: "month" },
-  { label: "银行转账", value: "bank" }
+  { label: "月结", value: "month" }
 ])
 const customerLevelOptions = ref([
   { label: "普通", value: "normal" },
@@ -329,6 +421,30 @@ const data = reactive({
 })
 
 const { queryParams, form, rules } = toRefs(data)
+
+const statusTabItems = [
+  { label: '全部客户', value: '' },
+  { label: '正常合作', value: '0', dot: 'emerald' },
+  { label: '已停用', value: '1', dot: 'slate' }
+]
+
+const customerStatItems = computed(() => {
+  const rows = customerList.value || []
+  const vipCount = rows.filter(r => ['vip', 'gold', 'a'].includes(r.customerLevel)).length
+  const totalCredit = rows.reduce((sum, r) => sum + Number(r.creditLimit || 0), 0)
+  const activeCount = rows.filter(r => r.status === '0').length
+  return [
+    { label: '客户档案总数', value: total.value, suffix: '家', hint: '企业全量往来客户', icon: 'User', tone: 'blue' },
+    { label: '本页核心大客户', value: vipCount, suffix: '家', hint: 'VIP / 金牌 / A级客户', icon: 'Medal', tone: 'amber' },
+    { label: '本页合计授信额', prefix: '¥', value: totalCredit.toFixed(2), hint: '信用额度风控基线', icon: 'CreditCard', tone: 'indigo' },
+    { label: '本页正常合作', value: activeCount, suffix: `/ ${rows.length}`, hint: '启用状态允许销售开单', icon: 'CircleCheck', tone: 'emerald' }
+  ]
+})
+
+function handleQuickStatus(val) {
+  queryParams.value.status = val === '' ? undefined : val
+  handleQuery()
+}
 
 function getList() {
   loading.value = true
@@ -363,6 +479,7 @@ function reset() {
 }
 
 function formatPaymentMethod(paymentMethod) {
+  if (paymentMethod === "bank") return "银行转账"
   const targetOption = paymentMethodOptions.value.find(option => option.value === paymentMethod)
   return targetOption ? targetOption.label : paymentMethod
 }
@@ -403,6 +520,68 @@ function handleViewCustomerFollow(row) {
   })
 }
 
+function handleViewProfile(row) {
+  if (!row?.customerId) {
+    return
+  }
+  profileOpen.value = true
+  profileLoading.value = true
+  profileData.value = null
+  getCustomerProfile(row.customerId).then(response => {
+    profileData.value = response.data || null
+  }).finally(() => {
+    profileLoading.value = false
+  })
+}
+
+function jumpCustomerSaleOrders() {
+  const customerId = profileData.value?.customer?.customerId
+  if (!customerId) {
+    return
+  }
+  profileOpen.value = false
+  proxy.$router.push({ path: "/sales/saleOrder", query: { customerId } })
+}
+
+function formatMoney(value) {
+  const num = Number(value || 0)
+  return Number.isFinite(num) ? num.toFixed(2) : "0.00"
+}
+
+function formatRate(value) {
+  const num = Number(value || 0)
+  return Number.isFinite(num) ? num.toFixed(2) : "0.00"
+}
+
+function getProfileRiskTagType(riskLevel) {
+  if (riskLevel === "高风险") return "danger"
+  if (riskLevel === "中风险") return "warning"
+  return "success"
+}
+
+function formatOrderStatus(status) {
+  const map = {
+    draft: "草稿",
+    submitted: "待经理审核",
+    manager_approved: "待财务审核",
+    audited: "已审核",
+    rejected: "已驳回"
+  }
+  return map[status] || status || "-"
+}
+
+function formatFollowType(followType) {
+  const map = {
+    phone: "电话",
+    visit: "上门",
+    wechat: "微信",
+    email: "邮件",
+    sms: "短信",
+    meeting: "面谈"
+  }
+  return map[String(followType || "").toLowerCase()] || followType || "-"
+}
+
 function handleAdd() {
   reset()
   open.value = true
@@ -439,13 +618,18 @@ function submitForm() {
   })
 }
 
+// 删除按钮操作，兼容单条删除和批量删除，并在空选择时及时提醒用户。
 function handleDelete(row) {
-  const customerIds = row.customerId || ids.value
+  const customerIdList = row?.customerId ? [row.customerId] : ids.value
+  if (!customerIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的客户")
+    return
+  }
   const displayCustomerText = row?.customerId
     ? `${row.customerName || row.customerCode || row.customerId}`
     : `已选中的 ${ids.value.length} 个客户`
   proxy.$modal.confirm(`是否确认删除“${displayCustomerText}”？`).then(function () {
-    return delCustomer(customerIds)
+    return delCustomer(customerIdList)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")
@@ -501,5 +685,104 @@ function submitFileForm() {
   proxy.$refs["uploadRef"].submit();
 }
 
-getList()
+// 判断当前是否来自首页一键新增客户入口。
+function shouldAutoOpenCustomerFromRoute() {
+  return route.query.mode === "create"
+}
+
+// 初始化客户页面列表，并在需要时自动打开新增客户弹窗。
+function initializePage() {
+  getList()
+  if (shouldAutoOpenCustomerFromRoute()) {
+    handleAdd()
+  }
+}
+
+// 监听路由参数变化，保证首页重复进入客户页时新增入口会重新生效。
+watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
+  if (currentRouteFullPath === previousRouteFullPath) {
+    return
+  }
+  initializePage()
+})
+
+initializePage()
 </script>
+
+<style scoped lang="scss">
+.profile-drawer-body {
+  padding: 0 4px 16px;
+}
+.profile-header-card {
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--erp-border);
+  background: var(--erp-surface-soft);
+  margin-bottom: 16px;
+}
+.profile-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.profile-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--erp-heading);
+}
+.profile-subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--erp-text-secondary);
+}
+.profile-risk-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--erp-text-secondary);
+}
+.profile-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.profile-kpi-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--erp-border);
+  background: var(--erp-surface);
+  box-shadow: var(--erp-shadow-xs);
+}
+.profile-kpi-label {
+  font-size: 12px;
+  color: var(--erp-text-secondary);
+}
+.profile-kpi-value {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--erp-heading);
+}
+.profile-kpi-value.is-danger {
+  color: var(--erp-danger);
+}
+.profile-kpi-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--erp-text-muted);
+}
+.profile-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 14px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--erp-heading);
+}
+.mb16 {
+  margin-bottom: 16px;
+}
+</style>

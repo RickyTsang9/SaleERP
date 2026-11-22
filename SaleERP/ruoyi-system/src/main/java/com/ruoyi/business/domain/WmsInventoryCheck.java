@@ -19,6 +19,9 @@ public class WmsInventoryCheck extends BaseEntity
     @Excel(name = "仓库编号")
     private Long warehouseId;
 
+    /** 仓库名称 */
+    private String warehouseName;
+
     @Excel(name = "状态")
     private String status;
 
@@ -32,6 +35,18 @@ public class WmsInventoryCheck extends BaseEntity
     private String auditBy;
 
     private Date auditTime;
+
+    private String rejectReason;
+
+    public String getRejectReason()
+    {
+        return rejectReason;
+    }
+
+    public void setRejectReason(String rejectReason)
+    {
+        this.rejectReason = rejectReason;
+    }
 
     public Long getCheckId()
     {
@@ -61,6 +76,16 @@ public class WmsInventoryCheck extends BaseEntity
     public void setWarehouseId(Long warehouseId)
     {
         this.warehouseId = warehouseId;
+    }
+
+    public String getWarehouseName()
+    {
+        return warehouseName;
+    }
+
+    public void setWarehouseName(String warehouseName)
+    {
+        this.warehouseName = warehouseName;
     }
 
     public String getStatus()

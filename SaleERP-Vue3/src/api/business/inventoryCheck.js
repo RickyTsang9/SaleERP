@@ -45,6 +45,25 @@ export function auditInventoryCheck(checkId) {
   })
 }
 
+export function rejectInventoryCheck(checkId, rejectReason) {
+  return request({
+    url: '/business/inventoryCheck/reject/' + checkId,
+    method: 'post',
+    data: { rejectReason }
+  })
+}
+
+export function loadInventoryCheckStockSnapshot(checkId, locationId, blindMode = false) {
+  const params = {}
+  if (locationId) params.locationId = locationId
+  if (blindMode) params.blindMode = true
+  return request({
+    url: '/business/inventoryCheck/' + checkId + '/loadStockSnapshot',
+    method: 'post',
+    params: Object.keys(params).length ? params : undefined
+  })
+}
+
 export function cancelInventoryCheck(checkId) {
   return request({
     url: '/business/inventoryCheck/cancel/' + checkId,

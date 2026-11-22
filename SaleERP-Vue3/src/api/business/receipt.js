@@ -23,6 +23,14 @@ export function addReceipt(data) {
   })
 }
 
+export function batchAddReceipt(data) {
+  return request({
+    url: '/business/receipt/batch',
+    method: 'post',
+    data: data
+  })
+}
+
 export function updateReceipt(data) {
   return request({
     url: '/business/receipt',
@@ -35,5 +43,13 @@ export function delReceipt(receiptId) {
   return request({
     url: '/business/receipt/' + receiptId,
     method: 'delete'
+  })
+}
+
+export function voidReceipt(receiptId, voidReason) {
+  return request({
+    url: '/business/receipt/' + receiptId + '/void',
+    method: 'put',
+    data: { voidReason }
   })
 }

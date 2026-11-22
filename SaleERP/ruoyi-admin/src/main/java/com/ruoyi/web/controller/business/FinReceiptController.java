@@ -1,6 +1,10 @@
 package com.ruoyi.web.controller.business;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +23,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 
 @RestController
@@ -64,6 +69,32 @@ public class FinReceiptController extends BaseController
         return toAjax(finReceiptService.insertFinReceipt(finReceipt));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:receipt:add')")
+    @Log(title = "多单合并回款核销", businessType = BusinessType.INSERT)
+    @RepeatSubmit
+    @PostMapping("/batch")
+    public AjaxResult batchAdd(@RequestBody Map<String, Object> body)
+    {
+        List<Long> receivableIds = new ArrayList<>();
+        Object rawIds = body == null ? null : body.get("receivableIds");
+        if (rawIds instanceof List<?>)
+        {
+            for (Object idObj : (List<?>) rawIds)
+            {
+                if (idObj != null)
+                {
+                    receivableIds.add(Long.valueOf(String.valueOf(idObj)));
+                }
+            }
+        }
+        BigDecimal totalAmount = body == null || body.get("totalAmount") == null ? null : new BigDecimal(String.valueOf(body.get("totalAmount")));
+        String paymentMethod = body == null || body.get("paymentMethod") == null ? null : String.valueOf(body.get("paymentMethod"));
+        Long accountId = body == null || body.get("accountId") == null ? null : Long.valueOf(String.valueOf(body.get("accountId")));
+        Date paymentTime = body == null || body.get("paymentTime") == null ? new Date() : DateUtils.parseDate(body.get("paymentTime"));
+        String remark = body == null || body.get("remark") == null ? null : String.valueOf(body.get("remark"));
+        return toAjax(finReceiptService.batchInsertFinReceipt(receivableIds, totalAmount, paymentMethod, accountId, paymentTime, remark));
+    }
+
     @PreAuthorize("@ss.hasPermi('business:receipt:edit')")
     @Log(title = "回款登记", businessType = BusinessType.UPDATE)
     @RepeatSubmit
@@ -72,6 +103,16 @@ public class FinReceiptController extends BaseController
     {
         finReceipt.setUpdateBy(getUsername());
         return toAjax(finReceiptService.updateFinReceipt(finReceipt));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:receipt:edit')")
+    @Log(title = "回款冲红作废", businessType = BusinessType.UPDATE)
+    @RepeatSubmit
+    @PutMapping("/{receiptId}/void")
+    public AjaxResult voidReceipt(@PathVariable Long receiptId, @RequestBody(required = false) FinReceipt body)
+    {
+        String reason = body == null ? null : body.getVoidReason();
+        return toAjax(finReceiptService.voidFinReceipt(receiptId, reason));
     }
 
     @PreAuthorize("@ss.hasPermi('business:receipt:remove')")

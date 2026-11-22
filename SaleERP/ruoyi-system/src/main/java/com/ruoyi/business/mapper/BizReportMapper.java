@@ -162,4 +162,46 @@ public interface BizReportMapper
      * @return 重点付款供应商列表
      */
     public List<Map<String, Object>> selectTopDueSupplierList(Map<String, Object> params);
+
+    /**
+     * 查询统一待办中心列表
+     * @param params 查询参数
+     * @return 统一待办中心列表
+     */
+    public List<Map<String, Object>> selectTodoCenterList(Map<String, Object> params);
+
+    /**
+     * 查询客户往来对账单据明细（应收）
+     * @param params 查询参数
+     * @return 应收明细列表
+     */
+    public List<Map<String, Object>> selectCustomerReconciliationBills(Map<String, Object> params);
+
+    /**
+     * 查询客户往来对账回款明细
+     * @param params 查询参数
+     * @return 回款明细列表
+     */
+    public List<Map<String, Object>> selectCustomerReconciliationReceipts(Map<String, Object> params);
+
+    /**
+     * 查询供应商往来对账单据明细（应付）
+     * @param params 查询参数
+     * @return 应付明细列表
+     */
+    public List<Map<String, Object>> selectSupplierReconciliationBills(Map<String, Object> params);
+
+    /**
+     * 查询供应商往来对账付款明细
+     * @param params 查询参数
+     * @return 付款明细列表
+     */
+    public List<Map<String, Object>> selectSupplierReconciliationPayments(Map<String, Object> params);
+
+    /**
+     * 查询商品经营排行分析（销量/销售额/毛利/退货率/库存周转）
+     * @param params 查询参数
+     * @return 商品经营排行列表
+     */
+    public List<Map<String, Object>> selectProductRankingList(Map<String, Object> params);
 }

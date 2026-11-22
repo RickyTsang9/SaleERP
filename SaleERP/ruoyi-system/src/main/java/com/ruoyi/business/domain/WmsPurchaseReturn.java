@@ -2,6 +2,7 @@ package com.ruoyi.business.domain;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import com.ruoyi.common.annotation.Excel;
@@ -22,8 +23,20 @@ public class WmsPurchaseReturn extends BaseEntity
     @Excel(name = "供应商编号")
     private Long supplierId;
 
+    /** 关联采购订单ID */
+    private Long purchaseOrderId;
+
+    /** 关联采购单号 */
+    private String purchaseOrderNo;
+
+    /** 供应商名称 */
+    private String supplierName;
+
     @Excel(name = "仓库编号")
     private Long warehouseId;
+
+    /** 仓库名称 */
+    private String warehouseName;
 
     @Excel(name = "总数量")
     private BigDecimal totalQty;
@@ -39,9 +52,55 @@ public class WmsPurchaseReturn extends BaseEntity
 
     private Date auditTime;
 
+    /** 审核驳回原因 */
+    private String rejectReason;
+
+    /** 一体化建单明细列表（非表字段） */
+    private List<WmsPurchaseReturnItem> items;
+
+    public List<WmsPurchaseReturnItem> getItems()
+    {
+        return items;
+    }
+
+    public void setItems(List<WmsPurchaseReturnItem> items)
+    {
+        this.items = items;
+    }
+
+    public String getRejectReason()
+    {
+        return rejectReason;
+    }
+
+    public void setRejectReason(String rejectReason)
+    {
+        this.rejectReason = rejectReason;
+    }
+
     public Long getPurchaseReturnId()
     {
         return purchaseReturnId;
+    }
+
+    public String getSupplierName()
+    {
+        return supplierName;
+    }
+
+    public void setSupplierName(String supplierName)
+    {
+        this.supplierName = supplierName;
+    }
+
+    public String getWarehouseName()
+    {
+        return warehouseName;
+    }
+
+    public void setWarehouseName(String warehouseName)
+    {
+        this.warehouseName = warehouseName;
     }
 
     public void setPurchaseReturnId(Long purchaseReturnId)
@@ -77,6 +136,26 @@ public class WmsPurchaseReturn extends BaseEntity
     public void setSupplierId(Long supplierId)
     {
         this.supplierId = supplierId;
+    }
+
+    public Long getPurchaseOrderId()
+    {
+        return purchaseOrderId;
+    }
+
+    public void setPurchaseOrderId(Long purchaseOrderId)
+    {
+        this.purchaseOrderId = purchaseOrderId;
+    }
+
+    public String getPurchaseOrderNo()
+    {
+        return purchaseOrderNo;
+    }
+
+    public void setPurchaseOrderNo(String purchaseOrderNo)
+    {
+        this.purchaseOrderNo = purchaseOrderNo;
     }
 
     public Long getWarehouseId()

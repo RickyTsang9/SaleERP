@@ -90,6 +90,15 @@ public class WmsPurchaseReturnController extends BaseController
         return toAjax(wmsPurchaseReturnService.auditWmsPurchaseReturn(purchaseReturnId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:audit')")
+    @Log(title = "采购退货单驳回", businessType = BusinessType.UPDATE)
+    @PostMapping("/reject/{purchaseReturnId}")
+    public AjaxResult reject(@PathVariable Long purchaseReturnId, @RequestBody(required = false) WmsPurchaseReturn body)
+    {
+        String reason = body == null ? null : body.getRejectReason();
+        return toAjax(wmsPurchaseReturnService.rejectWmsPurchaseReturn(purchaseReturnId, reason));
+    }
+
     @PreAuthorize("@ss.hasPermi('business:purchaseReturn:edit')")
     @Log(title = "采购退货单", businessType = BusinessType.UPDATE)
     @PostMapping("/cancel/{purchaseReturnId}")

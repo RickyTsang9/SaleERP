@@ -66,6 +66,7 @@ public class WmsSaleOrderController extends BaseController
     /**
      * 下载导入模板
      */
+    @PreAuthorize("@ss.hasAnyPermi('business:saleOrder:import,business:saleOrder:add,business:saleOrder:list')")
     @PostMapping("/importTemplate")
     public void importTemplate(HttpServletResponse response)
     {
@@ -83,7 +84,14 @@ public class WmsSaleOrderController extends BaseController
     /**
      * 获取打印模板数据
      */
-    @PreAuthorize("@ss.hasPermi('business:saleOrder:print')")
+    @PreAuthorize("@ss.hasAnyPermi('business:saleOrder:add,business:saleOrder:edit,business:saleOrder:list')")
+    @GetMapping("/suggestPrice")
+    public AjaxResult suggestPrice(Long customerId, Long productId)
+    {
+        return success(wmsSaleOrderService.suggestCustomerProductPrice(customerId, productId));
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:saleOrder:print,business:saleOrder:query,business:saleOrder:list')")
     @GetMapping("/printTemplate/{saleOrderId}")
     public AjaxResult printTemplate(@PathVariable Long saleOrderId)
     {
@@ -176,12 +184,34 @@ public class WmsSaleOrderController extends BaseController
         return success(wmsSaleOrderService.selectWmsSaleOrderStatusHistoryList(saleOrderId));
     }
 
+    /**
+     * 查询销售订单全链路追踪
+     */
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:query')")
+    @GetMapping("/chain/{saleOrderId}")
+    public AjaxResult chain(@PathVariable Long saleOrderId)
+    {
+        return success(wmsSaleOrderService.selectWmsSaleOrderChain(saleOrderId));
+    }
+
     @PreAuthorize("@ss.hasPermi('business:saleOrder:edit')")
     @Log(title = "销售订单", businessType = BusinessType.UPDATE)
     @PostMapping("/cancel/{saleOrderId}")
     public AjaxResult cancel(@PathVariable Long saleOrderId)
     {
         return toAjax(wmsSaleOrderService.cancelWmsSaleOrder(saleOrderId));
+    }
+
+    /**
+     * 销售单短装强制结案（释放未发锁库并重算应收）
+     */
+    @PreAuthorize("@ss.hasAnyPermi('business:saleOrder:financeAudit,business:saleOrder:edit')")
+    @Log(title = "销售订单短装结案", businessType = BusinessType.UPDATE)
+    @PostMapping("/forceClose/{saleOrderId}")
+    public AjaxResult forceClose(@PathVariable Long saleOrderId, @RequestBody(required = false) WmsSaleOrder body)
+    {
+        String reason = body == null ? null : (body.getFinanceAuditComment() != null ? body.getFinanceAuditComment() : body.getRemark());
+        return toAjax(wmsSaleOrderService.forceCloseWmsSaleOrder(saleOrderId, reason));
     }
 
     @PreAuthorize("@ss.hasPermi('business:saleOrder:remove')")

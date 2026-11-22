@@ -21,6 +21,10 @@ public class BizDataBackup extends BaseEntity
 
     private Long recordCount;
 
+    private String filePath;
+
+    private Long fileSize;
+
     private String backupContent;
 
     private String restoreStatus;
@@ -87,6 +91,26 @@ public class BizDataBackup extends BaseEntity
     public void setRecordCount(Long recordCount)
     {
         this.recordCount = recordCount;
+    }
+
+    public String getFilePath()
+    {
+        return filePath;
+    }
+
+    public void setFilePath(String filePath)
+    {
+        this.filePath = filePath;
+    }
+
+    public Long getFileSize()
+    {
+        return fileSize;
+    }
+
+    public void setFileSize(Long fileSize)
+    {
+        this.fileSize = fileSize;
     }
 
     public String getBackupContent()

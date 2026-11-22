@@ -23,6 +23,22 @@ export function listReconciliation(query) {
   })
 }
 
+export function getReconciliationStatement(query) {
+  return request({
+    url: '/business/report/reconciliationStatement',
+    method: 'get',
+    params: query
+  })
+}
+
+export function listProductRanking(query) {
+  return request({
+    url: '/business/report/productRanking',
+    method: 'get',
+    params: query
+  })
+}
+
 export function listInvoiceTax(query) {
   return request({
     url: '/business/report/invoiceTaxList',
@@ -36,5 +52,13 @@ export function getCashFlowForecast(query) {
     url: '/business/report/cashFlowForecast',
     method: 'get',
     params: query
+  })
+}
+
+// 查询统一待办中心数据
+export function getTodoCenter() {
+  return request({
+    url: '/business/report/todoCenter',
+    method: 'get'
   })
 }

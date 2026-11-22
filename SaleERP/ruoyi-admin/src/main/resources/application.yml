@@ -7,7 +7,7 @@ ruoyi:
   # 版权年份
   copyrightYear: 2026
   # 文件路径 示例（ Windows配置D:/ruoyi/uploadPath，Linux配置 /home/ruoyi/uploadPath）
-  profile: D:/ruoyi/uploadPath
+  profile: ${UPLOAD_PATH:D:/ruoyi/uploadPath}
   # 获取ip地址开关
   addressEnabled: false
   # 验证码类型 math 数字计算 char 字符验证
@@ -16,7 +16,7 @@ ruoyi:
 # 开发环境配置
 server:
   # 服务器的HTTP端口，默认为8080
-  port: 5589
+  port: ${SERVER_PORT:5954}
   servlet:
     # 应用的访问路径
     context-path: /
@@ -71,13 +71,13 @@ spring:
   # redis 配置
   redis:
       # 地址
-      host: 192.168.2.120
+      host: ${REDIS_HOST:127.0.0.1}
       # 端口，默认为6379
-      port: 6379
+      port: ${REDIS_PORT:6379}
       # 数据库索引
-      database: 0
+      database: ${REDIS_DATABASE:0}
       # 密码
-      password: 123456
+      password: ${REDIS_PASSWORD:change_me}
       # 连接超时时间
       timeout: 10s
       lettuce:
@@ -95,8 +95,8 @@ spring:
 token:
   # 令牌自定义标识
   header: Authorization
-  # 令牌密钥
-  secret: abcdefghijklmnopqrstuvwxyz
+  # 令牌密钥（生产环境请通过环境变量 JWT_TOKEN_SECRET 注入高强度密钥）
+  secret: ${JWT_TOKEN_SECRET:change_me_jwt_secret_in_production}
   # 令牌有效期（默认30分钟）
   expireTime: 30
 
@@ -124,6 +124,14 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
   group-configs:
+    - group: 'business'
+      display-name: '核心业务接口'
+      paths-to-match: '/business/**'
+      packages-to-scan: com.ruoyi.web.controller.business
+    - group: 'system'
+      display-name: '系统管理接口'
+      paths-to-match: '/system/**'
+      packages-to-scan: com.ruoyi.web.controller.system
     - group: 'default'
       display-name: '测试模块'
       paths-to-match: '/**'
@@ -134,7 +142,7 @@ referer:
   # 防盗链开关
   enabled: false
   # 允许的域名列表
-  allowed-domains: 192.168.2.149,127.0.0.1,ruoyi.vip,www.ruoyi.vip
+  allowed-domains: ${REFERER_ALLOWED_DOMAINS:127.0.0.1,localhost}
 
 # 防止XSS攻击
 xss:

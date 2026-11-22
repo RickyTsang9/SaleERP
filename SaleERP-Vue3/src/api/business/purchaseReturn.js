@@ -45,6 +45,14 @@ export function auditPurchaseReturn(purchaseReturnId) {
   })
 }
 
+export function rejectPurchaseReturn(purchaseReturnId, rejectReason) {
+  return request({
+    url: '/business/purchaseReturn/reject/' + purchaseReturnId,
+    method: 'post',
+    data: { rejectReason }
+  })
+}
+
 export function cancelPurchaseReturn(purchaseReturnId) {
   return request({
     url: '/business/purchaseReturn/cancel/' + purchaseReturnId,

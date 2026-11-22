@@ -7,7 +7,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <resultMap type="FinReceivable" id="FinReceivableResult">
         <id     property="receivableId" column="receivable_id" />
         <result property="saleOrderId"  column="sale_order_id" />
+        <result property="saleOrderNo"  column="sale_order_no" />
         <result property="customerId"   column="customer_id" />
+        <result property="customerName" column="customer_name" />
         <result property="amountDue"    column="amount_due" />
         <result property="amountPaid"   column="amount_paid" />
         <result property="remainAmount" column="remain_amount" />
@@ -22,80 +24,117 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectFinReceivableVo">
-        select receivable_id, sale_order_id, customer_id, amount_due, amount_paid,
-               amount_due - ifnull(amount_paid, 0) as remain_amount,
-               status, due_date, 0 as overdue_days,
-               create_by, create_time, update_by, update_time, remark
-        from fin_receivable
+        select fr.receivable_id, fr.sale_order_id, so.order_no as sale_order_no,
+               coalesce(fr.customer_id, so.customer_id) as customer_id, mc.customer_name,
+               fr.amount_due, fr.amount_paid,
+               fr.amount_due - ifnull(fr.amount_paid, 0) as remain_amount,
+               fr.status, fr.due_date,
+               case
+                   when fr.status in ('unpaid', 'partial') and fr.due_date is not null and fr.due_date &lt; curdate()
+                   then datediff(curdate(), date(fr.due_date))
+                   else 0
+               end as overdue_days,
+               fr.create_by, fr.create_time, fr.update_by, fr.update_time, fr.remark
+        from fin_receivable fr
+        left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
+        left join md_customer mc on mc.customer_id = coalesce(fr.customer_id, so.customer_id)
+        left join sys_user su on su.user_name = coalesce(nullif(fr.create_by, ''), so.create_by)
     </sql>
 
     <select id="selectFinReceivableById" parameterType="Long" resultMap="FinReceivableResult">
         <include refid="selectFinReceivableVo"/>
-        where receivable_id = #{receivableId}
+        where fr.receivable_id = #{receivableId}
     </select>
 
     <select id="selectFinReceivableBySaleOrderId" parameterType="Long" resultMap="FinReceivableResult">
         <include refid="selectFinReceivableVo"/>
-        where sale_order_id = #{saleOrderId}
+        where fr.sale_order_id = #{saleOrderId}
+          and ifnull(fr.amount_due, 0) &gt;= 0
+        order by fr.receivable_id asc
+        limit 1
     </select>
 
     <select id="selectFinReceivableList" parameterType="FinReceivable" resultMap="FinReceivableResult">
         <include refid="selectFinReceivableVo"/>
         <where>
             <if test="saleOrderId != null">
-                and sale_order_id = #{saleOrderId}
+                and fr.sale_order_id = #{saleOrderId}
+            </if>
+            <if test="saleOrderNo != null and saleOrderNo != ''">
+                and so.order_no like concat('%', #{saleOrderNo}, '%')
             </if>
             <if test="customerId != null">
-                and customer_id = #{customerId}
+                and coalesce(fr.customer_id, so.customer_id) = #{customerId}
             </if>
             <choose>
                 <when test="params.overdueQuery != null and params.overdueQuery != ''">
-                    and status in ('unpaid', 'partial')
-                    and amount_due - ifnull(amount_paid, 0) &gt; 0
-                    and due_date is not null
-                    and date(due_date) &lt; curdate()
+                    and fr.status in ('unpaid', 'partial')
+                    and fr.amount_due - ifnull(fr.amount_paid, 0) &gt; 0
+                    and fr.due_date is not null
+                    and fr.due_date &lt; curdate()
                 </when>
                 <otherwise>
                     <if test="status != null and status != ''">
-                        and status = #{status}
+                        and fr.status = #{status}
                     </if>
                 </otherwise>
             </choose>
             <if test="params.beginDueDate != null and params.beginDueDate != ''">
-                and date_format(due_date, '%y%m%d') &gt;= date_format(#{params.beginDueDate}, '%y%m%d')
+                and fr.due_date &gt;= concat(#{params.beginDueDate}, ' 00:00:00')
             </if>
             <if test="params.endDueDate != null and params.endDueDate != ''">
-                and date_format(due_date, '%y%m%d') &lt;= date_format(#{params.endDueDate}, '%y%m%d')
+                and fr.due_date &lt; date_add(concat(#{params.endDueDate}, ' 00:00:00'), interval 1 day)
             </if>
+            <if test="params.agingBucket != null and params.agingBucket != ''">
+                and fr.status in ('unpaid', 'partial')
+                <choose>
+                    <when test="params.agingBucket == 'no_due'">
+                        and fr.due_date is null
+                    </when>
+                    <when test="params.agingBucket == 'not_due'">
+                        and fr.due_date is not null and fr.due_date &gt;= curdate()
+                    </when>
+                    <when test="params.agingBucket == '1_30'">
+                        and fr.due_date is not null and datediff(curdate(), fr.due_date) between 1 and 30
+                    </when>
+                    <when test="params.agingBucket == '31_60'">
+                        and fr.due_date is not null and datediff(curdate(), fr.due_date) between 31 and 60
+                    </when>
+                    <when test="params.agingBucket == '61_plus'">
+                        and fr.due_date is not null and datediff(curdate(), fr.due_date) &gt; 60
+                    </when>
+                </choose>
+            </if>
+            ${params.dataScope}
         </where>
-        order by receivable_id desc
+        order by fr.receivable_id desc
+    </select>
+
+    <select id="selectPendingFinReceivableListByCustomerId" parameterType="Long" resultMap="FinReceivableResult">
+        <include refid="selectFinReceivableVo"/>
+        where coalesce(fr.customer_id, so.customer_id) = #{customerId}
+          and fr.status in ('unpaid', 'partial')
+          and fr.amount_due - ifnull(fr.amount_paid, 0) &gt; 0
+        order by fr.receivable_id desc
     </select>
 
     <select id="selectFinReceivableDueReminderList" parameterType="Integer" resultMap="FinReceivableResult">
-        select receivable_id, sale_order_id, customer_id, amount_due, amount_paid,
-               amount_due - ifnull(amount_paid, 0) as remain_amount,
-               status, due_date, 0 as overdue_days,
-               create_by, create_time, update_by, update_time, remark
-        from fin_receivable
-        where status in ('unpaid', 'partial')
-          and amount_due - ifnull(amount_paid, 0) &gt; 0
-          and due_date is not null
-          and date(due_date) &gt;= curdate()
-          and date(due_date) &lt;= date_add(curdate(), interval ifnull(#{remindDays}, 7) day)
-        order by due_date asc, receivable_id desc
+        <include refid="selectFinReceivableVo"/>
+        where fr.status in ('unpaid', 'partial')
+          and fr.amount_due - ifnull(fr.amount_paid, 0) &gt; 0
+          and fr.due_date is not null
+          and fr.due_date &gt;= curdate()
+          and fr.due_date &lt; date_add(date_add(curdate(), interval ifnull(#{remindDays}, 7) day), interval 1 day)
+        order by fr.due_date asc, fr.receivable_id desc
     </select>
 
     <select id="selectFinReceivableOverdueList" resultMap="FinReceivableResult">
-        select receivable_id, sale_order_id, customer_id, amount_due, amount_paid,
-               amount_due - ifnull(amount_paid, 0) as remain_amount,
-               status, due_date, datediff(curdate(), date(due_date)) as overdue_days,
-               create_by, create_time, update_by, update_time, remark
-        from fin_receivable
-        where status in ('unpaid', 'partial')
-          and amount_due - ifnull(amount_paid, 0) &gt; 0
-          and due_date is not null
-          and date(due_date) &lt; curdate()
-        order by overdue_days desc, receivable_id desc
+        <include refid="selectFinReceivableVo"/>
+        where fr.status in ('unpaid', 'partial')
+          and fr.amount_due - ifnull(fr.amount_paid, 0) &gt; 0
+          and fr.due_date is not null
+          and fr.due_date &lt; curdate()
+        order by overdue_days desc, fr.receivable_id desc
     </select>
 
     <select id="selectCustomerOutstandingAmount" parameterType="Long" resultType="java.math.BigDecimal">

@@ -18,6 +18,12 @@ public class WmsPurchaseReturnItem extends BaseEntity
     @Excel(name = "商品编号")
     private Long productId;
 
+    /** 退货出库库位ID */
+    private Long locationId;
+
+    /** 退货批次号 */
+    private String batchNo;
+
     @Excel(name = "数量")
     private BigDecimal quantity;
 
@@ -55,6 +61,26 @@ public class WmsPurchaseReturnItem extends BaseEntity
     public void setProductId(Long productId)
     {
         this.productId = productId;
+    }
+
+    public Long getLocationId()
+    {
+        return locationId;
+    }
+
+    public void setLocationId(Long locationId)
+    {
+        this.locationId = locationId;
+    }
+
+    public String getBatchNo()
+    {
+        return batchNo;
+    }
+
+    public void setBatchNo(String batchNo)
+    {
+        this.batchNo = batchNo;
     }
 
     public BigDecimal getQuantity()

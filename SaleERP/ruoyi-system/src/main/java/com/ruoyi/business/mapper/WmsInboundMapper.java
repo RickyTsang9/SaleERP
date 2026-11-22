@@ -22,4 +22,8 @@ public interface WmsInboundMapper
     public int refreshTotalByInboundId(Long inboundId);
 
     public int updateWmsInboundStatus(Long inboundId, String oldStatus, String newStatus, String auditBy, String updateBy);
+
+    public int rejectWmsInboundStatus(@org.apache.ibatis.annotations.Param("inboundId") Long inboundId,
+                                      @org.apache.ibatis.annotations.Param("rejectReason") String rejectReason,
+                                      @org.apache.ibatis.annotations.Param("updateBy") String updateBy);
 }

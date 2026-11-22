@@ -1,25 +1,34 @@
 package com.ruoyi.business.service.impl;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.business.domain.MdProduct;
 import com.ruoyi.business.domain.WmsInbound;
 import com.ruoyi.business.domain.WmsInboundItem;
 import com.ruoyi.business.domain.WmsPurchaseOrder;
 import com.ruoyi.business.domain.WmsPurchaseOrderItem;
 import com.ruoyi.business.domain.WmsStock;
 import com.ruoyi.business.domain.WmsStockLog;
+import com.ruoyi.business.mapper.MdProductMapper;
 import com.ruoyi.business.mapper.WmsInboundMapper;
 import com.ruoyi.business.mapper.WmsInboundItemMapper;
 import com.ruoyi.business.mapper.WmsStockLogMapper;
 import com.ruoyi.business.mapper.WmsStockMapper;
 import com.ruoyi.business.service.IWmsPurchaseOrderService;
 import com.ruoyi.business.service.IWmsInboundService;
+import com.ruoyi.business.service.IWmsStockService;
+import com.ruoyi.business.service.support.BizComplianceHelper;
+import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.StringUtils;
@@ -50,6 +59,15 @@ public class WmsInboundServiceImpl implements IWmsInboundService
     @Autowired
     private IWmsPurchaseOrderService wmsPurchaseOrderService;
 
+    @Autowired(required = false)
+    private IWmsStockService wmsStockService;
+
+    @Autowired(required = false)
+    private MdProductMapper mdProductMapper;
+
+    @Autowired(required = false)
+    private BizComplianceHelper complianceHelper;
+
     @Override
     public WmsInbound selectWmsInboundById(Long inboundId)
     {
@@ -57,6 +75,7 @@ public class WmsInboundServiceImpl implements IWmsInboundService
     }
 
     @Override
+    @DataScope(deptAlias = "su", userAlias = "su", permission = "business:inbound:list")
     public List<WmsInbound> selectWmsInboundList(WmsInbound wmsInbound)
     {
         return wmsInboundMapper.selectWmsInboundList(wmsInbound);
@@ -66,7 +85,34 @@ public class WmsInboundServiceImpl implements IWmsInboundService
     @Transactional(rollbackFor = Exception.class)
     public int insertWmsInbound(WmsInbound wmsInbound)
     {
+        if (wmsInbound.getPurchaseOrderId() != null)
+        {
+            WmsInbound activeQuery = new WmsInbound();
+            activeQuery.setPurchaseOrderId(wmsInbound.getPurchaseOrderId());
+            List<WmsInbound> existingList = wmsInboundMapper.selectWmsInboundList(activeQuery);
+            if (existingList != null)
+            {
+                for (WmsInbound ex : existingList)
+                {
+                    if (STATUS_DRAFT.equals(ex.getStatus()) || STATUS_SUBMITTED.equals(ex.getStatus()))
+                    {
+                        throw new ServiceException("该采购订单已存在未审核入库单（" + ex.getInboundNo() + "），请先完成审核或作废后再新建");
+                    }
+                }
+            }
+        }
         fillPurchaseOrderInfo(wmsInbound);
+        if (complianceHelper != null)
+        {
+            if (wmsInbound.getSupplierId() != null)
+            {
+                complianceHelper.assertEntityEnabled("md_supplier", "supplier_id", wmsInbound.getSupplierId(), "供应商");
+            }
+            if (wmsInbound.getWarehouseId() != null)
+            {
+                complianceHelper.assertEntityEnabled("md_warehouse", "warehouse_id", wmsInbound.getWarehouseId(), "仓库");
+            }
+        }
         if (wmsInbound.getInboundNo() == null || wmsInbound.getInboundNo().isEmpty())
         {
             wmsInbound.setInboundNo(generateInboundNo());
@@ -138,12 +184,23 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         {
             throw new ServiceException("仅已提交入库单允许审核");
         }
+        if (complianceHelper != null)
+        {
+            complianceHelper.assertPeriodOpen(new Date(), "审核采购入库单");
+            complianceHelper.assertNotSelfAudit(databaseInbound.getCreateBy(), "入库单审核");
+        }
         List<WmsInboundItem> inboundItemList = wmsInboundItemMapper.selectWmsInboundItemList(buildInboundItemQuery(inboundId));
         if (inboundItemList == null || inboundItemList.isEmpty())
         {
             throw new ServiceException("入库明细不能为空");
         }
         validateLinkedPurchaseOrderItems(databaseInbound, inboundItemList);
+        String auditUsername = "system";
+        try
+        {
+            auditUsername = SecurityUtils.getUsername();
+        }
+        catch (Exception ignored) {}
         for (WmsInboundItem wmsInboundItem : inboundItemList)
         {
             if (wmsInboundItem.getProductId() == null || wmsInboundItem.getLocationId() == null || StringUtils.isEmpty(wmsInboundItem.getBatchNo())
@@ -151,33 +208,57 @@ public class WmsInboundServiceImpl implements IWmsInboundService
             {
                 throw new ServiceException("入库明细信息不完整");
             }
-            WmsStock stockQuery = new WmsStock();
-            stockQuery.setWarehouseId(databaseInbound.getWarehouseId());
-            stockQuery.setProductId(wmsInboundItem.getProductId());
-            stockQuery.setLocationId(wmsInboundItem.getLocationId());
-            stockQuery.setBatchNo(wmsInboundItem.getBatchNo());
-            WmsStock databaseStock = wmsStockMapper.selectWmsStockByKey(stockQuery);
-            BigDecimal beforeQuantity = BigDecimal.ZERO;
-            if (databaseStock == null)
+            // 按移动加权平均法重算商品单位成本价（入库前先读取全仓旧库存）
+            recalculateMovingWeightedAverageCost(wmsInboundItem, auditUsername);
+
+            BigDecimal[] qtyPair;
+            if (wmsStockService != null)
             {
-                databaseStock = new WmsStock();
-                databaseStock.setWarehouseId(databaseInbound.getWarehouseId());
-                databaseStock.setProductId(wmsInboundItem.getProductId());
-                databaseStock.setLocationId(wmsInboundItem.getLocationId());
-                databaseStock.setBatchNo(wmsInboundItem.getBatchNo());
-                databaseStock.setQuantity(BigDecimal.ZERO);
-                databaseStock.setLockedQuantity(BigDecimal.ZERO);
-                databaseStock.setFrozenQuantity(BigDecimal.ZERO);
-                databaseStock.setVersion(0);
-                wmsStockMapper.insertWmsStock(databaseStock);
+                qtyPair = wmsStockService.increaseStockByKeyAtomically(
+                    databaseInbound.getWarehouseId(),
+                    wmsInboundItem.getProductId(),
+                    wmsInboundItem.getLocationId(),
+                    wmsInboundItem.getBatchNo(),
+                    wmsInboundItem.getExpireDate(),
+                    wmsInboundItem.getQuantity(),
+                    auditUsername
+                );
             }
             else
             {
-                beforeQuantity = databaseStock.getQuantity() == null ? BigDecimal.ZERO : databaseStock.getQuantity();
+                WmsStock stockQuery = new WmsStock();
+                stockQuery.setWarehouseId(databaseInbound.getWarehouseId());
+                stockQuery.setProductId(wmsInboundItem.getProductId());
+                stockQuery.setLocationId(wmsInboundItem.getLocationId());
+                stockQuery.setBatchNo(wmsInboundItem.getBatchNo());
+                WmsStock databaseStock = wmsStockMapper.selectWmsStockByKey(stockQuery);
+                BigDecimal beforeQuantity = databaseStock == null || databaseStock.getQuantity() == null ? BigDecimal.ZERO : databaseStock.getQuantity();
+                BigDecimal afterQuantity = beforeQuantity.add(wmsInboundItem.getQuantity());
+                if (databaseStock == null)
+                {
+                    databaseStock = new WmsStock();
+                    databaseStock.setWarehouseId(databaseInbound.getWarehouseId());
+                    databaseStock.setProductId(wmsInboundItem.getProductId());
+                    databaseStock.setLocationId(wmsInboundItem.getLocationId());
+                    databaseStock.setBatchNo(wmsInboundItem.getBatchNo());
+                    databaseStock.setExpireDate(wmsInboundItem.getExpireDate());
+                    databaseStock.setQuantity(afterQuantity);
+                    databaseStock.setLockedQuantity(BigDecimal.ZERO);
+                    databaseStock.setFrozenQuantity(BigDecimal.ZERO);
+                    databaseStock.setVersion(1);
+                    wmsStockMapper.insertWmsStock(databaseStock);
+                }
+                else
+                {
+                    if (wmsInboundItem.getExpireDate() != null)
+                    {
+                        databaseStock.setExpireDate(wmsInboundItem.getExpireDate());
+                    }
+                    databaseStock.setQuantity(afterQuantity);
+                    wmsStockMapper.updateWmsStock(databaseStock);
+                }
+                qtyPair = new BigDecimal[] { beforeQuantity, afterQuantity };
             }
-            BigDecimal afterQuantity = beforeQuantity.add(wmsInboundItem.getQuantity());
-            databaseStock.setQuantity(afterQuantity);
-            wmsStockMapper.updateWmsStock(databaseStock);
             WmsStockLog wmsStockLog = new WmsStockLog();
             wmsStockLog.setWarehouseId(databaseInbound.getWarehouseId());
             wmsStockLog.setProductId(wmsInboundItem.getProductId());
@@ -190,11 +271,10 @@ public class WmsInboundServiceImpl implements IWmsInboundService
             wmsStockLog.setQuantity(wmsInboundItem.getQuantity());
             wmsStockLog.setPrice(wmsInboundItem.getPrice());
             wmsStockLog.setAmount(wmsInboundItem.getAmount());
-            wmsStockLog.setBeforeQty(beforeQuantity);
-            wmsStockLog.setAfterQty(afterQuantity);
+            wmsStockLog.setBeforeQty(qtyPair[0]);
+            wmsStockLog.setAfterQty(qtyPair[1]);
             wmsStockLogMapper.insertWmsStockLog(wmsStockLog);
         }
-        String auditUsername = SecurityUtils.getUsername();
         int updateCount = wmsInboundMapper.updateWmsInboundStatus(
             inboundId, STATUS_SUBMITTED, STATUS_AUDITED, auditUsername, auditUsername);
         if (updateCount == 0)
@@ -206,6 +286,69 @@ public class WmsInboundServiceImpl implements IWmsInboundService
             wmsPurchaseOrderService.refreshPurchaseOrderInboundProgress(databaseInbound.getPurchaseOrderId());
         }
         return updateCount;
+    }
+
+    @Override
+    public int rejectWmsInbound(Long inboundId, String rejectReason)
+    {
+        WmsInbound databaseInbound = wmsInboundMapper.selectWmsInboundById(inboundId);
+        if (databaseInbound == null)
+        {
+            throw new ServiceException("入库单不存在");
+        }
+        if (!STATUS_SUBMITTED.equals(databaseInbound.getStatus()))
+        {
+            throw new ServiceException("仅已提交待审状态的入库单允许驳回");
+        }
+        String reason = StringUtils.isEmpty(rejectReason) ? "审核驳回重改" : rejectReason.trim();
+        int updateCount = wmsInboundMapper.rejectWmsInboundStatus(inboundId, reason, SecurityUtils.getUsername());
+        if (updateCount == 0)
+        {
+            throw new ServiceException("入库单状态已变更，请刷新后重试");
+        }
+        return updateCount;
+    }
+
+    /**
+     * 按移动加权平均法重算商品单位成本价：C_new = (max(Q_old,0) * C_old + Q_in * C_in) / (max(Q_old,0) + Q_in)
+     */
+    private void recalculateMovingWeightedAverageCost(WmsInboundItem inboundItem, String operatorName)
+    {
+        if (mdProductMapper == null || wmsStockMapper == null || inboundItem == null
+            || inboundItem.getProductId() == null || inboundItem.getPrice() == null
+            || inboundItem.getPrice().compareTo(BigDecimal.ZERO) <= 0
+            || inboundItem.getQuantity() == null || inboundItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+        {
+            return;
+        }
+        MdProduct product = mdProductMapper.selectMdProductById(inboundItem.getProductId());
+        if (product == null)
+        {
+            return;
+        }
+        BigDecimal oldTotalStock = wmsStockMapper.selectTotalProductStockQuantity(inboundItem.getProductId());
+        if (oldTotalStock == null || oldTotalStock.compareTo(BigDecimal.ZERO) < 0)
+        {
+            oldTotalStock = BigDecimal.ZERO;
+        }
+        BigDecimal oldCost = (product.getCostPrice() == null || product.getCostPrice().compareTo(BigDecimal.ZERO) <= 0)
+            ? inboundItem.getPrice()
+            : product.getCostPrice();
+        BigDecimal inQty = inboundItem.getQuantity();
+        BigDecimal inPrice = inboundItem.getPrice();
+        BigDecimal denom = oldTotalStock.add(inQty);
+        if (denom.compareTo(BigDecimal.ZERO) <= 0)
+        {
+            return;
+        }
+        BigDecimal newWeightedCost = oldTotalStock.multiply(oldCost)
+            .add(inQty.multiply(inPrice))
+            .divide(denom, 2, RoundingMode.HALF_UP);
+        MdProduct updateProduct = new MdProduct();
+        updateProduct.setProductId(product.getProductId());
+        updateProduct.setCostPrice(newWeightedCost);
+        updateProduct.setUpdateBy(operatorName);
+        mdProductMapper.updateMdProduct(updateProduct);
     }
 
     @Override
@@ -233,7 +376,14 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         return updateCount;
     }
 
+    /**
+     * 删除采购入库单
+     *
+     * @param inboundId 入库单编号
+     * @return 删除结果
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsInboundById(Long inboundId)
     {
         WmsInbound databaseInbound = wmsInboundMapper.selectWmsInboundById(inboundId);
@@ -249,7 +399,14 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         return wmsInboundMapper.deleteWmsInboundById(inboundId);
     }
 
+    /**
+     * 批量删除采购入库单
+     *
+     * @param inboundIds 入库单编号集合
+     * @return 删除结果
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteWmsInboundByIds(Long[] inboundIds)
     {
         for (Long inboundId : inboundIds)
@@ -350,6 +507,7 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         {
             throw new ServiceException("来源采购订单不存在可入库明细");
         }
+        Map<Long, BigDecimal> purchaseOrderItemQuantityMap = new HashMap<Long, BigDecimal>();
         for (int inboundItemIndex = 0; inboundItemIndex < inboundItemList.size(); inboundItemIndex++)
         {
             WmsInboundItem wmsInboundItem = inboundItemList.get(inboundItemIndex);
@@ -372,11 +530,36 @@ public class WmsInboundServiceImpl implements IWmsInboundService
                 throw new ServiceException("第" + (inboundItemIndex + 1) + "行入库数量必须大于0");
             }
             BigDecimal remainQuantity = purchaseOrderItem.getRemainQuantity() == null ? BigDecimal.ZERO : purchaseOrderItem.getRemainQuantity();
-            if (wmsInboundItem.getQuantity().compareTo(remainQuantity) > 0)
+            BigDecimal accumulatedInboundQuantity = accumulateInboundQuantity(
+                purchaseOrderItemQuantityMap, wmsInboundItem.getPurchaseOrderItemId(), wmsInboundItem.getQuantity());
+            if (accumulatedInboundQuantity.compareTo(remainQuantity) > 0)
             {
-                throw new ServiceException("第" + (inboundItemIndex + 1) + "行入库数量不能超过待入库数量");
+                throw new ServiceException("第" + (inboundItemIndex + 1) + "行对应来源采购明细的累计入库数量不能超过待入库数量");
             }
         }
+    }
+
+    /**
+     * 按来源采购明细累计本次入库数量
+     *
+     * @param purchaseOrderItemQuantityMap 来源采购明细累计入库数量映射
+     * @param purchaseOrderItemId 来源采购明细编号
+     * @param currentInboundQuantity 当前入库数量
+     * @return 累计入库数量
+     */
+    private BigDecimal accumulateInboundQuantity(Map<Long, BigDecimal> purchaseOrderItemQuantityMap, Long purchaseOrderItemId,
+        BigDecimal currentInboundQuantity)
+    {
+        BigDecimal historyInboundQuantity = purchaseOrderItemQuantityMap.get(purchaseOrderItemId);
+        if (historyInboundQuantity == null)
+        {
+            historyInboundQuantity = BigDecimal.ZERO;
+        }
+        BigDecimal validCurrentInboundQuantity =
+            currentInboundQuantity == null ? BigDecimal.ZERO : currentInboundQuantity;
+        BigDecimal accumulatedInboundQuantity = historyInboundQuantity.add(validCurrentInboundQuantity);
+        purchaseOrderItemQuantityMap.put(purchaseOrderItemId, accumulatedInboundQuantity);
+        return accumulatedInboundQuantity;
     }
 
     /**

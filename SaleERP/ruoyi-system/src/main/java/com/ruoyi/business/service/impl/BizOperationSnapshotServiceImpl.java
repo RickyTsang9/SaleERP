@@ -27,6 +27,9 @@ public class BizOperationSnapshotServiceImpl implements IBizOperationSnapshotSer
     /** 经营快照表名称 */
     private static final String BIZ_OPERATION_SNAPSHOT_TABLE_NAME = "biz_operation_snapshot";
 
+    /** 已确认存在经营快照表 */
+    private volatile boolean operationSnapshotTableReady;
+
     @Autowired
     private BizOperationSnapshotMapper bizOperationSnapshotMapper;
 
@@ -100,10 +103,29 @@ public class BizOperationSnapshotServiceImpl implements IBizOperationSnapshotSer
      */
     private boolean hasOperationSnapshotTable()
     {
+        if (operationSnapshotTableReady)
+        {
+            return true;
+        }
+        return refreshOperationSnapshotTableReady();
+    }
+
+    /**
+     * 刷新经营快照表存在状态
+     * 
+     * @return 是否存在
+     */
+    private boolean refreshOperationSnapshotTableReady()
+    {
         String countSql =
             "select count(1) from information_schema.tables where table_schema = (select database()) and table_name = ?";
         Integer tableCount = jdbcTemplate.queryForObject(countSql, Integer.class, BIZ_OPERATION_SNAPSHOT_TABLE_NAME);
-        return tableCount != null && tableCount.intValue() > 0;
+        boolean tableExists = tableCount != null && tableCount.intValue() > 0;
+        if (tableExists)
+        {
+            operationSnapshotTableReady = true;
+        }
+        return tableExists;
     }
 
     /**

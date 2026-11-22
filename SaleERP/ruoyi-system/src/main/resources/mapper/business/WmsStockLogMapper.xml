@@ -7,8 +7,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <resultMap type="WmsStockLog" id="WmsStockLogResult">
         <id     property="stockLogId" column="stock_log_id" />
         <result property="warehouseId" column="warehouse_id" />
+        <result property="warehouseName" column="warehouse_name" />
         <result property="productId"   column="product_id"   />
+        <result property="productName" column="product_name" />
         <result property="locationId"  column="location_id"  />
+        <result property="locationName" column="location_name" />
         <result property="batchNo"     column="batch_no"     />
         <result property="billType"    column="bill_type"    />
         <result property="billId"      column="bill_id"      />
@@ -24,16 +27,30 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsStockLogVo">
-        select sl.stock_log_id, sl.warehouse_id, sl.product_id, sl.location_id, sl.batch_no, sl.bill_type, sl.bill_id,
+        select sl.stock_log_id, sl.warehouse_id, mw.warehouse_name, sl.product_id, mp.product_name, sl.location_id, ml.location_name,
+               sl.batch_no, sl.bill_type, sl.bill_id,
                case
-                   when sl.bill_type in ('sale_order', 'sale_order_rollback') then so.order_no
-                   when sl.bill_type = 'sale_return' then sr.return_no
+                   when sl.bill_type in ('sale_order', 'sale_order_rollback') then ifnull(so.order_no, concat('SO-', sl.bill_id))
+                   when sl.bill_type = 'sale_return' then ifnull(sr.return_no, concat('SR-', sl.bill_id))
+                   when sl.bill_type = 'inbound' then ifnull(wi.inbound_no, concat('IN-', sl.bill_id))
+                   when sl.bill_type = 'outbound' then ifnull(wo.outbound_no, concat('OUT-', sl.bill_id))
+                   when sl.bill_type = 'purchase_return' then ifnull(pr.return_no, concat('PR-', sl.bill_id))
+                   when sl.bill_type = 'inventory_check' then ifnull(ic.check_no, concat('IC-', sl.bill_id))
+                   when sl.bill_type = 'transfer' then ifnull(tf.transfer_no, concat('TF-', sl.bill_id))
                    else concat(upper(sl.bill_type), '-', sl.bill_id)
                end as bill_no,
                sl.in_out, sl.quantity, sl.price, sl.amount, sl.before_qty, sl.after_qty, sl.create_by, sl.create_time
         from wms_stock_log sl
+        left join md_warehouse mw on mw.warehouse_id = sl.warehouse_id
+        left join md_product mp on mp.product_id = sl.product_id
+        left join md_location ml on ml.location_id = sl.location_id
         left join wms_sale_order so on so.sale_order_id = sl.bill_id and sl.bill_type in ('sale_order', 'sale_order_rollback')
         left join wms_sale_return sr on sr.sale_return_id = sl.bill_id and sl.bill_type = 'sale_return'
+        left join wms_inbound wi on wi.inbound_id = sl.bill_id and sl.bill_type = 'inbound'
+        left join wms_outbound wo on wo.outbound_id = sl.bill_id and sl.bill_type = 'outbound'
+        left join wms_purchase_return pr on pr.purchase_return_id = sl.bill_id and sl.bill_type = 'purchase_return'
+        left join wms_inventory_check ic on ic.check_id = sl.bill_id and sl.bill_type = 'inventory_check'
+        left join wms_transfer tf on tf.transfer_id = sl.bill_id and sl.bill_type = 'transfer'
     </sql>
 
     <select id="selectWmsStockLogById" parameterType="Long" resultMap="WmsStockLogResult">
@@ -66,8 +83,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 and (
                     (sl.bill_type in ('sale_order', 'sale_order_rollback') and so.order_no like concat('%', #{billNo}, '%'))
                     or (sl.bill_type = 'sale_return' and sr.return_no like concat('%', #{billNo}, '%'))
-                    or (sl.bill_type not in ('sale_order', 'sale_order_rollback', 'sale_return')
-                        and concat(upper(sl.bill_type), '-', sl.bill_id) like concat('%', #{billNo}, '%'))
+                    or (sl.bill_type = 'inbound' and wi.inbound_no like concat('%', #{billNo}, '%'))
+                    or (sl.bill_type = 'outbound' and wo.outbound_no like concat('%', #{billNo}, '%'))
+                    or (sl.bill_type = 'purchase_return' and pr.return_no like concat('%', #{billNo}, '%'))
+                    or (sl.bill_type = 'inventory_check' and ic.check_no like concat('%', #{billNo}, '%'))
+                    or (sl.bill_type = 'transfer' and tf.transfer_no like concat('%', #{billNo}, '%'))
+                    or concat(upper(sl.bill_type), '-', sl.bill_id) like concat('%', #{billNo}, '%')
                 )
             </if>
             <if test="inOut != null and inOut != ''">

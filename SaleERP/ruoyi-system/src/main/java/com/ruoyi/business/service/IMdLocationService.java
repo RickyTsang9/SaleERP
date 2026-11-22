@@ -16,4 +16,6 @@ public interface IMdLocationService
     public int deleteMdLocationById(Long locationId);
 
     public int deleteMdLocationByIds(Long[] locationIds);
+
+    public String importMdLocation(List<MdLocation> locationList, boolean updateSupport, String operName);
 }

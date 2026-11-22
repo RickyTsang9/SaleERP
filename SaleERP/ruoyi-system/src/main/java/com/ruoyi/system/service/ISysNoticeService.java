@@ -27,6 +27,14 @@ public interface ISysNoticeService
     public List<SysNotice> selectNoticeList(SysNotice notice);
 
     /**
+     * 根据公告标题判断公告是否存在
+     * 
+     * @param noticeTitle 公告标题
+     * @return 是否存在
+     */
+    public boolean existsNoticeByTitle(String noticeTitle);
+
+    /**
      * 新增公告
      * 
      * @param notice 公告信息

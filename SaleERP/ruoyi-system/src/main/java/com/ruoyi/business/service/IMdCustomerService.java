@@ -1,6 +1,7 @@
 package com.ruoyi.business.service;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.business.domain.MdCustomer;
 
 public interface IMdCustomerService
@@ -25,4 +26,12 @@ public interface IMdCustomerService
      * @return 结果
      */
     public String importMdCustomer(List<MdCustomer> mdCustomerList, Boolean isUpdateSupport, String operName);
+
+    /**
+     * 查询客户360度经营画像
+     *
+     * @param customerId 客户编号
+     * @return 客户经营画像数据
+     */
+    public Map<String, Object> selectCustomerProfile(Long customerId);
 }

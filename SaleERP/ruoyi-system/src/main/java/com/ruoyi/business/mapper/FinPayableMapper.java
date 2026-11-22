@@ -28,6 +28,22 @@ public interface FinPayableMapper
     public List<FinPayable> selectFinPayableList(FinPayable finPayable);
 
     /**
+     * 根据采购订单查询应付账款
+     * 
+     * @param purchaseOrderId 采购订单主键
+     * @return 应付账款
+     */
+    public FinPayable selectFinPayableByPurchaseOrderId(Long purchaseOrderId);
+
+    /**
+     * 根据供应商查询待冲减应付账款列表
+     * 
+     * @param supplierId 供应商主键
+     * @return 待冲减应付账款集合
+     */
+    public List<FinPayable> selectPendingFinPayableListBySupplierId(Long supplierId);
+
+    /**
      * 新增应付账款
      * 
      * @param finPayable 应付账款

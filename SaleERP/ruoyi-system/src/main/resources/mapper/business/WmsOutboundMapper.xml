@@ -9,14 +9,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="outboundNo"  column="outbound_no"  />
         <result property="outboundType" column="outbound_type" />
         <result property="customerId"  column="customer_id"  />
+        <result property="customerName" column="customer_name" />
         <result property="saleOrderId"  column="sale_order_id"  />
         <result property="saleOrderNo"  column="sale_order_no"  />
         <result property="warehouseId" column="warehouse_id" />
+        <result property="warehouseName" column="warehouse_name" />
         <result property="totalQty"    column="total_qty"    />
         <result property="totalAmount" column="total_amount" />
         <result property="status"      column="status"       />
         <result property="auditBy"     column="audit_by"     />
         <result property="auditTime"   column="audit_time"   />
+        <result property="rejectReason" column="reject_reason" />
         <result property="platformType" column="platform_type" />
         <result property="storeId"     column="store_id"     />
         <result property="sourceOrderNo" column="source_order_no" />
@@ -32,45 +35,90 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsOutboundVo">
-        select outbound_id, outbound_no, outbound_type, customer_id, sale_order_id, sale_order_no, warehouse_id, total_qty, total_amount,
-               status, audit_by, audit_time, platform_type, store_id, source_order_no, carrier, waybill_no,
-               freight_cost, delivery_status, create_by, create_time, update_by, update_time, remark
-        from wms_outbound
+        select wo.outbound_id, wo.outbound_no, wo.outbound_type, wo.customer_id, mc.customer_name,
+               wo.sale_order_id, wo.sale_order_no, wo.warehouse_id, mw.warehouse_name, wo.total_qty, wo.total_amount,
+               wo.status, wo.audit_by, wo.audit_time, wo.reject_reason, wo.platform_type, wo.store_id, wo.source_order_no, wo.carrier, wo.waybill_no,
+               wo.freight_cost, wo.delivery_status, wo.create_by, wo.create_time, wo.update_by, wo.update_time, wo.remark
+        from wms_outbound wo
+        left join md_customer mc on mc.customer_id = wo.customer_id
+        left join md_warehouse mw on mw.warehouse_id = wo.warehouse_id
+        left join sys_user su on su.user_name = wo.create_by
     </sql>
 
     <select id="selectWmsOutboundById" parameterType="Long" resultMap="WmsOutboundResult">
         <include refid="selectWmsOutboundVo"/>
-        where outbound_id = #{outboundId}
+        where wo.outbound_id = #{outboundId}
     </select>
 
     <select id="selectWmsOutboundList" parameterType="WmsOutbound" resultMap="WmsOutboundResult">
         <include refid="selectWmsOutboundVo"/>
         <where>
             <if test="outboundNo != null and outboundNo != ''">
-                and outbound_no like concat('%', #{outboundNo}, '%')
+                and wo.outbound_no like concat('%', #{outboundNo}, '%')
             </if>
             <if test="outboundType != null and outboundType != ''">
-                and outbound_type = #{outboundType}
+                and wo.outbound_type = #{outboundType}
             </if>
             <if test="customerId != null">
-                and customer_id = #{customerId}
+                and wo.customer_id = #{customerId}
             </if>
             <if test="saleOrderId != null">
-                and sale_order_id = #{saleOrderId}
+                and (
+                    wo.sale_order_id = #{saleOrderId}
+                    or (
+                        wo.sale_order_id is null
+                        and wo.source_order_no = (select order_no from wms_sale_order where sale_order_id = #{saleOrderId} limit 1)
+                    )
+                )
             </if>
             <if test="saleOrderNo != null and saleOrderNo != ''">
-                and sale_order_no like concat('%', #{saleOrderNo}, '%')
+                and wo.sale_order_no like concat('%', #{saleOrderNo}, '%')
             </if>
             <if test="warehouseId != null">
-                and warehouse_id = #{warehouseId}
+                and wo.warehouse_id = #{warehouseId}
             </if>
             <if test="status != null and status != ''">
-                and status = #{status}
+                and wo.status = #{status}
             </if>
             <if test="sourceOrderNo != null and sourceOrderNo != ''">
-                and source_order_no = #{sourceOrderNo}
+                and wo.source_order_no = #{sourceOrderNo}
             </if>
+            ${params.dataScope}
         </where>
+    </select>
+
+    <select id="selectPendingLinkedOutboundCountBySaleOrderId" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where sale_order_id = #{saleOrderId}
+          and status in ('draft', 'submitted')
+        <if test="currentOutboundId != null">
+          and outbound_id != #{currentOutboundId}
+        </if>
+    </select>
+
+    <select id="selectPendingLinkedOutboundCountBySourceOrderNo" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where source_order_no = #{sourceOrderNo}
+          and status in ('draft', 'submitted')
+        <if test="currentOutboundId != null">
+          and outbound_id != #{currentOutboundId}
+        </if>
+    </select>
+
+    <select id="selectActiveOutboundCountBySaleOrderId" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where sale_order_id = #{saleOrderId}
+          and status in ('draft', 'submitted', 'audited')
+    </select>
+
+    <select id="selectActiveOutboundCountBySourceOrderNo" resultType="java.lang.Long">
+        select count(1)
+        from wms_outbound
+        where source_order_no = #{sourceOrderNo}
+          and status in ('draft', 'submitted', 'audited')
     </select>
 
     <insert id="insertWmsOutbound" parameterType="WmsOutbound" useGeneratedKeys="true" keyProperty="outboundId">
@@ -181,9 +229,36 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         set status = #{newStatus},
             audit_by = #{auditBy},
             audit_time = case when #{auditBy} is not null and #{auditBy} != '' then sysdate() else null end,
+            reject_reason = case when #{newStatus} = 'submitted' or #{newStatus} = 'audited' then null else reject_reason end,
             update_by = #{updateBy},
             update_time = sysdate()
         where outbound_id = #{outboundId}
           and status = #{oldStatus}
+    </update>
+
+    <update id="rejectWmsOutboundStatus">
+        update wms_outbound
+        set status = 'draft',
+            reject_reason = #{rejectReason},
+            audit_by = null,
+            audit_time = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where outbound_id = #{outboundId}
+          and status = 'submitted'
+    </update>
+
+    <update id="updateWmsOutboundDelivery" parameterType="WmsOutbound">
+        update wms_outbound
+        <set>
+            <if test="deliveryStatus != null and deliveryStatus != ''">delivery_status = #{deliveryStatus},</if>
+            <if test="carrier != null">carrier = #{carrier},</if>
+            <if test="waybillNo != null">waybill_no = #{waybillNo},</if>
+            <if test="freightCost != null">freight_cost = #{freightCost},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where outbound_id = #{outboundId}
+          and status = 'audited'
     </update>
 </mapper>

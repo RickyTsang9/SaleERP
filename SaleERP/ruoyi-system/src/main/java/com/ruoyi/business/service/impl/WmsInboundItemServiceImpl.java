@@ -1,8 +1,10 @@
 package com.ruoyi.business.service.impl;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -160,6 +162,14 @@ public class WmsInboundItemServiceImpl implements IWmsInboundItemService
      */
     private void prepareInboundItemForSave(WmsInbound databaseInbound, WmsInboundItem wmsInboundItem)
     {
+        if (wmsInboundItem.getQuantity() == null || wmsInboundItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+        {
+            throw new ServiceException("入库数量必须大于0");
+        }
+        if (wmsInboundItem.getPrice() != null && wmsInboundItem.getPrice().compareTo(BigDecimal.ZERO) < 0)
+        {
+            throw new ServiceException("入库单价不能小于0");
+        }
         if (databaseInbound.getPurchaseOrderId() != null)
         {
             applyPurchaseOrderItemConstraint(databaseInbound, wmsInboundItem);
@@ -197,15 +207,49 @@ public class WmsInboundItemServiceImpl implements IWmsInboundItemService
             throw new ServiceException("入库数量必须大于0");
         }
         BigDecimal remainQuantity = purchaseOrderItem.getRemainQuantity() == null ? BigDecimal.ZERO : purchaseOrderItem.getRemainQuantity();
-        if (wmsInboundItem.getQuantity().compareTo(remainQuantity) > 0)
+        BigDecimal accumulatedInboundQuantity = calculateAccumulatedInboundQuantity(databaseInbound, wmsInboundItem);
+        if (accumulatedInboundQuantity.compareTo(remainQuantity) > 0)
         {
-            throw new ServiceException("入库数量不能超过待入库数量");
+            throw new ServiceException("同一来源采购明细的累计入库数量不能超过待入库数量");
         }
         wmsInboundItem.setProductId(purchaseOrderItem.getProductId());
         wmsInboundItem.setPrice(purchaseOrderItem.getPrice());
         wmsInboundItem.setPurchaseQuantity(purchaseOrderItem.getQuantity());
         wmsInboundItem.setReceivedQuantity(purchaseOrderItem.getInboundQuantity());
         wmsInboundItem.setRemainQuantity(purchaseOrderItem.getRemainQuantity());
+    }
+
+    /**
+     * 计算当前草稿入库单内同一来源采购明细的累计入库数量
+     *
+     * @param databaseInbound 数据库中的入库单
+     * @param wmsInboundItem 当前待保存的入库明细
+     * @return 累计入库数量
+     */
+    private BigDecimal calculateAccumulatedInboundQuantity(WmsInbound databaseInbound, WmsInboundItem wmsInboundItem)
+    {
+        WmsInboundItem inboundItemQuery = new WmsInboundItem();
+        inboundItemQuery.setInboundId(databaseInbound.getInboundId());
+        List<WmsInboundItem> databaseInboundItemList = wmsInboundItemMapper.selectWmsInboundItemList(inboundItemQuery);
+        Map<Long, BigDecimal> inboundQuantityMap = new HashMap<Long, BigDecimal>();
+        if (databaseInboundItemList != null)
+        {
+            for (WmsInboundItem databaseInboundItem : databaseInboundItemList)
+            {
+                if (databaseInboundItem.getPurchaseOrderItemId() == null)
+                {
+                    continue;
+                }
+                if (wmsInboundItem.getInboundItemId() != null
+                    && Objects.equals(databaseInboundItem.getInboundItemId(), wmsInboundItem.getInboundItemId()))
+                {
+                    continue;
+                }
+                accumulateInboundQuantity(inboundQuantityMap, databaseInboundItem.getPurchaseOrderItemId(),
+                    databaseInboundItem.getQuantity());
+            }
+        }
+        return accumulateInboundQuantity(inboundQuantityMap, wmsInboundItem.getPurchaseOrderItemId(), wmsInboundItem.getQuantity());
     }
 
     /**
@@ -239,6 +283,29 @@ public class WmsInboundItemServiceImpl implements IWmsInboundItemService
         BigDecimal safeQuantityValue = quantityValue == null ? BigDecimal.ZERO : quantityValue;
         BigDecimal safePriceValue = priceValue == null ? BigDecimal.ZERO : priceValue;
         return safeQuantityValue.multiply(safePriceValue);
+    }
+
+    /**
+     * 按来源采购明细累计入库数量
+     *
+     * @param inboundQuantityMap 来源采购明细累计入库数量映射
+     * @param purchaseOrderItemId 来源采购明细编号
+     * @param currentInboundQuantity 当前入库数量
+     * @return 累计入库数量
+     */
+    private BigDecimal accumulateInboundQuantity(Map<Long, BigDecimal> inboundQuantityMap, Long purchaseOrderItemId,
+        BigDecimal currentInboundQuantity)
+    {
+        BigDecimal historyInboundQuantity = inboundQuantityMap.get(purchaseOrderItemId);
+        if (historyInboundQuantity == null)
+        {
+            historyInboundQuantity = BigDecimal.ZERO;
+        }
+        BigDecimal validCurrentInboundQuantity =
+            currentInboundQuantity == null ? BigDecimal.ZERO : currentInboundQuantity;
+        BigDecimal accumulatedInboundQuantity = historyInboundQuantity.add(validCurrentInboundQuantity);
+        inboundQuantityMap.put(purchaseOrderItemId, accumulatedInboundQuantity);
+        return accumulatedInboundQuantity;
     }
 
     /**

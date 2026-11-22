@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.FinInvoiceMapper">
+
+    <resultMap type="FinInvoice" id="FinInvoiceResult">
+        <id     property="invoiceId"        column="invoice_id" />
+        <result property="invoiceNo"        column="invoice_no" />
+        <result property="invoiceCode"      column="invoice_code" />
+        <result property="invoiceDirection" column="invoice_direction" />
+        <result property="invoiceType"      column="invoice_type" />
+        <result property="sourceOrderId"    column="source_order_id" />
+        <result property="sourceOrderNo"    column="source_order_no" />
+        <result property="targetId"         column="target_id" />
+        <result property="targetName"       column="target_name" />
+        <result property="taxRate"          column="tax_rate" />
+        <result property="totalAmount"      column="total_amount" />
+        <result property="amountWithoutTax" column="amount_without_tax" />
+        <result property="taxAmount"        column="tax_amount" />
+        <result property="invoiceDate"      column="invoice_date" />
+        <result property="status"           column="status" />
+        <result property="voidReason"       column="void_reason" />
+        <result property="remark"           column="remark" />
+        <result property="createBy"         column="create_by" />
+        <result property="createTime"       column="create_time" />
+        <result property="updateBy"         column="update_by" />
+        <result property="updateTime"       column="update_time" />
+    </resultMap>
+
+    <sql id="selectFinInvoiceVo">
+        select fi.invoice_id, fi.invoice_no, fi.invoice_code, fi.invoice_direction, fi.invoice_type,
+               fi.source_order_id, fi.source_order_no, fi.target_id, fi.target_name,
+               fi.tax_rate, fi.total_amount, fi.amount_without_tax, fi.tax_amount,
+               fi.invoice_date, fi.status, fi.void_reason, fi.remark,
+               fi.create_by, fi.create_time, fi.update_by, fi.update_time
+        from fin_invoice fi
+    </sql>
+
+    <sql id="finInvoiceWhere">
+        <where>
+            <if test="invoiceNo != null and invoiceNo != ''">
+                and fi.invoice_no like concat('%', #{invoiceNo}, '%')
+            </if>
+            <if test="invoiceDirection != null and invoiceDirection != ''">
+                and fi.invoice_direction = #{invoiceDirection}
+            </if>
+            <if test="invoiceType != null and invoiceType != ''">
+                and fi.invoice_type = #{invoiceType}
+            </if>
+            <if test="sourceOrderId != null">
+                and fi.source_order_id = #{sourceOrderId}
+            </if>
+            <if test="sourceOrderNo != null and sourceOrderNo != ''">
+                and fi.source_order_no like concat('%', #{sourceOrderNo}, '%')
+            </if>
+            <if test="targetId != null">
+                and fi.target_id = #{targetId}
+            </if>
+            <if test="targetName != null and targetName != ''">
+                and fi.target_name like concat('%', #{targetName}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                and fi.status = #{status}
+            </if>
+            <if test="params.beginInvoiceDate != null and params.beginInvoiceDate != ''">
+                and fi.invoice_date &gt;= #{params.beginInvoiceDate}
+            </if>
+            <if test="params.endInvoiceDate != null and params.endInvoiceDate != ''">
+                and fi.invoice_date &lt;= #{params.endInvoiceDate}
+            </if>
+        </where>
+    </sql>
+
+    <select id="selectFinInvoiceById" parameterType="Long" resultMap="FinInvoiceResult">
+        <include refid="selectFinInvoiceVo"/>
+        where fi.invoice_id = #{invoiceId}
+    </select>
+
+    <select id="selectFinInvoiceByNo" parameterType="String" resultMap="FinInvoiceResult">
+        <include refid="selectFinInvoiceVo"/>
+        where fi.invoice_no = #{invoiceNo}
+        limit 1
+    </select>
+
+    <select id="selectFinInvoiceList" parameterType="FinInvoice" resultMap="FinInvoiceResult">
+        <include refid="selectFinInvoiceVo"/>
+        <include refid="finInvoiceWhere"/>
+        order by fi.invoice_date desc, fi.invoice_id desc
+    </select>
+
+    <select id="selectFinInvoiceSummary" parameterType="FinInvoice" resultType="java.util.HashMap">
+        select ifnull(sum(case when fi.status = 'issued' and fi.invoice_direction = 'sale' then fi.total_amount else 0 end), 0) as saleTotalAmount,
+               ifnull(sum(case when fi.status = 'issued' and fi.invoice_direction = 'sale' then fi.tax_amount else 0 end), 0) as saleTaxAmount,
+               ifnull(sum(case when fi.status = 'issued' and fi.invoice_direction = 'purchase' then fi.total_amount else 0 end), 0) as purchaseTotalAmount,
+               ifnull(sum(case when fi.status = 'issued' and fi.invoice_direction = 'purchase' then fi.tax_amount else 0 end), 0) as purchaseTaxAmount,
+               ifnull(sum(case when fi.status = 'red_void' then 1 else 0 end), 0) as voidCount
+        from fin_invoice fi
+        <include refid="finInvoiceWhere"/>
+    </select>
+
+    <select id="selectIssuedAmountBySourceOrder" resultType="java.math.BigDecimal">
+        select ifnull(sum(total_amount), 0)
+        from fin_invoice
+        where invoice_direction = #{invoiceDirection}
+          and source_order_id = #{sourceOrderId}
+          and status = 'issued'
+          <if test="excludeInvoiceId != null">
+              and invoice_id != #{excludeInvoiceId}
+          </if>
+    </select>
+
+    <select id="selectActiveAmountBySourceOrder" resultType="java.math.BigDecimal">
+        select ifnull(sum(total_amount), 0)
+        from fin_invoice
+        where invoice_direction = #{invoiceDirection}
+          and source_order_id = #{sourceOrderId}
+          and status != 'red_void'
+          <if test="excludeInvoiceId != null">
+              and invoice_id != #{excludeInvoiceId}
+          </if>
+    </select>
+
+    <insert id="insertFinInvoice" parameterType="FinInvoice" useGeneratedKeys="true" keyProperty="invoiceId">
+        insert into fin_invoice (
+            invoice_no, invoice_code, invoice_direction, invoice_type,
+            source_order_id, source_order_no, target_id, target_name,
+            tax_rate, total_amount, amount_without_tax, tax_amount,
+            invoice_date, status, remark, create_by, create_time
+        ) values (
+            #{invoiceNo}, #{invoiceCode}, #{invoiceDirection}, #{invoiceType},
+            #{sourceOrderId}, #{sourceOrderNo}, #{targetId}, #{targetName},
+            #{taxRate}, #{totalAmount}, #{amountWithoutTax}, #{taxAmount},
+            #{invoiceDate}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateFinInvoice" parameterType="FinInvoice">
+        update fin_invoice
+        <set>
+            <if test="invoiceNo != null and invoiceNo != ''">invoice_no = #{invoiceNo},</if>
+            <if test="invoiceCode != null">invoice_code = #{invoiceCode},</if>
+            <if test="invoiceDirection != null and invoiceDirection != ''">invoice_direction = #{invoiceDirection},</if>
+            <if test="invoiceType != null and invoiceType != ''">invoice_type = #{invoiceType},</if>
+            <if test="sourceOrderId != null">source_order_id = #{sourceOrderId},</if>
+            <if test="sourceOrderNo != null">source_order_no = #{sourceOrderNo},</if>
+            <if test="targetId != null">target_id = #{targetId},</if>
+            <if test="targetName != null">target_name = #{targetName},</if>
+            <if test="taxRate != null">tax_rate = #{taxRate},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="amountWithoutTax != null">amount_without_tax = #{amountWithoutTax},</if>
+            <if test="taxAmount != null">tax_amount = #{taxAmount},</if>
+            <if test="invoiceDate != null">invoice_date = #{invoiceDate},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where invoice_id = #{invoiceId}
+    </update>
+
+    <update id="voidFinInvoice">
+        update fin_invoice
+        set status = 'red_void',
+            void_reason = #{voidReason},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where invoice_id = #{invoiceId}
+          and status != 'red_void'
+    </update>
+</mapper>

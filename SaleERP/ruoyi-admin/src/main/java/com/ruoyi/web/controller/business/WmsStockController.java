@@ -66,6 +66,56 @@ public class WmsStockController extends BaseController
         util.exportExcel(response, wmsStockList, "库存台账数据");
     }
 
+    @PreAuthorize("@ss.hasAnyPermi('business:stock:list,business:saleOrder:add,business:saleOrder:edit,business:outbound:add,business:outbound:edit')")
+    @GetMapping("/recommendBatch")
+    public AjaxResult recommendBatch(Long warehouseId, Long productId)
+    {
+        return success(wmsStockService.recommendFefoBatches(warehouseId, productId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:stock:add')")
+    @Log(title = "期初库存导入", businessType = BusinessType.IMPORT)
+    @PostMapping("/importData")
+    public AjaxResult importData(org.springframework.web.multipart.MultipartFile file) throws Exception
+    {
+        ExcelUtil<WmsStock> util = new ExcelUtil<WmsStock>(WmsStock.class);
+        List<WmsStock> stockList = util.importExcel(file.getInputStream());
+        String message = wmsStockService.importOpeningStock(stockList, getUsername());
+        return success(message);
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:stock:add,business:stock:list')")
+    @PostMapping("/importTemplate")
+    public void importTemplate(javax.servlet.http.HttpServletResponse response)
+    {
+        ExcelUtil<WmsStock> util = new ExcelUtil<WmsStock>(WmsStock.class);
+        util.importTemplateExcel(response, "期初库存导入模板");
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:stock:freeze,business:stock:edit')")
+    @Log(title = "库存冻结", businessType = BusinessType.UPDATE)
+    @RepeatSubmit
+    @PostMapping("/freeze")
+    public AjaxResult freeze(@RequestBody java.util.Map<String, Object> body)
+    {
+        Long stockId = body.get("stockId") == null ? null : Long.valueOf(body.get("stockId").toString());
+        java.math.BigDecimal qty = body.get("quantity") == null ? null : new java.math.BigDecimal(body.get("quantity").toString());
+        String reason = body.get("reason") == null ? null : body.get("reason").toString();
+        return toAjax(wmsStockService.freezeStock(stockId, qty, reason, getUsername()));
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:stock:freeze,business:stock:edit')")
+    @Log(title = "库存解冻", businessType = BusinessType.UPDATE)
+    @RepeatSubmit
+    @PostMapping("/unfreeze")
+    public AjaxResult unfreeze(@RequestBody java.util.Map<String, Object> body)
+    {
+        Long stockId = body.get("stockId") == null ? null : Long.valueOf(body.get("stockId").toString());
+        java.math.BigDecimal qty = body.get("quantity") == null ? null : new java.math.BigDecimal(body.get("quantity").toString());
+        String reason = body.get("reason") == null ? null : body.get("reason").toString();
+        return toAjax(wmsStockService.unfreezeStock(stockId, qty, reason, getUsername()));
+    }
+
     @PreAuthorize("@ss.hasPermi('business:stock:query')")
     @GetMapping("/{stockId}")
     public AjaxResult getInfo(@PathVariable Long stockId)
@@ -91,6 +141,16 @@ public class WmsStockController extends BaseController
     {
         wmsStock.setUpdateBy(getUsername());
         return toAjax(wmsStockService.updateWmsStock(wmsStock));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:stock:edit')")
+    @Log(title = "库存预警阈值", businessType = BusinessType.UPDATE)
+    @RepeatSubmit
+    @PutMapping("/warningThreshold")
+    public AjaxResult updateWarningThreshold(@RequestBody WmsStock wmsStock)
+    {
+        wmsStock.setUpdateBy(getUsername());
+        return toAjax(wmsStockService.updateWmsStockWarningThreshold(wmsStock));
     }
 
     @PreAuthorize("@ss.hasPermi('business:stock:remove')")

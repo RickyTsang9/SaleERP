@@ -8,10 +8,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <id     property="receiptId"    column="receipt_id" />
         <result property="receivableId" column="receivable_id" />
         <result property="saleOrderId"  column="sale_order_id" />
+        <result property="saleOrderNo"  column="sale_order_no" />
         <result property="customerId"   column="customer_id" />
+        <result property="customerName" column="customer_name" />
         <result property="amount"       column="amount" />
         <result property="paymentTime"  column="payment_time" />
         <result property="paymentMethod" column="payment_method" />
+        <result property="accountId"     column="account_id" />
+        <result property="accountName"   column="account_name" />
+        <result property="status"        column="status" />
+        <result property="voidReason"    column="void_reason" />
+        <result property="voidBy"        column="void_by" />
+        <result property="voidTime"      column="void_time" />
         <result property="createBy"     column="create_by" />
         <result property="createTime"   column="create_time" />
         <result property="updateBy"     column="update_by" />
@@ -20,25 +28,40 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectFinReceiptVo">
-        select fr.receipt_id, fr.receivable_id, fr.sale_order_id, fr.customer_id, fr.amount, fr.payment_time, fr.payment_method,
+        select fr.receipt_id, fr.receivable_id, fr.sale_order_id, so.order_no as sale_order_no,
+               coalesce(fr.customer_id, so.customer_id) as customer_id, mc.customer_name,
+               fr.amount, fr.payment_time, fr.payment_method,
+               fr.account_id, fa.account_name, ifnull(fr.status, 'normal') as status,
+               fr.void_reason, fr.void_by, fr.void_time,
                fr.create_by, fr.create_time, fr.update_by, fr.update_time, fr.remark
         from fin_receipt fr
+        left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
+        left join md_customer mc on mc.customer_id = coalesce(fr.customer_id, so.customer_id)
+        left join fin_account fa on fa.account_id = fr.account_id
         left join sys_user su on su.user_name = fr.create_by
     </sql>
 
     <sql id="selectFinReceiptLegacyVo">
-        select fr.receipt_id, fr.receivable_id, fr.sale_order_id, fr.customer_id, fr.amount,
+        select fr.receipt_id, fr.receivable_id, fr.sale_order_id, so.order_no as sale_order_no,
+               coalesce(fr.customer_id, so.customer_id) as customer_id, mc.customer_name,
+               fr.amount,
                fr.receipt_date as payment_time, null as payment_method,
                fr.create_by, fr.create_time, fr.update_by, fr.update_time, fr.remark
         from fin_receipt fr
+        left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
+        left join md_customer mc on mc.customer_id = coalesce(fr.customer_id, so.customer_id)
         left join sys_user su on su.user_name = fr.create_by
     </sql>
 
     <sql id="selectFinReceiptWithoutMethodVo">
-        select fr.receipt_id, fr.receivable_id, fr.sale_order_id, fr.customer_id, fr.amount,
+        select fr.receipt_id, fr.receivable_id, fr.sale_order_id, so.order_no as sale_order_no,
+               coalesce(fr.customer_id, so.customer_id) as customer_id, mc.customer_name,
+               fr.amount,
                fr.payment_time as payment_time, null as payment_method,
                fr.create_by, fr.create_time, fr.update_by, fr.update_time, fr.remark
         from fin_receipt fr
+        left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
+        left join md_customer mc on mc.customer_id = coalesce(fr.customer_id, so.customer_id)
         left join sys_user su on su.user_name = fr.create_by
     </sql>
 
@@ -66,11 +89,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="saleOrderId != null">
                 and fr.sale_order_id = #{saleOrderId}
             </if>
+            <if test="saleOrderNo != null and saleOrderNo != ''">
+                and so.order_no like concat('%', #{saleOrderNo}, '%')
+            </if>
             <if test="customerId != null">
-                and fr.customer_id = #{customerId}
+                and coalesce(fr.customer_id, so.customer_id) = #{customerId}
             </if>
             <if test="paymentMethod != null and paymentMethod != ''">
                 and fr.payment_method = #{paymentMethod}
+            </if>
+            <if test="status != null and status != ''">
+                and ifnull(fr.status, 'normal') = #{status}
             </if>
             <if test="params.beginPaymentTime != null and params.beginPaymentTime != ''">
                 and fr.payment_time &gt;= #{params.beginPaymentTime}
@@ -92,8 +121,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="saleOrderId != null">
                 and fr.sale_order_id = #{saleOrderId}
             </if>
+            <if test="saleOrderNo != null and saleOrderNo != ''">
+                and so.order_no like concat('%', #{saleOrderNo}, '%')
+            </if>
             <if test="customerId != null">
-                and fr.customer_id = #{customerId}
+                and coalesce(fr.customer_id, so.customer_id) = #{customerId}
             </if>
             <if test="params.beginPaymentTime != null and params.beginPaymentTime != ''">
                 and fr.receipt_date &gt;= #{params.beginPaymentTime}
@@ -115,8 +147,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="saleOrderId != null">
                 and fr.sale_order_id = #{saleOrderId}
             </if>
+            <if test="saleOrderNo != null and saleOrderNo != ''">
+                and so.order_no like concat('%', #{saleOrderNo}, '%')
+            </if>
             <if test="customerId != null">
-                and fr.customer_id = #{customerId}
+                and coalesce(fr.customer_id, so.customer_id) = #{customerId}
             </if>
             <if test="params.beginPaymentTime != null and params.beginPaymentTime != ''">
                 and fr.payment_time &gt;= #{params.beginPaymentTime}
@@ -138,6 +173,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="amount != null">amount,</if>
             <if test="paymentTime != null">payment_time,</if>
             <if test="paymentMethod != null and paymentMethod != ''">payment_method,</if>
+            <if test="accountId != null">account_id,</if>
+            status,
             <if test="createBy != null and createBy != ''">create_by,</if>
             create_time,
             <if test="remark != null">remark,</if>
@@ -149,6 +186,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="amount != null">#{amount},</if>
             <if test="paymentTime != null">#{paymentTime},</if>
             <if test="paymentMethod != null and paymentMethod != ''">#{paymentMethod},</if>
+            <if test="accountId != null">#{accountId},</if>
+            'normal',
             <if test="createBy != null and createBy != ''">#{createBy},</if>
             sysdate(),
             <if test="remark != null">#{remark},</if>
@@ -229,4 +268,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{receiptId}
         </foreach>
     </delete>
+
+    <select id="selectValidReceiptSumByReceivableId" parameterType="Long" resultType="java.math.BigDecimal">
+        select ifnull(sum(amount), 0)
+        from fin_receipt
+        where receivable_id = #{receivableId}
+          and ifnull(status, 'normal') = 'normal'
+    </select>
+
+    <update id="voidFinReceiptStatus">
+        update fin_receipt
+        set status = 'voided',
+            void_reason = #{voidReason},
+            void_by = #{voidBy},
+            void_time = sysdate(),
+            update_by = #{voidBy},
+            update_time = sysdate()
+        where receipt_id = #{receiptId}
+          and ifnull(status, 'normal') = 'normal'
+    </update>
 </mapper>

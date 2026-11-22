@@ -1,5 +1,12 @@
 <template>
-   <div class="app-container">
+   <div class="app-container erp-page">
+      <erp-page-header
+         eyebrow="账号中心"
+         title="个人中心"
+         subtitle="查看所属部门与角色权限，维护个人基本资料、头像及登录密码。"
+         icon="UserFilled"
+         tone="indigo"
+      />
       <el-row :gutter="20">
          <el-col :span="6" :xs="24">
             <el-card class="box-card">

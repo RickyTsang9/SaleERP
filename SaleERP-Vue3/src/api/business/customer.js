@@ -15,6 +15,13 @@ export function getCustomer(customerId) {
   })
 }
 
+export function getCustomerProfile(customerId) {
+  return request({
+    url: '/business/customer/' + customerId + '/profile',
+    method: 'get'
+  })
+}
+
 export function addCustomer(data) {
   return request({
     url: '/business/customer',

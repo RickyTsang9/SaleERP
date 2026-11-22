@@ -53,9 +53,9 @@ public class SwaggerConfig
     {
         return new Info()
             // 设置标题
-            .title("标题：销售管理系统_接口文档")
+            .title("销售管理系统_接口文档")
             // 描述
-            .description("描述：用于管理集团旗下公司的人员信息,具体包括XXX,XXX模块...")
+            .description("SaleERP 销售管理系统在线接口文档，涵盖基础资料、采购、销售、仓储库存、财务结算、经营看板与系统管理模块。")
             // 作者信息
             .contact(new Contact().name(ruoyiConfig.getName()))
             // 版本

@@ -1,5 +1,6 @@
 package com.ruoyi.business.service.impl;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +42,7 @@ public class WmsSaleReturnItemServiceImpl implements IWmsSaleReturnItemService
     public int insertWmsSaleReturnItem(WmsSaleReturnItem wmsSaleReturnItem)
     {
         validateSaleReturnEditable(wmsSaleReturnItem.getSaleReturnId());
+        prepareSaleReturnItemForSave(wmsSaleReturnItem);
         int insertRows = wmsSaleReturnItemMapper.insertWmsSaleReturnItem(wmsSaleReturnItem);
         refreshSaleReturnTotal(wmsSaleReturnItem.getSaleReturnId());
         return insertRows;
@@ -57,6 +59,7 @@ public class WmsSaleReturnItemServiceImpl implements IWmsSaleReturnItemService
         }
         validateSaleReturnEditable(databaseSaleReturnItem.getSaleReturnId());
         wmsSaleReturnItem.setSaleReturnId(databaseSaleReturnItem.getSaleReturnId());
+        prepareSaleReturnItemForSave(wmsSaleReturnItem);
         int updateRows = wmsSaleReturnItemMapper.updateWmsSaleReturnItem(wmsSaleReturnItem);
         refreshSaleReturnTotal(wmsSaleReturnItem.getSaleReturnId());
         if (databaseSaleReturnItem != null && databaseSaleReturnItem.getSaleReturnId() != null
@@ -132,6 +135,50 @@ public class WmsSaleReturnItemServiceImpl implements IWmsSaleReturnItemService
         }
     }
 
+    /**
+     * 保存前校验销售退货明细字段并重算金额
+     *
+     * @param wmsSaleReturnItem 销售退货明细
+     */
+    private void prepareSaleReturnItemForSave(WmsSaleReturnItem wmsSaleReturnItem)
+    {
+        if (wmsSaleReturnItem == null)
+        {
+            throw new ServiceException("销售退货明细不能为空");
+        }
+        if (wmsSaleReturnItem.getProductId() == null)
+        {
+            throw new ServiceException("销售退货明细商品不能为空");
+        }
+        if (wmsSaleReturnItem.getQuantity() == null || wmsSaleReturnItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+        {
+            throw new ServiceException("销售退货数量必须大于0");
+        }
+        if (wmsSaleReturnItem.getPrice() == null || wmsSaleReturnItem.getPrice().compareTo(BigDecimal.ZERO) < 0)
+        {
+            throw new ServiceException("销售退货单价不能小于0");
+        }
+        wmsSaleReturnItem.setAmount(calculateSaleReturnItemAmount(wmsSaleReturnItem));
+    }
+
+    /**
+     * 计算销售退货明细金额
+     *
+     * @param wmsSaleReturnItem 销售退货明细
+     * @return 金额
+     */
+    private BigDecimal calculateSaleReturnItemAmount(WmsSaleReturnItem wmsSaleReturnItem)
+    {
+        BigDecimal quantityValue = wmsSaleReturnItem.getQuantity() == null ? BigDecimal.ZERO : wmsSaleReturnItem.getQuantity();
+        BigDecimal priceValue = wmsSaleReturnItem.getPrice() == null ? BigDecimal.ZERO : wmsSaleReturnItem.getPrice();
+        return quantityValue.multiply(priceValue);
+    }
+
+    /**
+     * 刷新销售退货单主表总数量与总金额
+     *
+     * @param saleReturnId 销售退货单编号
+     */
     private void refreshSaleReturnTotal(Long saleReturnId)
     {
         if (saleReturnId != null)

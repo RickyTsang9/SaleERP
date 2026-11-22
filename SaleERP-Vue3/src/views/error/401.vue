@@ -1,36 +1,24 @@
 <template>
-  <div class="errPage-container">
-    <el-button icon="arrow-left" class="pan-back-btn" @click="back">
-      返回
-    </el-button>
-    <el-row>
-      <el-col :span="12">
-        <h1 class="text-jumbo text-ginormous">
-          401错误!
-        </h1>
-        <h2>您没有访问权限！</h2>
-        <h6>对不起，您没有访问权限，请不要进行非法操作！您可以返回主页面</h6>
-        <ul class="list-unstyled">
-          <li class="link-type">
-            <router-link to="/">
-              回首页
-            </router-link>
-          </li>
-        </ul>
-      </el-col>
-      <el-col :span="12">
-        <img :src="errGif" width="313" height="428" alt="Girl has dropped her ice cream.">
-      </el-col>
-    </el-row>
+  <div class="erp-error-page">
+    <div class="erp-error-card">
+      <div class="erp-error-badge is-warning">HTTP 401 · UNAUTHORIZED</div>
+      <h1 class="erp-error-code">401</h1>
+      <h2 class="erp-error-title">您暂无当前页面的访问权限</h2>
+      <p class="erp-error-desc">
+        当前登录账号未被授予此模块的访问授权。如需办理相关业务，请联系系统管理员为您配置对应角色权限。
+      </p>
+      <div class="erp-error-actions">
+        <el-button type="primary" icon="ArrowLeft" @click="back">返回上一页</el-button>
+        <router-link to="/index">
+          <el-button icon="HomeFilled">回到工作台首页</el-button>
+        </router-link>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import errImage from "@/assets/401_images/401.gif"
-
-let { proxy } = getCurrentInstance()
-
-const errGif = ref(errImage + "?" + +new Date())
+const { proxy } = getCurrentInstance()
 
 function back() {
   if (proxy.$route.query.noGoBack) {
@@ -42,41 +30,74 @@ function back() {
 </script>
 
 <style lang="scss" scoped>
-.errPage-container {
-  width: 800px;
-  max-width: 100%;
-  margin: 100px auto;
-  .pan-back-btn {
-    background: #008489;
-    color: #fff;
-    border: none !important;
+.erp-error-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--erp-canvas);
+}
+
+.erp-error-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 44px 40px;
+  text-align: center;
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: 20px;
+  box-shadow: var(--erp-shadow-lg);
+}
+
+.erp-error-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  background: var(--erp-primary-soft);
+  color: var(--erp-primary);
+
+  &.is-warning {
+    background: rgba(245, 158, 11, 0.14);
+    color: #d97706;
   }
-  .pan-gif {
-    margin: 0 auto;
-    display: block;
-  }
-  .pan-img {
-    display: block;
-    margin: 0 auto;
-    width: 100%;
-  }
-  .text-jumbo {
-    font-size: 60px;
-    font-weight: 700;
-    color: #484848;
-  }
-  .list-unstyled {
-    font-size: 14px;
-    li {
-      padding-bottom: 5px;
-    }
-    a {
-      color: #008489;
-      text-decoration: none;
-      &:hover {
-        text-decoration: underline;
-      }
-    }
-  }
+}
+
+.erp-error-code {
+  margin: 14px 0 8px;
+  font-size: 72px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.erp-error-title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--erp-heading);
+}
+
+.erp-error-desc {
+  margin: 0 0 28px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--erp-text-secondary);
+}
+
+.erp-error-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 </style>

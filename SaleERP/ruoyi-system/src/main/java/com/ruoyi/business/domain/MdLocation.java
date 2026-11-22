@@ -14,6 +14,9 @@ public class MdLocation extends BaseEntity
     @Excel(name = "仓库编号")
     private Long warehouseId;
 
+    /** 仓库名称 */
+    private String warehouseName;
+
     @Excel(name = "库位编码")
     private String locationCode;
 
@@ -43,6 +46,16 @@ public class MdLocation extends BaseEntity
     public void setWarehouseId(Long warehouseId)
     {
         this.warehouseId = warehouseId;
+    }
+
+    public String getWarehouseName()
+    {
+        return warehouseName;
+    }
+
+    public void setWarehouseName(String warehouseName)
+    {
+        this.warehouseName = warehouseName;
     }
 
     public String getLocationCode()

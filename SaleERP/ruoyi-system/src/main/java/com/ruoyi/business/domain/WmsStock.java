@@ -1,6 +1,8 @@
 package com.ruoyi.business.domain;
 
 import java.math.BigDecimal;
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import com.ruoyi.common.annotation.Excel;
@@ -15,14 +17,31 @@ public class WmsStock extends BaseEntity
     @Excel(name = "仓库编号")
     private Long warehouseId;
 
+    /** 仓库名称 */
+    private String warehouseName;
+
     @Excel(name = "商品编号")
     private Long productId;
+
+    /** 商品编码 */
+    private String productCode;
+
+    /** 商品名称 */
+    private String productName;
 
     @Excel(name = "库位编号")
     private Long locationId;
 
+    /** 库位名称 */
+    private String locationName;
+
     @Excel(name = "批次号")
     private String batchNo;
+
+    /** 批次效期/到期日 */
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    @Excel(name = "效期到期日", width = 20, dateFormat = "yyyy-MM-dd")
+    private Date expireDate;
 
     @Excel(name = "库存数量")
     private BigDecimal quantity;
@@ -38,6 +57,10 @@ public class WmsStock extends BaseEntity
 
     @Excel(name = "最大预警值")
     private BigDecimal warningMaxQty;
+
+    /** 期初导入单位成本（仅用于期初库存导入） */
+    @Excel(name = "期初单位成本")
+    private BigDecimal openingCostPrice;
 
     private Integer version;
 
@@ -79,6 +102,56 @@ public class WmsStock extends BaseEntity
     public void setLocationId(Long locationId)
     {
         this.locationId = locationId;
+    }
+
+    public String getWarehouseName()
+    {
+        return warehouseName;
+    }
+
+    public void setWarehouseName(String warehouseName)
+    {
+        this.warehouseName = warehouseName;
+    }
+
+    public String getProductCode()
+    {
+        return productCode;
+    }
+
+    public void setProductCode(String productCode)
+    {
+        this.productCode = productCode;
+    }
+
+    public String getProductName()
+    {
+        return productName;
+    }
+
+    public void setProductName(String productName)
+    {
+        this.productName = productName;
+    }
+
+    public String getLocationName()
+    {
+        return locationName;
+    }
+
+    public void setLocationName(String locationName)
+    {
+        this.locationName = locationName;
+    }
+
+    public Date getExpireDate()
+    {
+        return expireDate;
+    }
+
+    public void setExpireDate(Date expireDate)
+    {
+        this.expireDate = expireDate;
     }
 
     public String getBatchNo()
@@ -139,6 +212,16 @@ public class WmsStock extends BaseEntity
     public void setWarningMaxQty(BigDecimal warningMaxQty)
     {
         this.warningMaxQty = warningMaxQty;
+    }
+
+    public BigDecimal getOpeningCostPrice()
+    {
+        return openingCostPrice;
+    }
+
+    public void setOpeningCostPrice(BigDecimal openingCostPrice)
+    {
+        this.openingCostPrice = openingCostPrice;
     }
 
     public Integer getVersion()

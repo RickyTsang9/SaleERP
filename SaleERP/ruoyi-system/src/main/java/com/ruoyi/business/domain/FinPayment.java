@@ -37,6 +37,9 @@ public class FinPayment extends BaseEntity
     @Excel(name = "供应商ID")
     private Long supplierId;
 
+    /** 供应商名称 */
+    private String supplierName;
+
     /** 付款金额 */
     @Excel(name = "付款金额")
     private BigDecimal amount;
@@ -50,6 +53,34 @@ public class FinPayment extends BaseEntity
     @Excel(name = "付款方式")
     private String paymentMethod;
 
+    private Long accountId;
+
+    @Excel(name = "结算账户")
+    private String accountName;
+
+    @Excel(name = "状态", readConverterExp = "normal=正常,voided=已冲红")
+    private String status;
+
+    @Excel(name = "冲红原因")
+    private String voidReason;
+
+    private String voidBy;
+
+    private Date voidTime;
+
+    public Long getAccountId() { return accountId; }
+    public void setAccountId(Long accountId) { this.accountId = accountId; }
+    public String getAccountName() { return accountName; }
+    public void setAccountName(String accountName) { this.accountName = accountName; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getVoidReason() { return voidReason; }
+    public void setVoidReason(String voidReason) { this.voidReason = voidReason; }
+    public String getVoidBy() { return voidBy; }
+    public void setVoidBy(String voidBy) { this.voidBy = voidBy; }
+    public Date getVoidTime() { return voidTime; }
+    public void setVoidTime(Date voidTime) { this.voidTime = voidTime; }
+
     public void setPaymentId(Long paymentId) 
     {
         this.paymentId = paymentId;
@@ -58,6 +89,16 @@ public class FinPayment extends BaseEntity
     public Long getPaymentId() 
     {
         return paymentId;
+    }
+
+    public String getSupplierName()
+    {
+        return supplierName;
+    }
+
+    public void setSupplierName(String supplierName)
+    {
+        this.supplierName = supplierName;
     }
 
     public void setPayableId(Long payableId) 

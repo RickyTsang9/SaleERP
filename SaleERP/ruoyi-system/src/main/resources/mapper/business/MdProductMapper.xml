@@ -65,6 +65,28 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </where>
     </select>
 
+    <select id="selectMdProductByProductCode" parameterType="String" resultMap="MdProductResult">
+        <include refid="selectMdProductVo"/>
+        where p.product_code = #{productCode}
+        limit 1
+    </select>
+
+    <select id="selectMdProductByScanCode" parameterType="String" resultMap="MdProductResult">
+        <include refid="selectMdProductVo"/>
+        where (p.bar_code = #{scanCode} or p.product_code = #{scanCode})
+          and (p.del_flag is null or p.del_flag = '0')
+        order by case when p.bar_code = #{scanCode} then 0 else 1 end
+        limit 1
+    </select>
+
+    <select id="selectMdProductListByProductCodes" resultMap="MdProductResult">
+        <include refid="selectMdProductVo"/>
+        where p.product_code in
+        <foreach collection="list" item="productCode" open="(" separator="," close=")">
+            #{productCode}
+        </foreach>
+    </select>
+
     <insert id="insertMdProduct" parameterType="MdProduct" useGeneratedKeys="true" keyProperty="productId">
         insert into md_product
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -131,6 +153,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select
             (select count(1) from wms_stock where product_id = #{productId})
             + (select count(1) from wms_stock_log where product_id = #{productId})
+            + (select count(1) from wms_purchase_order_item where product_id = #{productId})
+            + (select count(1) from md_customer_price where product_id = #{productId})
             + (select count(1) from wms_sale_order_item where product_id = #{productId})
             + (select count(1) from wms_sale_return_item where product_id = #{productId})
             + (select count(1) from wms_purchase_return_item where product_id = #{productId})
@@ -150,4 +174,53 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{productId}
         </foreach>
     </delete>
+
+    <select id="selectProductSaleSummary" parameterType="Long" resultType="java.util.HashMap">
+        select count(distinct soi.sale_order_id) as saleOrderCount,
+               ifnull(sum(soi.quantity), 0) as totalSaleQty,
+               ifnull(sum(soi.amount), 0) as totalSaleAmount
+        from wms_sale_order_item soi
+        join wms_sale_order so on so.sale_order_id = soi.sale_order_id
+        where soi.product_id = #{productId}
+          and so.status = 'audited'
+    </select>
+
+    <select id="selectProductReturnSummary" parameterType="Long" resultType="java.util.HashMap">
+        select count(distinct sri.sale_return_id) as returnCount,
+               ifnull(sum(sri.quantity), 0) as returnQty,
+               ifnull(sum(sri.amount), 0) as returnAmount
+        from wms_sale_return_item sri
+        join wms_sale_return sr on sr.sale_return_id = sri.sale_return_id
+        where sri.product_id = #{productId}
+          and sr.status = 'audited'
+    </select>
+
+    <select id="selectProductPurchaseSummary" parameterType="Long" resultType="java.util.HashMap">
+        select count(distinct poi.purchase_order_id) as purchaseOrderCount,
+               ifnull(sum(poi.quantity), 0) as totalPurchaseQty,
+               ifnull(sum(poi.amount), 0) as totalPurchaseAmount
+        from wms_purchase_order_item poi
+        join wms_purchase_order po on po.purchase_order_id = poi.purchase_order_id
+        where poi.product_id = #{productId}
+          and po.status in ('1', '2', '3')
+    </select>
+
+    <select id="selectProductWarehouseStockList" parameterType="Long" resultType="java.util.HashMap">
+        select st.stock_id as stockId,
+               st.warehouse_id as warehouseId,
+               ifnull(mw.warehouse_name, concat('仓库#', st.warehouse_id)) as warehouseName,
+               st.location_id as locationId,
+               ifnull(ml.location_name, concat('库位#', st.location_id)) as locationName,
+               st.batch_no as batchNo,
+               ifnull(st.quantity, 0) as quantity,
+               ifnull(st.locked_quantity, 0) as lockedQuantity,
+               ifnull(st.frozen_quantity, 0) as frozenQuantity,
+               st.warning_min_qty as warningMinQty,
+               st.warning_max_qty as warningMaxQty
+        from wms_stock st
+        left join md_warehouse mw on mw.warehouse_id = st.warehouse_id
+        left join md_location ml on ml.location_id = st.location_id
+        where st.product_id = #{productId}
+        order by st.quantity desc, st.stock_id asc
+    </select>
 </mapper>

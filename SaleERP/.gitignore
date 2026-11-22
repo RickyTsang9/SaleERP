@@ -7,6 +7,7 @@
 
 target/
 !.mvn/wrapper/maven-wrapper.jar
+.m2/
 
 ######################################################################
 # IDE
@@ -45,3 +46,5 @@ nbdist/
 !*/build/*.java
 !*/build/*.html
 !*/build/*.xml
+
+temp/

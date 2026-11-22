@@ -35,3 +35,20 @@ export function delDataBackup(backupId) {
     method: 'delete'
   })
 }
+
+export function downloadDataBackup(backupId) {
+  return request({
+    url: '/business/dataBackup/' + backupId + '/download',
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+export function uploadRestoreDataBackup(formData) {
+  return request({
+    url: '/business/dataBackup/uploadRestore',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}

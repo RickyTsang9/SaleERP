@@ -8,7 +8,7 @@
         :background-color="getMenuBackground"
         :text-color="getMenuTextColor"
         :unique-opened="true"
-        :active-text-color="theme"
+        :active-text-color="activeTextColor"
         :collapse-transition="false"
         mode="vertical"
         :class="sideTheme"
@@ -43,7 +43,6 @@ const sideTheme = computed(() => settingsStore.sideTheme)
 const theme = computed(() => settingsStore.theme)
 const isCollapse = computed(() => !appStore.sidebar.opened)
 
-// 获取菜单背景色
 const getMenuBackground = computed(() => {
   if (settingsStore.isDark) {
     return 'var(--sidebar-bg)'
@@ -51,12 +50,18 @@ const getMenuBackground = computed(() => {
   return sideTheme.value === 'theme-dark' ? variables.menuBg : variables.menuLightBg
 })
 
-// 获取菜单文字颜色
 const getMenuTextColor = computed(() => {
   if (settingsStore.isDark) {
     return 'var(--sidebar-text)'
   }
   return sideTheme.value === 'theme-dark' ? variables.menuText : variables.menuLightText
+})
+
+const activeTextColor = computed(() => {
+  if (settingsStore.isDark || sideTheme.value === 'theme-dark') {
+    return '#a5b4fc'
+  }
+  return theme.value
 })
 
 const activeMenu = computed(() => {
@@ -70,8 +75,9 @@ const activeMenu = computed(() => {
 
 <style lang="scss" scoped>
 .sidebar-container {
+  padding: 0 11px 16px;
   background-color: v-bind(getMenuBackground);
-  
+
   .scrollbar-wrapper {
     background-color: v-bind(getMenuBackground);
   }
@@ -80,24 +86,57 @@ const activeMenu = computed(() => {
     border: none;
     height: 100%;
     width: 100% !important;
-    
-    .el-menu-item, .el-sub-menu__title {
+
+    :deep(.el-menu-item),
+    :deep(.el-sub-menu__title) {
+      height: 41px;
+      line-height: 41px;
+      margin: 3px 0;
+      border-radius: 10px;
+      color: v-bind(getMenuTextColor);
+      font-weight: 500;
+      transition: color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+
       &:hover {
-        background-color: var(--menu-hover, rgba(0, 0, 0, 0.06)) !important;
+        background-color: var(--erp-primary-hover) !important;
+        color: v-bind(activeTextColor);
       }
     }
 
-    .el-menu-item {
-      color: v-bind(getMenuTextColor);
-      
+    :deep(.el-menu-item) {
+      position: relative;
+
       &.is-active {
-        color: var(--menu-active-text, #409eff);
-        background-color: var(--menu-hover, rgba(0, 0, 0, 0.06)) !important;
+        color: v-bind(activeTextColor) !important;
+        background-color: var(--erp-primary-soft) !important;
+        font-weight: 600;
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 9px;
+          bottom: 9px;
+          width: 3px;
+          border-radius: 0 4px 4px 0;
+          background: var(--erp-primary);
+        }
       }
     }
 
-    .el-sub-menu__title {
-      color: v-bind(getMenuTextColor);
+    :deep(.el-sub-menu.is-opened > .el-sub-menu__title) {
+      font-weight: 600;
+    }
+
+    :deep(.el-sub-menu .el-menu) {
+      padding: 2px 0 4px 4px;
+      background-color: transparent !important;
+    }
+
+    :deep(.el-sub-menu .el-menu-item) {
+      height: 38px;
+      line-height: 38px;
+      font-size: 13px;
     }
   }
 }

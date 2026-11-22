@@ -39,6 +39,11 @@ public interface IWmsSaleOrderService
 
     public int cancelWmsSaleOrder(Long saleOrderId);
 
+    /**
+     * 销售单短装强制结案（释放未出库锁库并按实发金额调整应收）
+     */
+    public int forceCloseWmsSaleOrder(Long saleOrderId, String reason);
+
     public int deleteWmsSaleOrderById(Long saleOrderId);
 
     public int deleteWmsSaleOrderByIds(Long[] saleOrderIds);
@@ -57,4 +62,17 @@ public interface IWmsSaleOrderService
      * 查询销售单状态历史
      */
     public List<WmsSaleOrderStatusHistory> selectWmsSaleOrderStatusHistoryList(Long saleOrderId);
+
+    /**
+     * 推荐客户商品价格（协议价 -> 历史成交价 -> 客户等级折扣 -> 标准售价）并返回成本参考
+     */
+    public Map<String, Object> suggestCustomerProductPrice(Long customerId, Long productId);
+
+    /**
+     * 查询销售订单全链路追踪
+     *
+     * @param saleOrderId 销售订单主键
+     * @return 销售订单链路数据
+     */
+    public Map<String, Object> selectWmsSaleOrderChain(Long saleOrderId);
 }

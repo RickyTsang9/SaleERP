@@ -5,17 +5,17 @@
         v-for="tag in visitedViews"
         :key="tag.path"
         :data-path="tag.path"
-        :class="{ 'active': isActive(tag), 'has-icon': tagsIcon }"
+        :class="{ active: isActive(tag), 'has-icon': tagsIcon }"
         :to="{ path: tag.path, query: tag.query, fullPath: tag.fullPath }"
         class="tags-view-item"
-        :style="activeStyle(tag)"
         @click.middle="!isAffix(tag) ? closeSelectedTag(tag) : ''"
         @contextmenu.prevent="openMenu(tag, $event)"
       >
+        <span v-if="isActive(tag)" class="active-dot" />
         <svg-icon v-if="tagsIcon && tag.meta && tag.meta.icon && tag.meta.icon !== '#'" :icon-class="tag.meta.icon" />
-        {{ tag.title }}
-        <span v-if="!isAffix(tag)" @click.prevent.stop="closeSelectedTag(tag)">
-          <close class="el-icon-close" style="width: 1em; height: 1em;vertical-align: middle;" />
+        <span class="tag-title">{{ tag.title }}</span>
+        <span v-if="!isAffix(tag)" class="tag-close-wrap" @click.prevent.stop="closeSelectedTag(tag)">
+          <close class="el-icon-close" style="width: 1em; height: 1em; vertical-align: middle;" />
         </span>
       </router-link>
     </scroll-pane>
@@ -62,7 +62,6 @@ const router = useRouter()
 
 const visitedViews = computed(() => useTagsViewStore().visitedViews)
 const routes = computed(() => usePermissionStore().routes)
-const theme = computed(() => useSettingsStore().theme)
 const tagsIcon = computed(() => useSettingsStore().tagsIcon)
 
 watch(route, () => {
@@ -85,14 +84,6 @@ onMounted(() => {
 
 function isActive(r) {
   return r.path === route.path
-}
-
-function activeStyle(tag) {
-  if (!isActive(tag)) return {}
-  return {
-    "background-color": theme.value,
-    "border-color": theme.value
-  }
 }
 
 function isAffix(tag) {
@@ -141,9 +132,8 @@ function initTags() {
   const res = filterAffixTags(routes.value)
   affixTags.value = res
   for (const tag of res) {
-    // Must have tag name
     if (tag.name) {
-       useTagsViewStore().addVisitedView(tag)
+      useTagsViewStore().addVisitedView(tag)
     }
   }
 }
@@ -160,7 +150,6 @@ function moveToCurrentTag() {
     for (const r of visitedViews.value) {
       if (r.path === route.path) {
         scrollPaneRef.value.moveToTarget(r)
-        // when query is different then update
         if (r.fullPath !== route.fullPath) {
           useTagsViewStore().updateVisitedView(route)
         }
@@ -221,10 +210,7 @@ function toLastView(visitedViews, view) {
   if (latestView) {
     router.push(latestView.fullPath)
   } else {
-    // now the default is to redirect to the home page if there is no tags-view,
-    // you can adjust it according to your needs.
     if (view.name === 'Dashboard') {
-      // to reload home page
       router.replace({ path: '/redirect' + view.fullPath })
     } else {
       router.push('/')
@@ -233,18 +219,13 @@ function toLastView(visitedViews, view) {
 }
 
 function openMenu(tag, e) {
-  const menuMinWidth = 105
-  const offsetLeft = proxy.$el.getBoundingClientRect().left // container margin left
-  const offsetWidth = proxy.$el.offsetWidth // container width
-  const maxLeft = offsetWidth - menuMinWidth // left boundary
-  const l = e.clientX - offsetLeft + 15 // 15: margin right
+  const menuMinWidth = 118
+  const offsetLeft = proxy.$el.getBoundingClientRect().left
+  const offsetWidth = proxy.$el.offsetWidth
+  const maxLeft = offsetWidth - menuMinWidth
+  const l = e.clientX - offsetLeft + 15
 
-  if (l > maxLeft) {
-    left.value = maxLeft
-  } else {
-    left.value = l
-  }
-
+  left.value = l > maxLeft ? maxLeft : l
   top.value = e.clientY
   visible.value = true
   selectedTag.value = tag
@@ -261,79 +242,95 @@ function handleScroll() {
 
 <style lang="scss" scoped>
 .tags-view-container {
-  height: 34px;
+  height: 38px;
   width: 100%;
-  background: var(--tags-bg, #fff);
-  border-bottom: 1px solid var(--tags-item-border, #d8dce5);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .12), 0 0 3px 0 rgba(0, 0, 0, .04);
+  background: var(--tags-bg, #ffffff);
+  border-bottom: 1px solid var(--erp-border);
+  display: flex;
+  align-items: center;
 
   .tags-view-wrapper {
     .tags-view-item {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       position: relative;
       cursor: pointer;
-      height: 26px;
-      line-height: 26px;
-      border: 1px solid var(--tags-item-border, #d8dce5);
-      color: var(--tags-item-text, #495060);
-      background: var(--tags-item-bg, #fff);
-      padding: 0 8px;
-      font-size: 12px;
-      margin-left: 5px;
-      margin-top: 4px;
+      height: 27px;
+      line-height: 27px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--tags-item-text, #64748b);
+      background: transparent;
+      padding: 0 11px;
+      font-size: 12.5px;
+      font-weight: 500;
+      margin-left: 4px;
+      margin-top: 5px;
+      transition: all 0.18s ease;
 
       &:first-of-type {
-        margin-left: 15px;
+        margin-left: 16px;
       }
 
       &:last-of-type {
-        margin-right: 15px;
+        margin-right: 16px;
+      }
+
+      &:hover:not(.active) {
+        background: var(--tags-item-hover, #f1f5f9);
+        color: var(--erp-heading);
       }
 
       &.active {
-        background-color: #42b983;
-        color: #fff;
-        border-color: #42b983;
+        background: var(--erp-primary-soft);
+        color: var(--menu-active-text);
+        border-color: rgba(var(--erp-primary-rgb), 0.25);
+        font-weight: 600;
+      }
 
-        &::before {
-          content: '';
-          background: #fff;
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          position: relative;
-          margin-right: 5px;
-        }
+      .active-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--erp-primary);
+        flex-shrink: 0;
+      }
+
+      .tag-close-wrap {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
     }
   }
 
-  .tags-view-item.active.has-icon::before {
-    content: none !important;
-  }
-
   .contextmenu {
     margin: 0;
-    background: var(--el-bg-color-overlay, #fff);
+    background: var(--erp-surface);
     z-index: 3000;
     position: absolute;
     list-style-type: none;
-    padding: 5px 0;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 400;
-    color: var(--tags-item-text, #333);
-    box-shadow: 2px 2px 3px 0 rgba(0, 0, 0, .3);
-    border: 1px solid var(--el-border-color-light, #e4e7ed);
+    padding: 6px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--erp-text);
+    box-shadow: var(--erp-shadow-md);
+    border: 1px solid var(--erp-border);
 
     li {
       margin: 0;
-      padding: 7px 16px;
+      padding: 7px 14px;
       cursor: pointer;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
 
       &:hover {
-        background: var(--tags-item-hover, #eee);
+        background: var(--erp-primary-hover);
+        color: var(--erp-primary);
       }
     }
   }
@@ -341,29 +338,18 @@ function handleScroll() {
 </style>
 
 <style lang="scss">
-//reset element css of el-icon-close
 .tags-view-wrapper {
   .tags-view-item {
     .el-icon-close {
-      width: 16px;
-      height: 16px;
-      vertical-align: 2px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
-      text-align: center;
-      transition: all .3s cubic-bezier(.645, .045, .355, 1);
-      transform-origin: 100% 50%;
-
-      &:before {
-        transform: scale(.6);
-        display: inline-block;
-        vertical-align: -3px;
-      }
+      padding: 2px;
+      transition: all 0.18s ease;
 
       &:hover {
-        background-color: var(--tags-close-hover, #b4bccc);
-        color: #fff;
-        width: 12px !important;
-        height: 12px !important;
+        background-color: var(--tags-close-hover, #94a3b8);
+        color: #ffffff;
       }
     }
   }

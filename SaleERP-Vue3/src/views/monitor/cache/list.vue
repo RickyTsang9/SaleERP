@@ -1,8 +1,21 @@
 <template>
-  <div class="app-container">
-    <el-row :gutter="10">
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="系统监控"
+      title="缓存列表"
+      subtitle="浏览命名空间、逐键检索缓存键值，支持按命名空间或全局一键清理。"
+      icon="Collection"
+      tone="blue"
+    >
+      <template #actions>
+        <el-button icon="Refresh" @click="refreshCacheNames()">刷新列表</el-button>
+        <el-button type="danger" plain icon="Delete" @click="handleClearCacheAll()">清理全部缓存</el-button>
+      </template>
+    </erp-page-header>
+
+    <el-row :gutter="16">
       <el-col :span="8">
-        <el-card style="height: calc(100vh - 125px)">
+        <el-card style="height: calc(100vh - 220px)">
           <template #header>
             <Collection style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">缓存列表</span>
             <el-button
@@ -61,7 +74,7 @@
       </el-col>
 
       <el-col :span="8">
-        <el-card style="height: calc(100vh - 125px)">
+        <el-card style="height: calc(100vh - 220px)">
           <template #header>
             <Key style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">键名列表</span>
             <el-button
@@ -112,7 +125,7 @@
       </el-col>
 
       <el-col :span="8">
-        <el-card :bordered="false" style="height: calc(100vh - 125px)">
+        <el-card :bordered="false" style="height: calc(100vh - 220px)">
           <template #header>
             <Document style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">缓存内容</span>
             <el-button
@@ -165,7 +178,7 @@ const cacheForm = ref({})
 const loading = ref(true)
 const subLoading = ref(false)
 const nowCacheName = ref("")
-const tableHeight = ref(window.innerHeight - 200)
+const tableHeight = ref(window.innerHeight - 295)
 
 /** 查询缓存名称列表 */
 function getCacheNames() {

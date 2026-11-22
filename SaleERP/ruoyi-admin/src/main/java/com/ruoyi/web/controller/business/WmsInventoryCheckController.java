@@ -90,6 +90,26 @@ public class WmsInventoryCheckController extends BaseController
         return toAjax(wmsInventoryCheckService.auditWmsInventoryCheck(checkId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:audit')")
+    @Log(title = "库存盘点单驳回", businessType = BusinessType.UPDATE)
+    @PostMapping("/reject/{checkId}")
+    public AjaxResult reject(@PathVariable Long checkId, @RequestBody(required = false) WmsInventoryCheck body)
+    {
+        String reason = body == null ? null : body.getRejectReason();
+        return toAjax(wmsInventoryCheckService.rejectWmsInventoryCheck(checkId, reason));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:edit')")
+    @Log(title = "载入盘点库存快照", businessType = BusinessType.INSERT)
+    @PostMapping("/{checkId}/loadStockSnapshot")
+    public AjaxResult loadStockSnapshot(@PathVariable Long checkId, Long locationId, Boolean blindMode)
+    {
+        int loadedCount = wmsInventoryCheckService.loadWarehouseStockSnapshot(checkId, locationId, blindMode);
+        AjaxResult res = AjaxResult.success("成功载入 " + loadedCount + " 条在库批次快照");
+        res.put("loadedCount", loadedCount);
+        return res;
+    }
+
     @PreAuthorize("@ss.hasPermi('business:inventoryCheck:edit')")
     @Log(title = "库存盘点单", businessType = BusinessType.UPDATE)
     @PostMapping("/cancel/{checkId}")

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -57,6 +58,25 @@ public class MdSupplierController extends BaseController
         List<MdSupplier> list = mdSupplierService.selectMdSupplierList(mdSupplier);
         ExcelUtil<MdSupplier> util = new ExcelUtil<MdSupplier>(MdSupplier.class);
         util.exportExcel(response, list, "供应商数据");
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:supplier:import,business:supplier:add')")
+    @Log(title = "供应商", businessType = BusinessType.IMPORT)
+    @PostMapping("/importData")
+    public AjaxResult importData(MultipartFile file, boolean updateSupport) throws Exception
+    {
+        ExcelUtil<MdSupplier> util = new ExcelUtil<MdSupplier>(MdSupplier.class);
+        List<MdSupplier> supplierList = util.importExcel(file.getInputStream());
+        String message = mdSupplierService.importMdSupplier(supplierList, updateSupport, getUsername());
+        return success(message);
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:supplier:import,business:supplier:add,business:supplier:list')")
+    @PostMapping("/importTemplate")
+    public void importTemplate(HttpServletResponse response)
+    {
+        ExcelUtil<MdSupplier> util = new ExcelUtil<MdSupplier>(MdSupplier.class);
+        util.importTemplateExcel(response, "供应商资料导入模板");
     }
 
     /**

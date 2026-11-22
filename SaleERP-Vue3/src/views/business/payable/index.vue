@@ -1,99 +1,123 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="90px">
-      <el-form-item label="采购单号" prop="purchaseOrderNo">
-        <el-input
-          v-model="queryParams.purchaseOrderNo"
-          placeholder="请输入采购单号"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="供应商" prop="supplierId">
-        <el-select v-model="queryParams.supplierId" placeholder="请选择供应商" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadSupplierOptionList" :loading="supplierListLoading">
-          <el-option
-            v-for="supplier in supplierSelectOptionList"
-            :key="supplier.supplierId"
-            :label="supplier.supplierName"
-            :value="supplier.supplierId"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
-          <el-option label="未付款" value="0" />
-          <el-option label="部分付款" value="1" />
-          <el-option label="已付款" value="2" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="财务核算 · 应付管理"
+      title="应付账款台账"
+      subtitle="按采购订单与供应商自动生成应付台账，支持账龄区间筛选、付款核销登记及到期日调整。"
+      icon="Tickets"
+      tone="amber"
+      :badge="`共 ${total} 笔应付`"
+    >
+      <template #actions>
+        <el-button type="success" plain icon="Finished" :disabled="!canBatchPaymentSelected" @click="handleOpenBatchPayment" v-hasPermi="['business:payment:add']">多单合并付款</el-button>
+        <el-button type="primary" icon="Download" @click="handleExport" v-hasPermi="['business:payable:export']">导出应付</el-button>
+      </template>
+    </erp-page-header>
 
-    <el-alert
-      title="应付台账由采购订单审核和付款记录自动维护，当前页面仅支持调整应付日期和备注。"
-      type="info"
-      :closable="false"
-      class="mb8"
-    />
+    <erp-stat-strip :items="payableStatItems" :columns="4" />
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button
-          type="warning"
-          plain
-          icon="Download"
-          @click="handleExport"
-          v-hasPermi="['business:payable:export']"
-        >导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="82px">
+        <el-form-item label="采购单号" prop="purchaseOrderNo">
+          <el-input v-model="queryParams.purchaseOrderNo" placeholder="请输入采购单号" clearable style="width: 185px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="供应商" prop="supplierId">
+          <el-select v-model="queryParams.supplierId" placeholder="请选择供应商" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadSupplierOptionList" :loading="supplierListLoading" style="width: 195px">
+            <el-option v-for="supplier in supplierSelectOptionList" :key="supplier.supplierId" :label="supplier.supplierName" :value="supplier.supplierId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="账龄区间">
+          <el-select v-model="queryParams.params.agingBucket" placeholder="全部账龄" clearable style="width: 150px" @change="handleQuery">
+            <el-option label="未设置到期日" value="no_due" />
+            <el-option label="未到期" value="not_due" />
+            <el-option label="逾期1-30天" value="1_30" />
+            <el-option label="逾期31-60天" value="31_60" />
+            <el-option label="逾期61天以上" value="61_plus" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
 
-    <el-table v-loading="loading" :data="payableList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="应付账款ID" align="center" prop="payableId" />
-      <el-table-column label="采购单号" align="center" prop="purchaseOrderId" min-width="180">
-        <template #default="scope">
-          <span>{{ getPurchaseOrderDisplayName(scope.row.purchaseOrderId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="供应商" align="center" prop="supplierId">
-        <template #default="scope">
-          <span>{{ getSupplierName(scope.row.supplierId, scope.row.purchaseOrderId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="应付金额" align="center" prop="amountDue" />
-      <el-table-column label="已付金额" align="center" prop="amountPaid" />
-      <el-table-column label="未付金额" align="center" prop="remainAmount" />
-      <el-table-column label="状态" align="center" prop="status">
-        <template #default="scope">
-          <el-tag :type="getStatusType(scope.row.status)">{{ getStatusName(scope.row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="应付日期" align="center" prop="dueDate" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.dueDate, '{y}-{m}-{d}') }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="260">
-        <template #default="scope">
-          <el-button link type="primary" icon="View" @click="handleViewPurchaseOrder(scope.row)" v-hasPermi="['business:purchaseOrder:list']">采购单</el-button>
-          <el-button link type="primary" icon="Money" @click="handlePayment(scope.row)" v-hasPermi="['business:payment:add']" v-if="scope.row.status !== '2'">付款</el-button>
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:payable:edit']">调整</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    
-    <pagination
-      v-show="total>0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs :model-value="queryParams.status ?? ''" :items="payableStatusTabItems" @change="handleQuickStatus" />
+        </div>
+        <div class="erp-toolbar-right">
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        </div>
+      </div>
+
+      <el-table v-loading="loading" :data="payableList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="应付 / 来源采购单" align="left" min-width="180">
+          <template #default="scope">
+            <span class="erp-code-chip">{{ 'AP' + String(scope.row.payableId || '').padStart(5, '0') }}</span>
+            <div class="erp-cell-sub">{{ scope.row.purchaseOrderNo || getPurchaseOrderDisplayName(scope.row.purchaseOrderId) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="供应商" align="left" prop="supplierId" min-width="180" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.supplierName || getSupplierName(scope.row.supplierId, scope.row.purchaseOrderId) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="应付金额" align="right" prop="amountDue" min-width="120">
+          <template #default="scope">
+            <span class="erp-amount" :class="{ 'is-danger': Number(scope.row.amountDue || 0) < 0 }">¥{{ Number(scope.row.amountDue || 0).toFixed(2) }}</span>
+            <el-tag v-if="Number(scope.row.amountDue || 0) < 0" size="small" type="danger" effect="plain" style="margin-left: 4px">红字</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="已付金额" align="right" prop="amountPaid" min-width="115">
+          <template #default="scope">
+            <span class="erp-amount is-positive">¥{{ Number(scope.row.amountPaid || 0).toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="未付余额" align="right" prop="remainAmount" min-width="115">
+          <template #default="scope">
+            <span class="erp-amount" :class="{ 'is-warning': Number(scope.row.remainAmount || 0) !== 0 }">
+              ¥{{ Number(scope.row.remainAmount || 0).toFixed(2) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" align="center" prop="status" width="105">
+          <template #default="scope">
+            <el-tag :type="getStatusType(scope.row.status)" effect="light">{{ getStatusName(scope.row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="应付日期" align="center" prop="dueDate" width="125">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.dueDate, '{y}-{m}-{d}') || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" fixed="right" width="275">
+          <template #default="scope">
+            <el-button link type="primary" icon="View" @click="handleViewPurchaseOrder(scope.row)" v-hasPermi="['business:purchaseOrder:list']" v-if="scope.row.purchaseOrderId">采购单</el-button>
+            <el-button
+              link
+              :type="Number(scope.row.amountDue || 0) < 0 ? 'danger' : 'primary'"
+              icon="Money"
+              @click="handlePayment(scope.row)"
+              v-hasPermi="['business:payment:add']"
+              v-if="scope.row.status !== '2'"
+            >{{ Number(scope.row.amountDue || 0) < 0 ? '收回退款' : '付款' }}</el-button>
+            <el-button link type="primary" icon="Tickets" @click="handleViewPaymentRecord(scope.row)" v-hasPermi="['business:payment:list']" v-if="Number(scope.row.amountPaid || 0) !== 0">流水</el-button>
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:payable:edit']">调整</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
     <!-- 修改应付账款对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
@@ -124,27 +148,44 @@
       </template>
     </el-dialog>
 
-    <!-- 付款对话框 -->
-    <el-dialog title="付款登记" v-model="paymentOpen" width="500px" append-to-body>
-      <el-form ref="paymentRef" :model="paymentForm" :rules="paymentRules" label-width="100px">
-        <el-form-item label="付款金额" prop="amount">
-          <el-input-number v-model="paymentForm.amount" :min="0.01" :max="currentPayable.remainAmount" :precision="2" style="width: 100%" />
+    <!-- 付款 / 红字供应商退款对话框 -->
+    <el-dialog :title="isCurrentRedInkPayable ? '登记供应商红字退款' : '付款登记'" v-model="paymentOpen" width="520px" append-to-body>
+      <el-alert
+        v-if="isCurrentRedInkPayable"
+        title="该台账为采购退货/短装结案产生的红字待收供应商退款，确认后将向指定资金账户入账退款并核销红字台账。"
+        type="warning"
+        :closable="false"
+        class="mb8"
+      />
+      <el-form ref="paymentRef" :model="paymentForm" :rules="paymentRules" label-width="105px">
+        <el-form-item :label="isCurrentRedInkPayable ? '退款金额' : '付款金额'" prop="amount">
+          <el-input-number v-model="paymentForm.amount" :min="0.01" :max="Math.abs(Number(currentPayable.remainAmount || 0))" :precision="2" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="付款时间" prop="paymentTime">
+        <el-form-item :label="isCurrentRedInkPayable ? '退款时间' : '付款时间'" prop="paymentTime">
           <el-date-picker clearable
             v-model="paymentForm.paymentTime"
             type="datetime"
             value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="请选择付款时间"
+            placeholder="请选择时间"
             style="width: 100%">
           </el-date-picker>
         </el-form-item>
-        <el-form-item label="付款方式" prop="paymentMethod">
-          <el-select v-model="paymentForm.paymentMethod" placeholder="请选择付款方式" style="width: 100%">
-            <el-option label="银行转账" value="银行转账" />
-            <el-option label="微信" value="微信" />
-            <el-option label="支付宝" value="支付宝" />
-            <el-option label="现金" value="现金" />
+        <el-form-item :label="isCurrentRedInkPayable ? '收款方式' : '付款方式'" prop="paymentMethod">
+          <el-select v-model="paymentForm.paymentMethod" placeholder="请选择结算方式" style="width: 100%">
+            <el-option label="银行转账" value="bank_transfer" />
+            <el-option label="微信支付" value="wechat" />
+            <el-option label="支付宝" value="alipay" />
+            <el-option label="现金" value="cash" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="结算账户" prop="accountId">
+          <el-select v-model="paymentForm.accountId" placeholder="默认基本结算户" clearable style="width: 100%">
+            <el-option
+              v-for="acc in accountOptionList"
+              :key="acc.accountId"
+              :label="`${acc.accountName} (¥${acc.currentBalance})`"
+              :value="acc.accountId"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="备注" prop="remark">
@@ -158,12 +199,53 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 多单合并付款核销对话框 -->
+    <el-dialog title="多单合并付款核销" v-model="batchPaymentDialog.open" width="540px" append-to-body>
+      <el-alert
+        :title="`已选中 ${batchPaymentDialog.payableIds.length} 笔同供应商应付单，合计未付余额 ¥${batchPaymentDialog.maxTotalAmount.toFixed(2)}，系统将按单据顺序自动分摊付款。`"
+        type="info"
+        :closable="false"
+        class="mb8"
+      />
+      <el-form :model="batchPaymentDialog" label-width="110px">
+        <el-form-item label="合并付款总额" required>
+          <el-input-number v-model="batchPaymentDialog.totalAmount" :min="0.01" :max="batchPaymentDialog.maxTotalAmount" :precision="2" controls-position="right" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="付款方式" required>
+          <el-select v-model="batchPaymentDialog.paymentMethod" style="width: 100%">
+            <el-option label="银行转账" value="bank_transfer" />
+            <el-option label="微信支付" value="wechat" />
+            <el-option label="支付宝" value="alipay" />
+            <el-option label="现金" value="cash" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="结算账户">
+          <el-select v-model="batchPaymentDialog.accountId" placeholder="默认基本结算户" clearable style="width: 100%">
+            <el-option v-for="acc in accountOptionList" :key="acc.accountId" :label="`${acc.accountName} (¥${acc.currentBalance})`" :value="acc.accountId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="付款时间" required>
+          <el-date-picker v-model="batchPaymentDialog.paymentTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="batchPaymentDialog.remark" placeholder="如：供应商月结一笔合并付款" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" :loading="batchPaymentDialog.submitting" @click="submitBatchPayment">确认付款</el-button>
+          <el-button @click="batchPaymentDialog.open = false">取 消</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup name="BusinessPayable">
 import { listPayable, getPayable, updatePayable } from "@/api/business/payable";
-import { addPayment } from "@/api/business/payment";
+import { addPayment, batchAddPayment } from "@/api/business/payment";
+import { listAccount } from "@/api/business/account";
 import { listSupplier, getSupplier } from "@/api/business/supplier";
 import { getPurchaseOrder } from "@/api/business/purchaseOrder";
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect";
@@ -183,8 +265,29 @@ const total = ref(0);
 const title = ref("");
 
 const supplierList = ref([]);
+const accountOptionList = ref([]);
 const supplierListLoading = ref(false);
 const currentPayable = ref({});
+const selectedPayableRows = ref([]);
+const isCurrentRedInkPayable = computed(() => Number(currentPayable.value?.amountDue || 0) < 0);
+const canBatchPaymentSelected = computed(() => {
+  const rows = selectedPayableRows.value || [];
+  if (rows.length < 2) return false;
+  const validRows = rows.filter(r => r.status !== "2" && Number(r.amountDue || 0) > 0 && Number(r.remainAmount || 0) > 0);
+  if (validRows.length !== rows.length) return false;
+  return new Set(validRows.map(r => r.supplierId)).size === 1;
+});
+const batchPaymentDialog = reactive({
+  open: false,
+  submitting: false,
+  payableIds: [],
+  maxTotalAmount: 0,
+  totalAmount: 0,
+  paymentMethod: "bank_transfer",
+  accountId: undefined,
+  paymentTime: "",
+  remark: ""
+});
 const purchaseOrderSupplierNameMap = ref({});
 const purchaseOrderDisplayNameMap = ref({});
 const supplierSelectOptionList = computed(() => buildSupplierSelectOptionList());
@@ -198,6 +301,9 @@ const data = reactive({
     purchaseOrderNo: undefined,
     supplierId: undefined,
     status: undefined,
+    params: {
+      agingBucket: undefined
+    }
   },
   rules: {
   },
@@ -214,17 +320,49 @@ const data = reactive({
 
 const { queryParams, form, rules, paymentForm, paymentRules } = toRefs(data);
 
+const payableStatusTabItems = [
+  { label: "全部", value: "" },
+  { label: "未付款", value: "0", dot: "rose" },
+  { label: "部分付款", value: "1", dot: "amber" },
+  { label: "已结清", value: "2", dot: "emerald" }
+];
+
+const payableStatItems = computed(() => {
+  const rows = payableList.value || [];
+  const dueSum = rows.reduce((s, r) => s + Number(r.amountDue || 0), 0);
+  const paidSum = rows.reduce((s, r) => s + Number(r.amountPaid || 0), 0);
+  const remainSum = rows.reduce((s, r) => s + Number(r.remainAmount || 0), 0);
+  return [
+    { label: "应付单据总数", value: total.value, suffix: "笔", hint: "由采购审批自动入账", icon: "Tickets", tone: "amber" },
+    { label: "本页应付总额", prefix: "¥", value: dueSum.toFixed(2), hint: "本页供应商应付款合计", icon: "Money", tone: "indigo" },
+    { label: "本页已付金额", prefix: "¥", value: paidSum.toFixed(2), hint: "已核销供应商付款", icon: "CircleCheck", tone: "emerald" },
+    { label: "本页待付余额", prefix: "¥", value: remainSum.toFixed(2), hint: "尚未结清的应付尾款", icon: "Warning", tone: "rose" }
+  ];
+});
+
+function handleQuickStatus(val) {
+  queryParams.value.status = val === "" ? undefined : val;
+  handleQuery();
+}
+
 // 根据首页或付款流水页传入的参数初始化应付台账筛选条件，保证落地页即开即用。
 function initializeQueryParamsFromRoute() {
   queryParams.value.purchaseOrderId = route.query.purchaseOrderId || undefined;
   queryParams.value.purchaseOrderNo = route.query.purchaseOrderNo || route.query.orderNo || undefined;
   queryParams.value.supplierId = route.query.supplierId ? Number(route.query.supplierId) : undefined;
   queryParams.value.status = route.query.status || undefined;
+  queryParams.value.params.agingBucket = route.query.agingBucket || undefined;
+  if (queryParams.value.params.agingBucket) {
+    queryParams.value.status = undefined;
+  }
 }
 
 // 初始化供应商远程下拉数据，避免页面初始阶段一次性加载过多基础资料。
 function initData() {
   loadSupplierOptionList();
+  listAccount({ pageNum: 1, pageSize: 50, status: "0" }).then(res => {
+    accountOptionList.value = res.rows || [];
+  }).catch(() => {});
 }
 
 // 远程加载供应商下拉选项，按需补充供应商名称数据，减少页面初始加载压力。
@@ -338,15 +476,24 @@ function ensureSupplierOptionLoaded(supplierId, purchaseOrderId) {
   });
 }
 
-// 批量补充应付台账列表依赖的供应商名称，保证远程下拉模式下列表展示仍然可读。
+// 批量补充应付台账列表依赖的供应商名称，优先复用后端关联字段，消除冗余 N+1 查询。
 function ensurePayableReferenceOptionsLoaded(payableRowList) {
-  const purchaseOrderIdList = [...new Set((payableRowList || []).map(payableRow => payableRow.purchaseOrderId).filter(purchaseOrderId => purchaseOrderId !== undefined && purchaseOrderId !== null && purchaseOrderId !== ""))];
+  const missingSupplierRows = [];
+  const missingPoIds = [];
   (payableRowList || []).forEach(payableRow => {
     syncPurchaseOrderDisplayName(payableRow.purchaseOrderId, payableRow.purchaseOrderNo);
+    if (payableRow.purchaseOrderId != null && payableRow.purchaseOrderId !== "" && !payableRow.purchaseOrderNo) {
+      missingPoIds.push(payableRow.purchaseOrderId);
+    }
+    if (payableRow.supplierId != null && payableRow.supplierName) {
+      appendUniqueSelectOption(supplierList.value, { supplierId: payableRow.supplierId, supplierName: payableRow.supplierName }, "supplierId");
+    } else {
+      missingSupplierRows.push(payableRow);
+    }
   });
   return Promise.all([
-    ...(payableRowList || []).map(payableRow => ensureSupplierOptionLoaded(payableRow.supplierId, payableRow.purchaseOrderId)),
-    ...purchaseOrderIdList.map(purchaseOrderId => ensurePurchaseOrderDisplayLoaded(purchaseOrderId))
+    ...missingSupplierRows.map(payableRow => ensureSupplierOptionLoaded(payableRow.supplierId, payableRow.purchaseOrderId)),
+    ...[...new Set(missingPoIds)].map(purchaseOrderId => ensurePurchaseOrderDisplayLoaded(purchaseOrderId))
   ]).catch(() => {});
 }
 
@@ -431,8 +578,9 @@ function resetPayment() {
     purchaseOrderNo: undefined,
     supplierId: undefined,
     amount: undefined,
-    paymentTime: new Date(),
-    paymentMethod: "银行转账",
+    paymentTime: parseTime(new Date(), "{y}-{m}-{d} {h}:{i}:{s}"),
+    paymentMethod: "bank_transfer",
+    accountId: undefined,
     remark: undefined
   };
   proxy.resetForm("paymentRef");
@@ -444,18 +592,72 @@ function handleQuery() {
   getList();
 }
 
+function handleViewPaymentRecord(row) {
+  if (!row?.payableId) return;
+  proxy.$router.push({
+    path: "/finance/payment",
+    query: { payableId: String(row.payableId) }
+  });
+}
+
 /** 重置按钮操作 */
 function resetQuery() {
   proxy.resetForm("queryRef");
   queryParams.value.purchaseOrderId = undefined;
   queryParams.value.purchaseOrderNo = undefined;
+  queryParams.value.status = undefined;
+  queryParams.value.params.agingBucket = undefined;
+  if (Object.keys(route.query || {}).length > 0) {
+    proxy.$router.replace({ path: route.path, query: {} }).catch(() => {});
+    return;
+  }
   handleQuery();
 }
 
 // 多选框选中数据
 function handleSelectionChange(selection) {
+  selectedPayableRows.value = selection || [];
   ids.value = selection.map(item => item.payableId);
   single.value = selection.length != 1;
+}
+
+function handleOpenBatchPayment() {
+  const rows = selectedPayableRows.value || [];
+  if (!canBatchPaymentSelected.value) {
+    proxy.$modal.msgWarning("请勾选至少2笔同一供应商的正向待付款应付台账");
+    return;
+  }
+  const sumRemain = rows.reduce((s, r) => s + Number(r.remainAmount || 0), 0);
+  batchPaymentDialog.payableIds = rows.map(r => r.payableId);
+  batchPaymentDialog.maxTotalAmount = Number(sumRemain.toFixed(2));
+  batchPaymentDialog.totalAmount = Number(sumRemain.toFixed(2));
+  batchPaymentDialog.paymentMethod = "bank_transfer";
+  batchPaymentDialog.accountId = undefined;
+  batchPaymentDialog.paymentTime = parseTime(new Date(), "{y}-{m}-{d} {h}:{i}:{s}");
+  batchPaymentDialog.remark = "";
+  batchPaymentDialog.open = true;
+}
+
+function submitBatchPayment() {
+  if (!batchPaymentDialog.totalAmount || Number(batchPaymentDialog.totalAmount) <= 0) {
+    proxy.$modal.msgWarning("请输入大于0的合并付款金额");
+    return;
+  }
+  batchPaymentDialog.submitting = true;
+  batchAddPayment({
+    payableIds: batchPaymentDialog.payableIds,
+    totalAmount: batchPaymentDialog.totalAmount,
+    paymentMethod: batchPaymentDialog.paymentMethod,
+    accountId: batchPaymentDialog.accountId,
+    paymentTime: batchPaymentDialog.paymentTime,
+    remark: batchPaymentDialog.remark
+  }).then(() => {
+    proxy.$modal.msgSuccess("多单合并付款核销成功");
+    batchPaymentDialog.open = false;
+    getList();
+  }).finally(() => {
+    batchPaymentDialog.submitting = false;
+  });
 }
 
 // 打开应付台账调整弹窗时补充供应商名称，并明确当前只支持受控调整。
@@ -479,7 +681,7 @@ function handlePayment(row) {
   paymentForm.value.purchaseOrderId = row.purchaseOrderId;
   paymentForm.value.purchaseOrderNo = row.purchaseOrderNo;
   paymentForm.value.supplierId = row.supplierId;
-  paymentForm.value.amount = row.remainAmount;
+  paymentForm.value.amount = Math.abs(Number(row.remainAmount || 0));
   paymentOpen.value = true;
 }
 
@@ -534,8 +736,10 @@ function handleExport() {
 // 初始化页面筛选条件和供应商下拉，保证从采购订单、付款页重复跳转时应付列表会立即刷新。
 async function initializePage() {
   initializeQueryParamsFromRoute();
-  await initData();
-  await getList();
+  await Promise.all([
+    Promise.resolve(initData()),
+    Promise.resolve(getList())
+  ]);
 }
 
 // 监听同一路由下的查询参数变化，避免地址栏已切换但应付筛选仍停留在旧值。

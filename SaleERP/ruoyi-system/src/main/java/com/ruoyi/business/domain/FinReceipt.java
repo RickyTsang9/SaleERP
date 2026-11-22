@@ -19,8 +19,14 @@ public class FinReceipt extends BaseEntity
     @Excel(name = "销售单编号")
     private Long saleOrderId;
 
+    @Excel(name = "销售单号")
+    private String saleOrderNo;
+
     @Excel(name = "客户编号")
     private Long customerId;
+
+    /** 客户名称 */
+    private String customerName;
 
     @Excel(name = "回款金额")
     private BigDecimal amount;
@@ -29,6 +35,34 @@ public class FinReceipt extends BaseEntity
 
     @Excel(name = "回款方式")
     private String paymentMethod;
+
+    private Long accountId;
+
+    @Excel(name = "结算账户")
+    private String accountName;
+
+    @Excel(name = "状态", readConverterExp = "normal=正常,voided=已冲红")
+    private String status;
+
+    @Excel(name = "冲红原因")
+    private String voidReason;
+
+    private String voidBy;
+
+    private Date voidTime;
+
+    public Long getAccountId() { return accountId; }
+    public void setAccountId(Long accountId) { this.accountId = accountId; }
+    public String getAccountName() { return accountName; }
+    public void setAccountName(String accountName) { this.accountName = accountName; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getVoidReason() { return voidReason; }
+    public void setVoidReason(String voidReason) { this.voidReason = voidReason; }
+    public String getVoidBy() { return voidBy; }
+    public void setVoidBy(String voidBy) { this.voidBy = voidBy; }
+    public Date getVoidTime() { return voidTime; }
+    public void setVoidTime(Date voidTime) { this.voidTime = voidTime; }
 
     public Long getReceiptId()
     {
@@ -58,6 +92,26 @@ public class FinReceipt extends BaseEntity
     public void setSaleOrderId(Long saleOrderId)
     {
         this.saleOrderId = saleOrderId;
+    }
+
+    public String getSaleOrderNo()
+    {
+        return saleOrderNo;
+    }
+
+    public String getCustomerName()
+    {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName)
+    {
+        this.customerName = customerName;
+    }
+
+    public void setSaleOrderNo(String saleOrderNo)
+    {
+        this.saleOrderNo = saleOrderNo;
     }
 
     public Long getCustomerId()

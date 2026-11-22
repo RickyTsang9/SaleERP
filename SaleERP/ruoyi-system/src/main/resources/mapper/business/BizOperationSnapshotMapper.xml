@@ -47,7 +47,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 and snapshot_type = #{snapshotType}
             </if>
             <if test="snapshotDate != null">
-                and date(snapshot_date) = date(#{snapshotDate})
+                and snapshot_date &gt;= date(#{snapshotDate})
+                and snapshot_date &lt; date_add(date(#{snapshotDate}), interval 1 day)
             </if>
         </where>
         order by snapshot_date desc, snapshot_id desc

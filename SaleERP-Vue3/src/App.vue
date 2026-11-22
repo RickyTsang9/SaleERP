@@ -6,10 +6,19 @@
 import useSettingsStore from '@/store/modules/settings'
 import { handleThemeStyle } from '@/utils/theme'
 
+const settingsStore = useSettingsStore()
+
+watch(
+  () => [settingsStore.theme, settingsStore.isDark],
+  ([theme, dark]) => {
+    handleThemeStyle(theme, dark)
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
   nextTick(() => {
-    // 初始化主题样式
-    handleThemeStyle(useSettingsStore().theme)
+    handleThemeStyle(settingsStore.theme, settingsStore.isDark)
   })
 })
 </script>

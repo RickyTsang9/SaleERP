@@ -97,9 +97,7 @@ export const constantRoutes = [
       },
       {
         path: 'supplier',
-        component: () => import('@/views/business/supplier/index.vue'),
-        name: 'Supplier',
-        meta: { title: '供应商资料', activeMenu: '/purchase/purchaseOrder' }
+        redirect: to => ({ path: '/base/supplier', query: to.query })
       }
     ]
   },
@@ -108,6 +106,10 @@ export const constantRoutes = [
     component: Layout,
     hidden: true,
     children: [
+      {
+        path: 'todoCenter',
+        redirect: to => ({ path: '/todoCenter', query: to.query })
+      },
       {
         path: 'payable',
         component: () => import('@/views/business/payable/index.vue'),
@@ -119,19 +121,6 @@ export const constantRoutes = [
         component: () => import('@/views/business/payment/index.vue'),
         name: 'Payment',
         meta: { title: '付款流水' }
-      }
-    ]
-  },
-  {
-    path: '/base',
-    component: Layout,
-    hidden: true,
-    children: [
-      {
-        path: 'customerFollow',
-        component: () => import('@/views/business/customerFollow/index.vue'),
-        name: 'CustomerFollow',
-        meta: { title: '客户跟进', activeMenu: '/base/customer' }
       }
     ]
   },

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import com.ruoyi.business.domain.FinReceivable;
 import com.ruoyi.business.mapper.FinReceivableMapper;
 import com.ruoyi.business.service.IFinReceivableService;
+import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.exception.ServiceException;
 
 @Service
@@ -27,6 +28,7 @@ public class FinReceivableServiceImpl implements IFinReceivableService
     }
 
     @Override
+    @DataScope(deptAlias = "su", userAlias = "su", permission = "business:receivable:list")
     public List<FinReceivable> selectFinReceivableList(FinReceivable finReceivable)
     {
         return finReceivableMapper.selectFinReceivableList(finReceivable);

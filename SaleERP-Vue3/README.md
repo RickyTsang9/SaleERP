@@ -47,7 +47,7 @@ yarn dev
 
 # 构建测试环境 yarn build:stage
 # 构建生产环境 yarn build:prod
-# 前端访问地址 http://localhost:8064
+# 前端访问地址 http://127.0.0.1:8064
 ```
 
 ## 内置功能

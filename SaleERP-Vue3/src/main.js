@@ -43,6 +43,10 @@ import ImageUpload from "@/components/ImageUpload"
 import ImagePreview from "@/components/ImagePreview"
 // 字典标签组件
 import DictTag from '@/components/DictTag'
+// Aura Enterprise 全局标准化业务UI组件
+import ErpPageHeader from '@/components/ErpPageHeader/index.vue'
+import ErpStatStrip from '@/components/ErpStatStrip/index.vue'
+import ErpStatusTabs from '@/components/ErpStatusTabs/index.vue'
 
 import print from 'vue3-print-nb'
 
@@ -67,6 +71,9 @@ app.component('ImageUpload', ImageUpload)
 app.component('ImagePreview', ImagePreview)
 app.component('RightToolbar', RightToolbar)
 app.component('Editor', Editor)
+app.component('ErpPageHeader', ErpPageHeader)
+app.component('ErpStatStrip', ErpStatStrip)
+app.component('ErpStatusTabs', ErpStatusTabs)
 
 app.use(router)
 app.use(store)

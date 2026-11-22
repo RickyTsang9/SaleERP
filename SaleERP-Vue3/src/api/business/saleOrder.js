@@ -84,6 +84,14 @@ export function cancelSaleOrder(saleOrderId) {
   })
 }
 
+export function forceCloseSaleOrder(saleOrderId, reason) {
+  return request({
+    url: '/business/saleOrder/forceClose/' + saleOrderId,
+    method: 'post',
+    data: { financeAuditComment: reason }
+  })
+}
+
 export function getSaleOrderPrintTemplate(saleOrderId) {
   return request({
     url: '/business/saleOrder/printTemplate/' + saleOrderId,
@@ -98,10 +106,26 @@ export function listSaleOrderStatusHistory(saleOrderId) {
   })
 }
 
+// 查询销售订单全链路追踪
+export function getSaleOrderChain(saleOrderId) {
+  return request({
+    url: '/business/saleOrder/chain/' + saleOrderId,
+    method: 'get'
+  })
+}
+
 export function importSaleOrderTemplate() {
   return request({
     url: '/business/saleOrder/importTemplate',
     method: 'post',
     responseType: 'blob'
+  })
+}
+
+export function suggestSalePrice(customerId, productId) {
+  return request({
+    url: '/business/saleOrder/suggestPrice',
+    method: 'get',
+    params: { customerId, productId }
   })
 }

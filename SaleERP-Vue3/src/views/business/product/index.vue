@@ -1,109 +1,122 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-      <el-form-item label="商品编码" prop="productCode">
-        <el-input
-          v-model="queryParams.productCode"
-          placeholder="请输入商品编码"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="商品名称" prop="productName">
-        <el-input
-          v-model="queryParams.productName"
-          placeholder="请输入商品名称"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="分类" prop="categoryName">
-        <el-input
-          v-model="queryParams.categoryName"
-          placeholder="请输入分类"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" clearable style="width: 200px" placeholder="请选择状态">
-          <el-option
-            v-for="dict in sys_normal_disable"
-            :key="dict.value"
-            :label="dict.label"
-            :value="dict.value"
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="基础主数据"
+      title="商品资料管理"
+      subtitle="统一维护商品编码、规格条码、成本与标准售价，支持批量导入导出及单品经营画像洞察。"
+      icon="Goods"
+      tone="indigo"
+      :badge="`共 ${total} 款商品`"
+    >
+      <template #actions>
+        <el-button icon="Upload" plain @click="handleImport" v-hasPermi="['business:product:import']">批量导入</el-button>
+        <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:product:export']">导出</el-button>
+        <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:product:add']">新增商品</el-button>
+      </template>
+    </erp-page-header>
+
+    <erp-stat-strip :items="productStatItems" :columns="4" />
+
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true">
+        <el-form-item label="商品编码" prop="productCode">
+          <el-input v-model="queryParams.productCode" placeholder="请输入商品编码" clearable style="width: 190px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="商品名称" prop="productName">
+          <el-input v-model="queryParams.productName" placeholder="请输入商品名称" clearable style="width: 190px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="分类" prop="categoryName">
+          <el-input v-model="queryParams.categoryName" placeholder="请输入分类" clearable style="width: 170px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="queryParams.status" clearable style="width: 150px" placeholder="全部状态">
+            <el-option v-for="dict in sys_normal_disable" :key="dict.value" :label="dict.label" :value="dict.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
+
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs
+            :model-value="queryParams.status ?? ''"
+            :items="statusTabItems"
+            @change="handleQuickStatus"
           />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+          <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:product:edit']">修改</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:product:remove']">删除</el-button>
+        </div>
+        <div class="erp-toolbar-right">
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        </div>
+      </div>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['business:product:add']">新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:product:edit']">修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:product:remove']">删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="info" plain icon="Upload" @click="handleImport" v-hasPermi="['business:product:import']">导入</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:product:export']">导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+      <el-table v-loading="loading" :data="productList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="商品编码" align="center" prop="productCode" min-width="125" show-overflow-tooltip>
+          <template #default="scope">
+            <span class="erp-code-chip">{{ scope.row.productCode }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="商品名称 / 规格" align="left" prop="productName" min-width="200" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.productName }}</div>
+            <div class="erp-cell-sub">{{ scope.row.productSpec || '标准规格' }} · {{ scope.row.unitName || '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="分类 / 品牌" align="center" min-width="140" show-overflow-tooltip>
+          <template #default="scope">
+            <el-tag size="small" type="info" effect="plain">{{ scope.row.categoryName || '未分类' }}</el-tag>
+            <div v-if="scope.row.brandName" class="erp-cell-sub">{{ scope.row.brandName }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="成本价" align="right" prop="costPrice" width="108">
+          <template #default="scope">
+            <span class="erp-num">¥{{ formatMoney(scope.row.costPrice) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="标准售价" align="right" prop="salePrice" width="112">
+          <template #default="scope">
+            <span class="erp-amount is-primary">¥{{ formatMoney(scope.row.salePrice) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" align="center" prop="status" width="88">
+          <template #default="scope">
+            <el-switch
+              v-model="scope.row.status"
+              active-value="0"
+              inactive-value="1"
+              @change="handleStatusChange(scope.row)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" align="center" prop="createTime" width="165">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="210" fixed="right" align="center">
+          <template #default="scope">
+            <el-button link type="primary" icon="DataAnalysis" @click="handleViewProfile(scope.row)" v-hasPermi="['business:product:query']">画像</el-button>
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:product:edit']">修改</el-button>
+            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:product:remove']">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
-    <el-table v-loading="loading" :data="productList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="商品编号" align="center" prop="productId" />
-      <el-table-column label="商品编码" align="center" prop="productCode" />
-      <el-table-column label="商品名称" align="center" prop="productName" />
-      <el-table-column label="规格" align="center" prop="productSpec" />
-      <el-table-column label="单位" align="center" prop="unitName" />
-      <el-table-column label="分类" align="center" prop="categoryName" />
-      <el-table-column label="品牌" align="center" prop="brandName" />
-      <el-table-column label="成本价" align="center" prop="costPrice" />
-      <el-table-column label="销售价" align="center" prop="salePrice" />
-      <el-table-column label="状态" align="center" prop="status" width="120">
-        <template #default="scope">
-          <el-switch
-            v-model="scope.row.status"
-            active-value="0"
-            inactive-value="1"
-            @change="handleStatusChange(scope.row)"
-          />
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="180" align="center" class-name="small-padding fixed-width">
-        <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:product:edit']">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:product:remove']">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
     <el-dialog :title="title" v-model="open" width="700px" append-to-body>
       <el-form ref="productRef" :model="form" :rules="rules" label-width="100px">
@@ -217,16 +230,105 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 商品经营画像抽屉 -->
+    <el-drawer v-model="profileOpen" title="商品经营画像" size="740px" append-to-body>
+      <div v-loading="profileLoading" class="profile-drawer-body">
+        <template v-if="profileData && profileData.product">
+          <div class="profile-header-card">
+            <div class="profile-header-top">
+              <div>
+                <div class="profile-title">{{ profileData.product.productName }}</div>
+                <div class="profile-subtitle">
+                  编码：{{ profileData.product.productCode || '-' }} · 规格：{{ profileData.product.productSpec || '-' }} · 分类：{{ profileData.product.categoryName || '-' }} · 品牌：{{ profileData.product.brandName || '-' }}
+                </div>
+                <div class="profile-subtitle">
+                  成本价：{{ profileData.product.costPrice === null || profileData.product.costPrice === undefined ? '权限脱敏' : ('¥' + formatMoney(profileData.product.costPrice)) }} · 标准销售价：¥{{ formatMoney(profileData.product.salePrice) }}
+                </div>
+              </div>
+              <el-tag :type="getWarningTagType(profileData.summary?.warningStatus)" effect="dark" size="large">
+                库存：{{ profileData.summary?.warningStatus || '正常' }}
+              </el-tag>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap">
+              <el-button size="small" type="primary" plain icon="Box" @click="handleJumpProductStock(profileData.product)">查看库存台账</el-button>
+              <el-button size="small" type="info" plain icon="Document" @click="handleJumpProductStockLog(profileData.product)">查看库存流水</el-button>
+              <el-button size="small" type="success" plain icon="TrendCharts" @click="handleJumpProductSaleReport(profileData.product)">查看销售明细</el-button>
+            </div>
+          </div>
+
+          <div class="profile-kpi-grid">
+            <div class="profile-kpi-item">
+              <div class="profile-kpi-label">累计审核销售</div>
+              <div class="profile-kpi-value">¥{{ formatMoney(profileData.summary?.totalSaleAmount) }}</div>
+              <div class="profile-kpi-sub">销量 {{ profileData.summary?.totalSaleQty || 0 }}（涉及 {{ profileData.summary?.saleOrderCount || 0 }} 单）</div>
+            </div>
+            <div class="profile-kpi-item">
+              <div class="profile-kpi-label">预估毛利 / 毛利率</div>
+              <div class="profile-kpi-value">
+                {{ profileData.summary?.grossProfitAmount === null || profileData.summary?.grossProfitAmount === undefined ? '权限脱敏' : ('¥' + formatMoney(profileData.summary?.grossProfitAmount)) }}
+              </div>
+              <div class="profile-kpi-sub">
+                {{ profileData.summary?.grossMarginRate === null || profileData.summary?.grossMarginRate === undefined ? '当前角色未授权查看成本毛利' : (`毛利率 ${formatRate(profileData.summary?.grossMarginRate)}% · 成本 ¥${formatMoney(profileData.summary?.estimatedCostAmount)}`) }}
+              </div>
+            </div>
+            <div class="profile-kpi-item">
+              <div class="profile-kpi-label">退货统计</div>
+              <div class="profile-kpi-value">{{ formatRate(profileData.summary?.returnRate) }}%</div>
+              <div class="profile-kpi-sub">退货 {{ profileData.summary?.returnQty || 0 }} 件 · 金额 ¥{{ formatMoney(profileData.summary?.returnAmount) }}</div>
+            </div>
+            <div class="profile-kpi-item">
+              <div class="profile-kpi-label">当前总库存 / 可用</div>
+              <div class="profile-kpi-value">{{ profileData.summary?.totalStockQty || 0 }}</div>
+              <div class="profile-kpi-sub">可用 {{ profileData.summary?.totalAvailableQty || 0 }} · 累计采购 {{ profileData.summary?.totalPurchaseQty || 0 }}</div>
+            </div>
+          </div>
+
+          <div class="profile-section-title">分仓分库位库存分布</div>
+          <el-table :data="profileData.warehouseStockList || []" size="small" border>
+            <el-table-column label="仓库" prop="warehouseName" min-width="130" show-overflow-tooltip />
+            <el-table-column label="库位" prop="locationName" min-width="110" show-overflow-tooltip />
+            <el-table-column label="批次号" prop="batchNo" min-width="110" />
+            <el-table-column label="库存" prop="quantity" align="right" width="80" />
+            <el-table-column label="可用" prop="availableQuantity" align="right" width="80" />
+            <el-table-column label="预警区间" align="center" width="115">
+              <template #default="scope">
+                {{ scope.row.warningMinQty ?? '-' }} ~ {{ scope.row.warningMaxQty ?? '-' }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup name="BusinessProduct">
-import { listProduct, getProduct, addProduct, updateProduct, delProduct, changeProductStatus, importTemplate as downloadImportTemplate } from "@/api/business/product"
+import { listProduct, getProduct, getProductProfile, addProduct, updateProduct, delProduct, changeProductStatus, importTemplate as downloadImportTemplate } from "@/api/business/product"
 import { getToken } from "@/utils/auth"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
+const router = useRouter()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
+
+function handleJumpProductStock(product) {
+  if (!product?.productId) return
+  profileOpen.value = false
+  router.push({ path: "/inventory/stock", query: { productId: String(product.productId) } })
+}
+
+function handleJumpProductStockLog(product) {
+  if (!product?.productId) return
+  profileOpen.value = false
+  router.push({ path: "/inventory/stockLog", query: { productId: String(product.productId) } })
+}
+
+function handleJumpProductSaleReport(product) {
+  if (!product?.productName) return
+  profileOpen.value = false
+  router.push({ path: "/finance/saleReport", query: { productName: product.productName } })
+}
 
 const productList = ref([])
 const open = ref(false)
@@ -237,6 +339,9 @@ const single = ref(true)
 const multiple = ref(true)
 const total = ref(0)
 const title = ref("")
+const profileOpen = ref(false)
+const profileLoading = ref(false)
+const profileData = ref(null)
 
 /*** 商品导入参数 */
 const upload = reactive({
@@ -271,6 +376,36 @@ const data = reactive({
 })
 
 const { queryParams, form, rules } = toRefs(data)
+
+const statusTabItems = [
+  { label: '全部商品', value: '' },
+  { label: '正常在售', value: '0', dot: 'emerald' },
+  { label: '已停用', value: '1', dot: 'slate' }
+]
+
+const productStatItems = computed(() => {
+  const rows = productList.value || []
+  const enabledCount = rows.filter(r => r.status === '0').length
+  const barcodeCount = rows.filter(r => Boolean(r.barCode)).length
+  const avgMargin = rows.length
+    ? rows.reduce((sum, r) => {
+        const s = Number(r.salePrice || 0)
+        const c = Number(r.costPrice || 0)
+        return sum + (s > 0 ? ((s - c) / s) * 100 : 0)
+      }, 0) / rows.length
+    : 0
+  return [
+    { label: '商品档案总数', value: total.value, suffix: '款', hint: '系统全量 SKU 档案', icon: 'Goods', tone: 'indigo' },
+    { label: '本页在售商品', value: enabledCount, suffix: `/ ${rows.length}`, hint: '启用状态可正常开单', icon: 'CircleCheck', tone: 'emerald' },
+    { label: '本页条码覆盖', value: barcodeCount, suffix: '款', hint: '支持 PDA 扫码识别', icon: 'FullScreen', tone: 'blue' },
+    { label: '本页参考毛利率', value: avgMargin.toFixed(1), suffix: '%', hint: '按标准售价与成本估算', icon: 'TrendCharts', tone: 'violet' }
+  ]
+})
+
+function handleQuickStatus(val) {
+  queryParams.value.status = val === '' ? undefined : val
+  handleQuery()
+}
 
 function getList() {
   loading.value = true
@@ -357,10 +492,15 @@ function submitForm() {
   })
 }
 
+// 删除按钮操作，兼容单条删除和批量删除，并在空选择时及时提醒用户。
 function handleDelete(row) {
-  const productIds = row.productId || ids.value
-  proxy.$modal.confirm('是否确认删除商品编号为"' + productIds + '"的数据项？').then(function () {
-    return delProduct(productIds)
+  const productIdList = row?.productId ? [row.productId] : ids.value
+  if (!productIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的商品")
+    return
+  }
+  proxy.$modal.confirm('是否确认删除商品编号为"' + productIdList.join(",") + '"的数据项？').then(function () {
+    return delProduct(productIdList)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")
@@ -416,5 +556,99 @@ function submitFileForm() {
   proxy.$refs["uploadRef"].submit();
 }
 
+function handleViewProfile(row) {
+  if (!row?.productId) {
+    return
+  }
+  profileOpen.value = true
+  profileLoading.value = true
+  profileData.value = null
+  getProductProfile(row.productId).then(response => {
+    profileData.value = response.data || null
+  }).finally(() => {
+    profileLoading.value = false
+  })
+}
+
+function formatMoney(value) {
+  const num = Number(value || 0)
+  return Number.isFinite(num) ? num.toFixed(2) : "0.00"
+}
+
+function formatRate(value) {
+  const num = Number(value || 0)
+  return Number.isFinite(num) ? num.toFixed(2) : "0.00"
+}
+
+function getWarningTagType(status) {
+  if (status === "低于下限" || status === "无库存") return "danger"
+  if (status === "超出上限") return "warning"
+  return "success"
+}
+
 getList()
 </script>
+
+<style scoped lang="scss">
+.profile-drawer-body {
+  padding: 0 4px 16px;
+}
+.profile-header-card {
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--erp-border);
+  background: var(--erp-surface-soft);
+  margin-bottom: 16px;
+}
+.profile-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.profile-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--erp-heading);
+}
+.profile-subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--erp-text-secondary);
+}
+.profile-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.profile-kpi-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--erp-border);
+  background: var(--erp-surface);
+  box-shadow: var(--erp-shadow-xs);
+}
+.profile-kpi-label {
+  font-size: 12px;
+  color: var(--erp-text-secondary);
+}
+.profile-kpi-value {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--erp-heading);
+}
+.profile-kpi-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--erp-text-muted);
+}
+.profile-section-title {
+  margin: 14px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--erp-heading);
+}
+</style>

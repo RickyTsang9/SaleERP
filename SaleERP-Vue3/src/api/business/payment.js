@@ -26,6 +26,15 @@ export function addPayment(data) {
   })
 }
 
+// 多单合并付款核销
+export function batchAddPayment(data) {
+  return request({
+    url: '/business/payment/batch',
+    method: 'post',
+    data: data
+  })
+}
+
 // 修改付款记录
 export function updatePayment(data) {
   return request({
@@ -49,5 +58,14 @@ export function exportPayment(query) {
     url: '/business/payment/export',
     method: 'post',
     params: query
+  })
+}
+
+// 付款冲红作废
+export function voidPayment(paymentId, voidReason) {
+  return request({
+    url: '/business/payment/' + paymentId + '/void',
+    method: 'put',
+    data: { voidReason }
   })
 }

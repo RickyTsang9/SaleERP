@@ -31,16 +31,16 @@ create table sys_dept (
 -- ----------------------------
 -- åå§å-é¨é¨è¡¨æ°æ®
 -- ----------------------------
-insert into sys_dept values(100,  0,   '0',          'è¥ä¾ç§æ',   0, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(101,  100, '0,100',      'æ·±å³æ»å¬å¸', 1, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(102,  100, '0,100',      'é¿æ²åå¬å¸', 2, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(103,  101, '0,100,101',  'ç åé¨é¨',   1, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(104,  101, '0,100,101',  'å¸åºé¨é¨',   2, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(105,  101, '0,100,101',  'æµè¯é¨é¨',   3, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(106,  101, '0,100,101',  'è´¢å¡é¨é¨',   4, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(107,  101, '0,100,101',  'è¿ç»´é¨é¨',   5, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(108,  102, '0,100,102',  'å¸åºé¨é¨',   1, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
-insert into sys_dept values(109,  102, '0,100,102',  'è´¢å¡é¨é¨',   2, 'è¥ä¾', '15888888888', 'ry@qq.com', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(100,  0,   '0',          'SaleERP科技',   0, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(101,  100, '0,100',      '深圳总公司',   1, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(102,  100, '0,100',      '长沙分公司',   2, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(103,  101, '0,100,101',  '研发部门',     1, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(104,  101, '0,100,101',  '市场部门',     2, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(105,  101, '0,100,101',  '测试部门',     3, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(106,  101, '0,100,101',  '财务部门',     4, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(107,  101, '0,100,101',  '运维部门',     5, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(108,  102, '0,100,102',  '市场部门',     1, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
+insert into sys_dept values(109,  102, '0,100,102',  '财务部门',     2, 'SaleERP管理员', '15888888888', 'admin@saleerp.local', '0', '0', 'admin', sysdate(), '', null);
 
 
 -- ----------------------------
@@ -74,8 +74,8 @@ create table sys_user (
 -- ----------------------------
 -- åå§å-ç¨æ·ä¿¡æ¯è¡¨æ°æ®
 -- ----------------------------
-insert into sys_user values(1,  103, 'admin', 'è¥ä¾', '00', 'ry@163.com', '15888888888', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, 'ç®¡çå');
-insert into sys_user values(2,  105, 'ry',    'è¥ä¾', '00', 'ry@qq.com',  '15666666666', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, 'æµè¯å');
+insert into sys_user values(1,  103, 'admin', 'SaleERP管理员', '00', 'admin@saleerp.local',  '15888888888', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, '管理员');
+insert into sys_user values(2,  105, 'ry',    '系统测试员',     '00', 'tester@saleerp.local', '15666666666', '1', '', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), sysdate(), 'admin', sysdate(), '', null, '测试员');
 
 
 -- ----------------------------

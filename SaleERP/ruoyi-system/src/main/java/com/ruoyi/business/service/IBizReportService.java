@@ -57,4 +57,24 @@ public interface IBizReportService
      * @return 资金预测
      */
     public Map<String, Object> getCashFlowForecast(Integer forecastDays);
+
+    /**
+     * 查询统一待办中心数据
+     * @return 统一待办中心数据
+     */
+    public Map<String, Object> getTodoCenterData();
+
+    /**
+     * 查询标准往来对账单明细
+     * @param params 查询参数（reconcileType, targetId, startDate, endDate）
+     * @return 标准往来对账单数据
+     */
+    public Map<String, Object> getReconciliationStatement(Map<String, Object> params);
+
+    /**
+     * 查询商品经营排行分析
+     * @param params 查询参数（sortBy, categoryName, keyword）
+     * @return 商品经营排行列表
+     */
+    public List<Map<String, Object>> selectProductRankingList(Map<String, Object> params);
 }

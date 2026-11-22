@@ -1,80 +1,101 @@
 <template>
-   <div class="app-container">
-      <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-         <el-form-item label="部门名称" prop="deptName">
-            <el-input
-               v-model="queryParams.deptName"
-               placeholder="请输入部门名称"
-               clearable
-               style="width: 200px"
-               @keyup.enter="handleQuery"
-            />
-         </el-form-item>
-         <el-form-item label="状态" prop="status">
-            <el-select v-model="queryParams.status" placeholder="部门状态" clearable style="width: 200px">
-               <el-option
-                  v-for="dict in sys_normal_disable"
-                  :key="dict.value"
-                  :label="dict.label"
-                  :value="dict.value"
-               />
-            </el-select>
-         </el-form-item>
-         <el-form-item>
-            <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-         </el-form-item>
-      </el-form>
-
-      <el-row :gutter="10" class="mb8">
-         <el-col :span="1.5">
-            <el-button
-               type="primary"
-               plain
-               icon="Plus"
-               @click="handleAdd"
-               v-hasPermi="['system:dept:add']"
-            >新增</el-button>
-         </el-col>
-         <el-col :span="1.5">
-            <el-button
-               type="info"
-               plain
-               icon="Sort"
-               @click="toggleExpandAll"
-            >展开/折叠</el-button>
-         </el-col>
-         <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-      </el-row>
-
-      <el-table
-         v-if="refreshTable"
-         v-loading="loading"
-         :data="deptList"
-         row-key="deptId"
-         :default-expand-all="isExpandAll"
-         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+   <div class="app-container erp-page">
+      <erp-page-header
+         eyebrow="系统管理"
+         title="部门管理"
+         subtitle="维护公司组织树形架构、负责人信息及各部门启用状态。"
+         icon="OfficeBuilding"
+         tone="indigo"
       >
-         <el-table-column prop="deptName" label="部门名称" width="260"></el-table-column>
-         <el-table-column prop="orderNum" label="排序" width="200"></el-table-column>
-         <el-table-column prop="status" label="状态" width="100">
-            <template #default="scope">
-               <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
-            </template>
-         </el-table-column>
-         <el-table-column label="创建时间" align="center" prop="createTime" width="200">
-            <template #default="scope">
-               <span>{{ parseTime(scope.row.createTime) }}</span>
-            </template>
-         </el-table-column>
-         <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
-            <template #default="scope">
-               <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:dept:edit']">修改</el-button>
-               <el-button link type="primary" icon="Plus" @click="handleAdd(scope.row)" v-hasPermi="['system:dept:add']">新增</el-button>
-               <el-button v-if="scope.row.parentId != 0" link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:dept:remove']">删除</el-button>
-            </template>
-         </el-table-column>
-      </el-table>
+         <template #actions>
+            <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['system:dept:add']">新增部门</el-button>
+            <el-button icon="Sort" @click="toggleExpandAll">展开/折叠</el-button>
+         </template>
+      </erp-page-header>
+
+      <div class="erp-filter-card" v-show="showSearch">
+         <el-form :model="queryParams" ref="queryRef" :inline="true">
+            <el-form-item label="部门名称" prop="deptName">
+               <el-input
+                  v-model="queryParams.deptName"
+                  placeholder="请输入部门名称"
+                  clearable
+                  style="width: 220px"
+                  @keyup.enter="handleQuery"
+               />
+            </el-form-item>
+            <el-form-item label="状态" prop="status">
+               <el-select v-model="queryParams.status" placeholder="部门状态" clearable style="width: 180px">
+                  <el-option
+                     v-for="dict in sys_normal_disable"
+                     :key="dict.value"
+                     :label="dict.label"
+                     :value="dict.value"
+                  />
+               </el-select>
+            </el-form-item>
+            <el-form-item>
+               <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            </el-form-item>
+         </el-form>
+      </div>
+
+      <div class="erp-table-card">
+         <el-row :gutter="10" class="erp-toolbar-row">
+            <el-col :span="1.5">
+               <el-button
+                  type="primary"
+                  plain
+                  icon="Plus"
+                  @click="handleAdd"
+                  v-hasPermi="['system:dept:add']"
+               >新增</el-button>
+            </el-col>
+            <el-col :span="1.5">
+               <el-button
+                  type="info"
+                  plain
+                  icon="Sort"
+                  @click="toggleExpandAll"
+               >展开/折叠</el-button>
+            </el-col>
+            <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
+         </el-row>
+
+         <el-table
+            v-if="refreshTable"
+            v-loading="loading"
+            :data="deptList"
+            row-key="deptId"
+            :default-expand-all="isExpandAll"
+            :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+         >
+            <el-table-column prop="deptName" label="部门名称" width="260">
+               <template #default="scope">
+                  <span class="erp-cell-title">{{ scope.row.deptName }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column prop="orderNum" label="排序" align="center" width="120"></el-table-column>
+            <el-table-column prop="status" label="状态" align="center" width="100">
+               <template #default="scope">
+                  <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
+               </template>
+            </el-table-column>
+            <el-table-column label="创建时间" align="center" prop="createTime" width="200">
+               <template #default="scope">
+                  <span>{{ parseTime(scope.row.createTime) }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+               <template #default="scope">
+                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:dept:edit']">修改</el-button>
+                  <el-button link type="primary" icon="Plus" @click="handleAdd(scope.row)" v-hasPermi="['system:dept:add']">新增</el-button>
+                  <el-button v-if="scope.row.parentId != 0" link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:dept:remove']">删除</el-button>
+               </template>
+            </el-table-column>
+         </el-table>
+      </div>
 
       <!-- 添加或修改部门对话框 -->
       <el-dialog :title="title" v-model="open" width="600px" append-to-body>
@@ -272,6 +293,10 @@ function submitForm() {
 
 /** 删除按钮操作 */
 function handleDelete(row) {
+  if (!row?.deptId) {
+    proxy.$modal.msgWarning("请选择要删除的部门")
+    return
+  }
   proxy.$modal.confirm('是否确认删除名称为"' + row.deptName + '"的数据项?').then(function() {
     return delDept(row.deptId)
   }).then(() => {

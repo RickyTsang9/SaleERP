@@ -22,4 +22,8 @@ public interface WmsPurchaseReturnMapper
     public int refreshTotalByPurchaseReturnId(Long purchaseReturnId);
 
     public int updateWmsPurchaseReturnStatus(Long purchaseReturnId, String oldStatus, String newStatus, String auditBy, String updateBy);
+
+    public int rejectWmsPurchaseReturnStatus(@org.apache.ibatis.annotations.Param("purchaseReturnId") Long purchaseReturnId,
+                                             @org.apache.ibatis.annotations.Param("rejectReason") String rejectReason,
+                                             @org.apache.ibatis.annotations.Param("updateBy") String updateBy);
 }

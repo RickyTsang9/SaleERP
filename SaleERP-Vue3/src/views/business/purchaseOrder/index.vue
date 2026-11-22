@@ -1,125 +1,152 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="90px">
-      <el-form-item label="采购单号" prop="orderNo">
-        <el-input v-model="queryParams.orderNo" placeholder="请输入采购单号" clearable @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="供应商" prop="supplierId">
-        <el-select
-          v-model="queryParams.supplierId"
-          placeholder="请选择供应商"
-          clearable
-          filterable
-          remote
-          reserve-keyword
-          remote-show-suffix
-          :remote-method="loadSupplierOptionList"
-          :loading="supplierListLoading"
-        >
-          <el-option v-for="supplier in supplierSelectOptionList" :key="supplier.supplierId" :label="supplier.supplierName" :value="supplier.supplierId" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
-          <el-option
-            v-for="purchaseOrderStatusOption in purchaseOrderStatusOptionList"
-            :key="purchaseOrderStatusOption.value"
-            :label="purchaseOrderStatusOption.label"
-            :value="purchaseOrderStatusOption.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="采购供应链"
+      title="采购订单管理"
+      subtitle="全流程跟踪采购制单、审批流转、分批收货入库与供应商应付账款生成。"
+      icon="ShoppingBag"
+      tone="emerald"
+      :badge="`共 ${total} 笔采购单`"
+    >
+      <template #actions>
+        <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:purchaseOrder:export']">导出</el-button>
+        <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:purchaseOrder:add']">新建采购单</el-button>
+      </template>
+    </erp-page-header>
 
-    <el-alert
-      title="采购订单保存后直接进入待审核，审核时系统自动生成应付记录。待审核订单可维护，已审核、部分入库、已完成和已作废订单仅支持查看。"
-      type="info"
-      :closable="false"
-      class="mb8"
-    />
+    <erp-stat-strip :items="purchaseOrderStatItems" :columns="4" />
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['business:purchaseOrder:add']">新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="OfficeBuilding" :disabled="ids.length !== 1" @click="handleViewSupplier" v-hasPermi="['business:supplier:list']">供应商资料</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:purchaseOrder:export']">导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="82px">
+        <el-form-item label="采购单号" prop="orderNo">
+          <el-input v-model="queryParams.orderNo" placeholder="请输入采购单号" clearable style="width: 195px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="供应商" prop="supplierId">
+          <el-select
+            v-model="queryParams.supplierId"
+            placeholder="请选择供应商"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            remote-show-suffix
+            :remote-method="loadSupplierOptionList"
+            :loading="supplierListLoading"
+            style="width: 210px"
+          >
+            <el-option v-for="supplier in supplierSelectOptionList" :key="supplier.supplierId" :label="supplier.supplierName" :value="supplier.supplierId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="queryParams.status" placeholder="全部状态" clearable style="width: 145px">
+            <el-option
+              v-for="purchaseOrderStatusOption in purchaseOrderStatusOptionList"
+              :key="purchaseOrderStatusOption.value"
+              :label="purchaseOrderStatusOption.label"
+              :value="purchaseOrderStatusOption.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
 
-    <el-table v-loading="loading" :data="purchaseOrderList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="采购单号" align="center" prop="orderNo" min-width="180" />
-      <el-table-column label="供应商" align="center" prop="supplierId" min-width="180">
-        <template #default="scope">
-          <span>{{ getSupplierName(scope.row.supplierId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="采购日期" align="center" prop="purchaseDate" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.purchaseDate, '{y}-{m}-{d}') }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="采购数量" align="center" prop="totalQuantity" width="120">
-        <template #default="scope">
-          <span>{{ formatPurchaseQuantity(scope.row.totalQuantity) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="已入库" align="center" prop="inboundQuantity" width="120">
-        <template #default="scope">
-          <span>{{ formatPurchaseQuantity(scope.row.inboundQuantity) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="待入库" align="center" prop="remainQuantity" width="120">
-        <template #default="scope">
-          <span>{{ formatPurchaseQuantity(scope.row.remainQuantity) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="总金额" align="center" prop="totalAmount" />
-      <el-table-column label="状态" align="center" prop="status">
-        <template #default="scope">
-          <el-tag :type="getPurchaseOrderStatusType(scope.row.status)">{{ getPurchaseOrderStatusName(scope.row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="500">
-        <template #default="scope">
-          <el-button v-if="isPendingPurchaseOrderStatus(scope.row.status)" link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
-          <el-button v-if="isPendingPurchaseOrderStatus(scope.row.status)" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
-          <el-button link type="primary" icon="OfficeBuilding" @click="handleViewSupplier(scope.row)" v-hasPermi="['business:supplier:list']">供应商</el-button>
-          <el-button v-if="canViewLinkedPayable(scope.row.status)" link type="primary" icon="Money" @click="handleViewPayable(scope.row)" v-hasPermi="['business:payable:list']">应付</el-button>
-          <el-button v-if="canViewLinkedInbound(scope.row.status)" link type="primary" icon="Box" @click="handleViewInbound(scope.row)" v-hasPermi="['business:inbound:list']">入库</el-button>
-          <el-button v-if="canCancelPurchaseOrderStatus(scope.row.status)" link type="warning" icon="Close" @click="handleCancel(scope.row)" v-hasPermi="['business:purchaseOrder:edit']">作废</el-button>
-          <el-button v-if="isPendingPurchaseOrderStatus(scope.row.status)" link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
-          <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
-          <el-button link type="primary" icon="Printer" @click="handlePrint(scope.row)">打印</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs :model-value="queryParams.status ?? ''" :items="purchaseStatusTabItems" @change="handleQuickStatus" />
+        </div>
+        <div class="erp-toolbar-right">
+          <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
+          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
+          <el-button type="primary" plain icon="OfficeBuilding" :disabled="ids.length !== 1" @click="handleViewSupplier" v-hasPermi="['business:supplier:list']">供应商资料</el-button>
+          <el-button type="primary" plain icon="Connection" :disabled="ids.length !== 1" @click="handlePurchaseOrderChain" v-hasPermi="['business:purchaseOrder:query']">链路追踪</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        </div>
+      </div>
 
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+      <el-table v-loading="loading" :data="purchaseOrderList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="采购单号" align="center" prop="orderNo" min-width="165">
+          <template #default="scope">
+            <span class="erp-code-chip">{{ scope.row.orderNo }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="供应商" align="left" prop="supplierId" min-width="180" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.supplierName || getSupplierName(scope.row.supplierId) }}</div>
+            <div class="erp-cell-sub">采购日期：{{ parseTime(scope.row.purchaseDate, '{y}-{m}-{d}') || '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="采购数量" align="right" prop="totalQuantity" width="96">
+          <template #default="scope">
+            <span>{{ formatPurchaseQuantity(scope.row.totalQuantity) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="已入库" align="right" prop="inboundQuantity" width="90">
+          <template #default="scope">
+            <span class="erp-amount is-positive">{{ formatPurchaseQuantity(scope.row.inboundQuantity) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="待入库" align="right" prop="remainQuantity" width="90">
+          <template #default="scope">
+            <span :class="{ 'erp-amount is-warning': Number(scope.row.remainQuantity || 0) > 0 }">
+              {{ formatPurchaseQuantity(scope.row.remainQuantity) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="采购总额" align="right" prop="totalAmount" min-width="118">
+          <template #default="scope">
+            <span class="erp-amount is-primary">¥{{ Number(scope.row.totalAmount || 0).toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="收票进度" align="center" width="108">
+          <template #default="scope">
+            <el-tag :type="getInvoiceStatusType(scope.row.invoiceStatus)" effect="plain" size="small">
+              {{ getInvoiceStatusLabel(scope.row.invoiceStatus, 'purchase') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" align="center" prop="status" width="115">
+          <template #default="scope">
+            <el-tooltip v-if="scope.row.status === 'draft' && scope.row.rejectReason" :content="`驳回原因：${scope.row.rejectReason}`" placement="top">
+              <el-tag type="danger" effect="light">已驳回待改</el-tag>
+            </el-tooltip>
+            <el-tag v-else :type="getPurchaseOrderStatusType(scope.row.status)" effect="light">{{ getPurchaseOrderStatusName(scope.row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" fixed="right" width="295">
+          <template #default="scope">
+            <el-button v-if="isEditablePurchaseOrderStatus(scope.row.status)" link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
+            <el-button v-if="scope.row.status === 'draft'" link type="primary" icon="Upload" @click="handleSubmitOrder(scope.row)" v-hasPermi="['business:purchaseOrder:edit']">提交</el-button>
+            <el-button v-if="scope.row.status === '0'" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
+            <el-button v-if="scope.row.status === '0'" link type="warning" icon="RefreshLeft" @click="handleRejectOrder(scope.row)" v-hasPermi="['business:purchaseOrder:audit']">驳回</el-button>
+            <el-button v-if="scope.row.status === '1' && Number(scope.row.inboundQuantity || 0) <= 0" link type="warning" icon="RefreshLeft" @click="handleReverseAuditOrder(scope.row)" v-hasPermi="['business:purchaseOrder:audit']">反审核</el-button>
+            <el-button v-if="scope.row.status === '2'" link type="warning" icon="Finished" @click="handleForceCloseOrder(scope.row)" v-hasPermi="['business:purchaseOrder:audit', 'business:purchaseOrder:edit']">短装结案</el-button>
+            <el-button link type="primary" icon="OfficeBuilding" @click="handleViewSupplier(scope.row)" v-hasPermi="['business:supplier:list']">供应商</el-button>
+            <el-button link type="primary" icon="Connection" @click="handlePurchaseOrderChain(scope.row)" v-hasPermi="['business:purchaseOrder:query']">链路</el-button>
+            <el-button v-if="canViewLinkedPayable(scope.row.status)" link type="primary" icon="Money" @click="handleViewPayable(scope.row)" v-hasPermi="['business:payable:list']">应付</el-button>
+            <el-button v-if="canViewLinkedInbound(scope.row.status)" link type="primary" icon="Box" @click="handleViewInbound(scope.row)" v-hasPermi="['business:inbound:list']">入库</el-button>
+            <el-button v-if="canCancelPurchaseOrderStatus(scope.row.status)" link type="warning" icon="Close" @click="handleCancel(scope.row)" v-hasPermi="['business:purchaseOrder:edit']">作废</el-button>
+            <el-button v-if="isEditablePurchaseOrderStatus(scope.row.status)" link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
+            <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
+            <el-button link type="primary" icon="Printer" @click="handlePrint(scope.row)">打印</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
     <el-dialog :title="title" v-model="open" width="860px" append-to-body>
       <el-alert
@@ -299,11 +326,158 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog title="采购订单链路追踪" v-model="purchaseOrderChainOpen" width="1040px" append-to-body>
+      <el-descriptions v-if="purchaseOrderChainData.purchaseOrder" :column="4" border class="mb8">
+        <el-descriptions-item label="采购单号">{{ purchaseOrderChainData.purchaseOrder.orderNo }}</el-descriptions-item>
+        <el-descriptions-item label="供应商">{{ getSupplierName(purchaseOrderChainData.purchaseOrder.supplierId) }}</el-descriptions-item>
+        <el-descriptions-item label="订单状态">{{ getPurchaseOrderStatusName(purchaseOrderChainData.purchaseOrder.status) }}</el-descriptions-item>
+        <el-descriptions-item label="采购日期">{{ parseTime(purchaseOrderChainData.purchaseOrder.purchaseDate, '{y}-{m}-{d}') }}</el-descriptions-item>
+        <el-descriptions-item label="采购数量">{{ formatPurchaseQuantity(purchaseOrderChainData.purchaseOrder.totalQuantity) }}</el-descriptions-item>
+        <el-descriptions-item label="已入库">{{ formatPurchaseQuantity(purchaseOrderChainData.purchaseOrder.inboundQuantity) }}</el-descriptions-item>
+        <el-descriptions-item label="待入库">{{ formatPurchaseQuantity(purchaseOrderChainData.purchaseOrder.remainQuantity) }}</el-descriptions-item>
+        <el-descriptions-item label="总金额">{{ purchaseOrderChainData.purchaseOrder.totalAmount || "0.00" }}</el-descriptions-item>
+      </el-descriptions>
+      <el-steps :active="getActivePurchaseOrderChainStep()" finish-status="success" process-status="process" align-center class="mb8">
+        <el-step v-for="chainNode in purchaseOrderChainData.chainNodeList" :key="chainNode.nodeKey" :title="chainNode.nodeName" :description="chainNode.nodeSummary || chainNode.nodeStatus" />
+      </el-steps>
+      <el-tabs v-model="purchaseOrderChainActiveTab">
+        <el-tab-pane label="入库单" name="inbound">
+          <el-table v-loading="purchaseOrderChainLoading" :data="purchaseOrderChainData.inboundList">
+            <el-table-column label="入库单号" align="center" prop="inboundNo" min-width="160" />
+            <el-table-column label="入库类型" align="center" prop="inboundType" width="120">
+              <template #default="scope">
+                <span>{{ getChainInboundTypeLabel(scope.row.inboundType) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="总数量" align="center" prop="totalQty" width="120" />
+            <el-table-column label="总金额" align="center" prop="totalAmount" width="120" />
+            <el-table-column label="状态" align="center" prop="status" width="120">
+              <template #default="scope">
+                <el-tag :type="getChainInboundStatusType(scope.row.status)">{{ getChainInboundStatusLabel(scope.row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="100">
+              <template #default>
+                <el-button link type="primary" @click="handleViewInbound(purchaseOrderChainData.purchaseOrder)" v-hasPermi="['business:inbound:list']">去查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="应付台账" name="payable">
+          <el-table v-loading="purchaseOrderChainLoading" :data="purchaseOrderChainData.payableList">
+            <el-table-column label="应付单号" align="center" prop="payableId" width="120">
+              <template #default="scope">
+                <span>{{ 'AP' + String(scope.row.payableId || '').padStart(5, '0') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="应付金额" align="center" prop="amountDue" width="120" />
+            <el-table-column label="已付金额" align="center" prop="amountPaid" width="120" />
+            <el-table-column label="未付金额" align="center" prop="remainAmount" width="120" />
+            <el-table-column label="状态" align="center" prop="status" width="120">
+              <template #default="scope">
+                <el-tag :type="getChainPayableStatusType(scope.row.status)">{{ getChainPayableStatusLabel(scope.row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="应付日期" align="center" prop="dueDate" width="150">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.dueDate, '{y}-{m}-{d}') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="100">
+              <template #default>
+                <el-button link type="primary" @click="handleViewPayable(purchaseOrderChainData.purchaseOrder)" v-hasPermi="['business:payable:list']">去查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="付款流水" name="payment">
+          <el-table v-loading="purchaseOrderChainLoading" :data="purchaseOrderChainData.paymentList">
+            <el-table-column label="付款单号" align="center" prop="paymentId" width="120">
+              <template #default="scope">
+                <span>{{ 'PM' + String(scope.row.paymentId || '').padStart(5, '0') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="应付单号" align="center" prop="payableId" width="120">
+              <template #default="scope">
+                <span>{{ scope.row.payableId ? ('AP' + String(scope.row.payableId).padStart(5, '0')) : '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="付款金额" align="center" prop="amount" width="120" />
+            <el-table-column label="付款方式" align="center" prop="paymentMethod" width="120">
+              <template #default="scope">
+                <span>{{ getChainPaymentMethodLabel(scope.row.paymentMethod) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="付款时间" align="center" prop="paymentTime" width="160">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.paymentTime, '{y}-{m}-{d}') }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="采购退货" name="purchaseReturn">
+          <el-table v-loading="purchaseOrderChainLoading" :data="purchaseOrderChainData.purchaseReturnList || []">
+            <el-table-column label="退货单号" align="center" prop="returnNo" min-width="160" />
+            <el-table-column label="总数量" align="center" prop="totalQty" width="110" />
+            <el-table-column label="总金额" align="center" prop="totalAmount" width="120" />
+            <el-table-column label="状态" align="center" prop="status" width="110">
+              <template #default="scope">
+                <el-tag size="small" :type="scope.row.status === 'audited' ? 'success' : (scope.row.status === 'submitted' ? 'warning' : 'info')">
+                  {{ scope.row.status === 'audited' ? '已审核' : (scope.row.status === 'submitted' ? '待审核' : (scope.row.status === 'cancelled' ? '已作废' : '草稿')) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="创建时间" align="center" prop="createTime" width="150">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="90">
+              <template #default>
+                <el-button link type="primary" @click="proxy.$router.push({ path: '/purchase/purchaseReturn' })">去查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="进项发票" name="invoice">
+          <el-table v-loading="purchaseOrderChainLoading" :data="purchaseOrderChainData.invoiceList || []">
+            <el-table-column label="发票号码" align="center" prop="invoiceNo" min-width="170" />
+            <el-table-column label="票种" align="center" prop="invoiceType" width="110">
+              <template #default="scope">
+                <span>{{ scope.row.invoiceType === 'special' ? '增值税专票' : (scope.row.invoiceType === 'normal' ? '增值税普票' : '全电数电票') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="价税合计" align="right" prop="totalAmount" width="115" />
+            <el-table-column label="税额" align="right" prop="taxAmount" width="100" />
+            <el-table-column label="开票日期" align="center" prop="invoiceDate" width="120">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.invoiceDate, '{y}-{m}-{d}') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" align="center" prop="status" width="100">
+              <template #default="scope">
+                <el-tag size="small" :type="scope.row.status === 'red_void' ? 'danger' : (scope.row.status === 'draft' ? 'info' : 'success')">
+                  {{ scope.row.status === 'red_void' ? '已红冲' : (scope.row.status === 'draft' ? '草稿' : '正常有效') }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="90">
+              <template #default>
+                <el-button link type="primary" @click="proxy.$router.push({ path: '/finance/invoice', query: { invoiceDirection: 'purchase' } })">去查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+    </el-dialog>
+    <document-print-dialog ref="printDialogRef" />
   </div>
 </template>
 
 <script setup name="BusinessPurchaseOrder">
-import { listPurchaseOrder, getPurchaseOrder, delPurchaseOrder, addPurchaseOrder, updatePurchaseOrder, auditPurchaseOrder, cancelPurchaseOrder } from "@/api/business/purchaseOrder"
+import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
+import { listPurchaseOrder, getPurchaseOrder, delPurchaseOrder, addPurchaseOrder, updatePurchaseOrder, submitPurchaseOrder, auditPurchaseOrder, rejectPurchaseOrder, reverseAuditPurchaseOrder, forceClosePurchaseOrder, cancelPurchaseOrder, getPurchaseOrderChain } from "@/api/business/purchaseOrder"
 import { listSupplier, getSupplier } from "@/api/business/supplier"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
@@ -322,12 +496,24 @@ const total = ref(0)
 const title = ref("")
 const isView = ref(false)
 const printOpen = ref(false)
+const printDialogRef = ref(null)
+const purchaseOrderChainOpen = ref(false)
+const purchaseOrderChainLoading = ref(false)
+const purchaseOrderChainActiveTab = ref("inbound")
+const purchaseOrderChainData = ref({
+  purchaseOrder: undefined,
+  chainNodeList: [],
+  inboundList: [],
+  payableList: [],
+  paymentList: []
+})
 const supplierList = ref([])
 const productList = ref([])
 const supplierListLoading = ref(false)
 const productListLoading = ref(false)
 
 const purchaseOrderStatusOptionList = [
+  { label: "草稿", value: "draft", type: "info" },
   { label: "待审核", value: "0", type: "warning" },
   { label: "已审核", value: "1", type: "success" },
   { label: "部分入库", value: "2", type: "primary" },
@@ -353,11 +539,39 @@ const data = reactive({
 
 const { queryParams, form, rules } = toRefs(data)
 
+const purchaseStatusTabItems = [
+  { label: "全部", value: "" },
+  { label: "草稿", value: "draft", dot: "slate" },
+  { label: "待审核", value: "0", dot: "amber" },
+  { label: "已审核", value: "1", dot: "emerald" },
+  { label: "部分入库", value: "2", dot: "blue" },
+  { label: "已完成", value: "3", dot: "indigo" },
+  { label: "已作废", value: "4", dot: "rose" }
+]
+
+const purchaseOrderStatItems = computed(() => {
+  const rows = purchaseOrderList.value || []
+  const pendingAudit = rows.filter(r => r.status === "0").length
+  const receiving = rows.filter(r => r.status === "1" || r.status === "2").length
+  const pageAmount = rows.reduce((s, r) => s + Number(r.totalAmount || 0), 0)
+  return [
+    { label: "采购单总数", value: total.value, suffix: "单", hint: "匹配当前筛选的全部订单", icon: "ShoppingBag", tone: "emerald" },
+    { label: "本页待审核", value: pendingAudit, suffix: "单", hint: "审核后自动生成应付账款", icon: "Stamp", tone: "amber" },
+    { label: "本页待/部分入库", value: receiving, suffix: "单", hint: "可下推采购入库作业", icon: "Box", tone: "blue" },
+    { label: "本页采购总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "当前页单据金额合计", icon: "Money", tone: "indigo" }
+  ]
+})
+
+function handleQuickStatus(val) {
+  queryParams.value.status = val === "" ? undefined : val
+  handleQuery()
+}
+
 const supplierSelectOptionList = computed(() => buildSupplierSelectOptionList())
 const productSelectOptionList = computed(() => buildProductSelectOptionList())
-const canUpdateSelected = computed(() => ids.value.length === 1 && purchaseOrderList.value.some(purchaseOrder => purchaseOrder.purchaseOrderId === ids.value[0] && isPendingPurchaseOrderStatus(purchaseOrder.status)))
+const canUpdateSelected = computed(() => ids.value.length === 1 && purchaseOrderList.value.some(purchaseOrder => purchaseOrder.purchaseOrderId === ids.value[0] && isEditablePurchaseOrderStatus(purchaseOrder.status)))
 const canAuditSelected = computed(() => ids.value.length === 1 && purchaseOrderList.value.some(purchaseOrder => purchaseOrder.purchaseOrderId === ids.value[0] && isPendingPurchaseOrderStatus(purchaseOrder.status)))
-const canDeleteSelected = computed(() => ids.value.length > 0 && purchaseOrderList.value.filter(purchaseOrder => ids.value.includes(purchaseOrder.purchaseOrderId)).every(purchaseOrder => isPendingPurchaseOrderStatus(purchaseOrder.status)))
+const canDeleteSelected = computed(() => ids.value.length > 0 && purchaseOrderList.value.filter(purchaseOrder => ids.value.includes(purchaseOrder.purchaseOrderId)).every(purchaseOrder => isEditablePurchaseOrderStatus(purchaseOrder.status)))
 
 // 从路由参数恢复筛选条件，方便首页和其他业务页跳转后直接定位采购订单。
 function initializeQueryParamsFromRoute() {
@@ -453,14 +667,18 @@ async function ensureProductOptionLoaded(productIdList) {
   }
 }
 
-// 批量补齐采购订单主单相关引用数据，保证列表和弹窗优先展示名称。
+// 批量补齐采购订单主单相关引用数据，优先复用后端关联字段，消除冗余 N+1 查询。
 async function ensurePurchaseOrderReferenceOptionsLoaded(targetPurchaseOrderList = []) {
-  const supplierIdList = [
-    queryParams.value.supplierId,
-    form.value.supplierId,
-    ...targetPurchaseOrderList.map(purchaseOrder => purchaseOrder.supplierId)
-  ]
-  await ensureSupplierOptionLoaded(supplierIdList)
+  const missingSupplierIds = [queryParams.value.supplierId, form.value.supplierId]
+  ;(targetPurchaseOrderList || []).forEach(purchaseOrder => {
+    if (!purchaseOrder) return
+    if (purchaseOrder.supplierId != null && purchaseOrder.supplierName) {
+      appendUniqueSelectOption(supplierList.value, { supplierId: purchaseOrder.supplierId, supplierName: purchaseOrder.supplierName }, "supplierId")
+    } else if (purchaseOrder.supplierId != null) {
+      missingSupplierIds.push(purchaseOrder.supplierId)
+    }
+  })
+  await ensureSupplierOptionLoaded(missingSupplierIds)
 }
 
 // 批量补齐采购订单明细相关引用数据，保证商品名称回显稳定。
@@ -520,14 +738,42 @@ function getPurchaseOrderStatusType(statusValue) {
   return purchaseOrderStatusOption?.type || "info"
 }
 
+// 返回采购订单链路当前完成到第几个节点，便于流程条呈现真实进展。
+function getActivePurchaseOrderChainStep() {
+  const chainNodeList = purchaseOrderChainData.value.chainNodeList || []
+  let activeStepValue = 0
+  chainNodeList.forEach((chainNode, chainNodeIndex) => {
+    if (chainNode.nodeStatus && chainNode.nodeStatus !== "未生成") {
+      activeStepValue = chainNodeIndex + 1
+    }
+  })
+  return activeStepValue
+}
+
 // 判断采购订单是否仍为待审核状态。
 function isPendingPurchaseOrderStatus(statusValue) {
   return statusValue === "0"
 }
 
-// 判断采购订单当前是否允许作废。
+function getInvoiceStatusLabel(statusVal, dir) {
+  if (statusVal === "invoiced") return dir === "purchase" ? "已收票" : "已开票"
+  if (statusVal === "partial") return dir === "purchase" ? "部分收票" : "部分开票"
+  return dir === "purchase" ? "未收票" : "未开票"
+}
+
+function getInvoiceStatusType(statusVal) {
+  if (statusVal === "invoiced") return "success"
+  if (statusVal === "partial") return "warning"
+  return "info"
+}
+
+function isEditablePurchaseOrderStatus(statusValue) {
+  return statusValue === "draft"
+}
+
+// 判断采购订单当前是否允许作废（部分入库需走短装结案，不再直接作废）。
 function canCancelPurchaseOrderStatus(statusValue) {
-  return statusValue === "0" || statusValue === "2"
+  return statusValue === "draft" || statusValue === "0" || statusValue === "1"
 }
 
 // 判断当前采购订单是否已经生成应付，方便用户快速跳回应付台账。
@@ -669,17 +915,64 @@ async function handleView(row) {
 
 // 打开采购订单打印预览，并提前补齐供应商和商品名称。
 async function handlePrint(row) {
-  reset()
-  const purchaseOrderId = row.purchaseOrderId
-  const response = await getPurchaseOrder(purchaseOrderId)
-  form.value = response.data
-  wmsPurchaseOrderItemList.value = response.data.wmsPurchaseOrderItemList || []
-  calculateTotal()
+  const response = await getPurchaseOrder(row.purchaseOrderId)
+  const po = response.data || row
+  const itemList = po.wmsPurchaseOrderItemList || []
   await Promise.all([
-    ensurePurchaseOrderReferenceOptionsLoaded([form.value]),
-    ensurePurchaseOrderItemReferenceOptionsLoaded(wmsPurchaseOrderItemList.value)
+    ensurePurchaseOrderReferenceOptionsLoaded([po]),
+    ensurePurchaseOrderItemReferenceOptionsLoaded(itemList)
   ])
-  printOpen.value = true
+  printDialogRef.value?.openPrint({
+    docType: "purchase_order",
+    title: "采购订单合同联",
+    docNo: po.orderNo,
+    metaFields: [
+      { label: "采购单号", value: po.orderNo },
+      { label: "供应商", value: po.supplierName || getSupplierName(po.supplierId) },
+      { label: "采购日期", value: parseTime(po.purchaseDate, "{y}-{m}-{d}") },
+      { label: "单据状态", value: getPurchaseOrderStatusName(po.status) },
+      { label: "制单人", value: po.createBy || "admin" },
+      { label: "已入库数", value: po.inboundQuantity ?? 0 }
+    ],
+    columns: [
+      { label: "商品名称", prop: "productName" },
+      { label: "采购数量", prop: "quantity", width: "100px", align: "right" },
+      { label: "含税单价", prop: "price", width: "115px", align: "right", type: "money", isPrice: true },
+      { label: "金额小计", prop: "amount", width: "125px", align: "right", type: "money", isPrice: true }
+    ],
+    items: itemList.map(it => ({
+      productName: getProductName(it.productId),
+      quantity: it.quantity,
+      price: it.price,
+      amount: it.amount
+    })),
+    totalQty: itemList.reduce((s, r) => s + Number(r.quantity || 0), 0),
+    totalAmount: po.totalAmount,
+    remark: po.remark
+  })
+}
+
+// 打开采购订单链路追踪弹窗，统一查看采购、入库、应付和付款环节。
+function handlePurchaseOrderChain(row) {
+  const targetPurchaseOrder = getTargetPurchaseOrder(row, "查看链路追踪")
+  if (!targetPurchaseOrder) {
+    return
+  }
+  purchaseOrderChainOpen.value = true
+  purchaseOrderChainLoading.value = true
+  purchaseOrderChainActiveTab.value = "inbound"
+  getPurchaseOrderChain(targetPurchaseOrder.purchaseOrderId).then(response => {
+    purchaseOrderChainData.value = {
+      purchaseOrder: response.data?.purchaseOrder || {},
+      chainNodeList: response.data?.chainNodeList || [],
+      inboundList: response.data?.inboundList || [],
+      payableList: response.data?.payableList || [],
+      paymentList: response.data?.paymentList || []
+    }
+    ensurePurchaseOrderReferenceOptionsLoaded([purchaseOrderChainData.value.purchaseOrder])
+  }).finally(() => {
+    purchaseOrderChainLoading.value = false
+  })
 }
 
 // 跳转到应付台账，并按采购订单精准定位对应台账记录。
@@ -700,11 +993,52 @@ function handleViewSupplier(row) {
     return
   }
   proxy.$router.push({
-    path: "/purchase/supplier",
+    path: "/base/supplier",
     query: {
       supplierId: purchaseOrderRow.supplierId
     }
   })
+}
+
+function getChainInboundTypeLabel(inboundType) {
+  if (inboundType === "purchase") return "采购入库"
+  if (inboundType === "other") return "其他入库"
+  return inboundType || "采购入库"
+}
+
+function getChainInboundStatusLabel(statusValue) {
+  if (statusValue === "draft") return "草稿"
+  if (statusValue === "submitted") return "已提交"
+  if (statusValue === "audited") return "已审核"
+  if (statusValue === "cancelled") return "已作废"
+  return statusValue || "-"
+}
+
+function getChainInboundStatusType(statusValue) {
+  if (statusValue === "audited") return "success"
+  if (statusValue === "submitted") return "warning"
+  if (statusValue === "cancelled") return "danger"
+  return "info"
+}
+
+function getChainPayableStatusLabel(statusValue) {
+  if (statusValue === "2" || statusValue === "paid") return "已付款"
+  if (statusValue === "1" || statusValue === "partial") return "部分付款"
+  return "未付款"
+}
+
+function getChainPayableStatusType(statusValue) {
+  if (statusValue === "2" || statusValue === "paid") return "success"
+  if (statusValue === "1" || statusValue === "partial") return "warning"
+  return "danger"
+}
+
+function getChainPaymentMethodLabel(paymentMethod) {
+  if (paymentMethod === "bank_transfer" || paymentMethod === "bank") return "银行转账"
+  if (paymentMethod === "cash") return "现金"
+  if (paymentMethod === "wechat") return "微信"
+  if (paymentMethod === "alipay") return "支付宝"
+  return paymentMethod || "-"
 }
 
 // 跳转到采购入库页，并按供应商和采购入库类型缩小查询范围。
@@ -813,20 +1147,34 @@ function submitForm() {
   })
 }
 
-// 删除采购订单，顶部批量和行内单个删除都走同一逻辑。
+// 删除采购订单，顶部批量和行内单个删除都走同一逻辑，并在空选择时及时提醒用户。
 function handleDelete(row) {
-  const purchaseOrderIds = row?.purchaseOrderId || ids.value
-  proxy.$modal.confirm(`是否确认删除采购订单编号为"${Array.isArray(purchaseOrderIds) ? purchaseOrderIds.join("、") : purchaseOrderIds}"的数据项？`).then(function () {
-    return delPurchaseOrder(purchaseOrderIds)
+  const purchaseOrderIdList = row?.purchaseOrderId ? [row.purchaseOrderId] : ids.value
+  if (!purchaseOrderIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的采购订单")
+    return
+  }
+  proxy.$modal.confirm(`是否确认删除采购订单编号为"${purchaseOrderIdList.join("、")}"的数据项？`).then(function () {
+    return delPurchaseOrder(purchaseOrderIdList)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")
   }).catch(() => {})
 }
 
+// 返回当前要操作的采购订单，兼容工具栏和行内入口，未选中时先提示用户。
+function getTargetPurchaseOrder(row, actionText) {
+  const targetPurchaseOrder = row || purchaseOrderList.value.find(purchaseOrder => purchaseOrder.purchaseOrderId === ids.value[0])
+  if (!targetPurchaseOrder) {
+    proxy.$modal.msgWarning(`请选择要${actionText}的采购订单`)
+    return undefined
+  }
+  return targetPurchaseOrder
+}
+
 // 审核采购订单，审核通过后由系统自动生成应付记录。
 function handleAudit(row) {
-  const targetPurchaseOrder = row || purchaseOrderList.value.find(purchaseOrder => purchaseOrder.purchaseOrderId === ids.value[0])
+  const targetPurchaseOrder = getTargetPurchaseOrder(row, "审核")
   if (!targetPurchaseOrder) {
     return
   }
@@ -838,10 +1186,50 @@ function handleAudit(row) {
   }).catch(() => {})
 }
 
+function handleSubmitOrder(row) {
+  proxy.$modal.confirm(`确认提交采购订单"${row.orderNo}"进入待审核？`).then(() => {
+    return submitPurchaseOrder(row.purchaseOrderId)
+  }).then(() => {
+    getList()
+    proxy.$modal.msgSuccess("提交成功")
+  }).catch(() => {})
+}
+
+function handleRejectOrder(row) {
+  proxy.$modal.prompt(`确认驳回采购订单"${row.orderNo}"？请输入驳回修改原因：`).then(({ value }) => {
+    return rejectPurchaseOrder(row.purchaseOrderId, value || "采购价格或数量待复核")
+  }).then(() => {
+    getList()
+    proxy.$modal.msgSuccess("采购订单已驳回至草稿")
+  }).catch(() => {})
+}
+
+function handleReverseAuditOrder(row) {
+  proxy.$modal.confirm(`确认对采购订单"${row.orderNo}"执行反审核？反审核后将删除尚未付款的应付台账并将订单退回草稿。`).then(() => {
+    return reverseAuditPurchaseOrder(row.purchaseOrderId)
+  }).then(() => {
+    getList()
+    proxy.$modal.msgSuccess("采购订单已反审核回退至草稿")
+  }).catch(() => {})
+}
+
+function handleForceCloseOrder(row) {
+  proxy.$modal.prompt(`确认对部分入库采购单"${row.orderNo}"执行短装结案？系统将按实际入库货值重算应付账款（多付部分自动生成红字退款台账）。请输入结案说明：`).then(({ value }) => {
+    return forceClosePurchaseOrder(row.purchaseOrderId, value || "供应商短装结案")
+  }).then(() => {
+    getList()
+    proxy.$modal.msgSuccess("采购订单短装结案成功")
+  }).catch(() => {})
+}
+
 // 作废采购订单，避免已完成和已作废订单重复进入作废流程。
 function handleCancel(row) {
-  proxy.$modal.confirm(`是否确认作废采购订单编号为"${row.orderNo}"的数据项？`).then(function () {
-    return cancelPurchaseOrder(row.purchaseOrderId)
+  const targetPurchaseOrder = getTargetPurchaseOrder(row, "作废")
+  if (!targetPurchaseOrder) {
+    return
+  }
+  proxy.$modal.confirm(`是否确认作废采购订单编号为"${targetPurchaseOrder.orderNo}"的数据项？`).then(function () {
+    return cancelPurchaseOrder(targetPurchaseOrder.purchaseOrderId)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("作废成功")
@@ -858,8 +1246,10 @@ function handleExport() {
 // 初始化页面筛选条件和基础资料，保证首页或财务页重复跳转时采购订单列表会同步刷新。
 async function initializePage() {
   initializeQueryParamsFromRoute()
-  await initBasicData()
-  await getList()
+  await Promise.all([
+    Promise.resolve(initBasicData()),
+    Promise.resolve(getList())
+  ])
 }
 
 // 监听同一路由下的查询参数变化，避免采购订单页仍停留在上一次跳转的筛选结果。

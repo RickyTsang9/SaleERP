@@ -1,5 +1,7 @@
 package com.ruoyi.business.service;
 
+import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 import com.ruoyi.business.domain.FinPayment;
 
@@ -34,6 +36,14 @@ public interface IFinPaymentService
      * @return 结果
      */
     public int insertFinPayment(FinPayment finPayment);
+
+    /**
+     * 多单合并付款核销（按所选应付台账顺序依次核销）
+     */
+    public int batchInsertFinPayment(List<Long> payableIds, BigDecimal totalAmount, String paymentMethod,
+                                     Long accountId, Date paymentTime, String remark);
+
+    public int voidFinPayment(Long paymentId, String voidReason);
 
     /**
      * 修改付款记录

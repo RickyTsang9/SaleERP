@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.business.mapper.FinAccountPeriodMapper">
+
+    <resultMap type="FinAccount" id="FinAccountResult">
+        <id     property="accountId"      column="account_id" />
+        <result property="accountCode"    column="account_code" />
+        <result property="accountName"    column="account_name" />
+        <result property="accountType"    column="account_type" />
+        <result property="bankName"       column="bank_name" />
+        <result property="bankNo"         column="bank_no" />
+        <result property="openingBalance" column="opening_balance" />
+        <result property="currentBalance" column="current_balance" />
+        <result property="isDefault"      column="is_default" />
+        <result property="status"         column="status" />
+        <result property="remark"         column="remark" />
+        <result property="createBy"       column="create_by" />
+        <result property="createTime"     column="create_time" />
+        <result property="updateBy"       column="update_by" />
+        <result property="updateTime"     column="update_time" />
+    </resultMap>
+
+    <resultMap type="FinPeriodClose" id="FinPeriodCloseResult">
+        <id     property="periodId"               column="period_id" />
+        <result property="periodMonth"            column="period_month" />
+        <result property="closeStatus"            column="close_status" />
+        <result property="saleAmountSnapshot"     column="sale_amount_snapshot" />
+        <result property="purchaseAmountSnapshot" column="purchase_amount_snapshot" />
+        <result property="closedBy"               column="closed_by" />
+        <result property="closedTime"             column="closed_time" />
+        <result property="reopenReason"           column="reopen_reason" />
+        <result property="remark"                 column="remark" />
+        <result property="createTime"             column="create_time" />
+        <result property="updateTime"             column="update_time" />
+    </resultMap>
+
+    <resultMap type="FinAccountJournal" id="FinAccountJournalResult">
+        <id     property="journalId"     column="journal_id" />
+        <result property="journalNo"     column="journal_no" />
+        <result property="accountId"     column="account_id" />
+        <result property="accountName"   column="account_name" />
+        <result property="direction"     column="direction" />
+        <result property="bizType"       column="biz_type" />
+        <result property="bizId"         column="biz_id" />
+        <result property="bizNo"         column="biz_no" />
+        <result property="targetName"    column="target_name" />
+        <result property="amount"        column="amount" />
+        <result property="beforeBalance" column="before_balance" />
+        <result property="afterBalance"  column="after_balance" />
+        <result property="occurTime"     column="occur_time" />
+        <result property="remark"        column="remark" />
+        <result property="createBy"      column="create_by" />
+        <result property="createTime"    column="create_time" />
+    </resultMap>
+
+    <sql id="selectFinAccountVo">
+        select account_id, account_code, account_name, account_type, bank_name, bank_no,
+               opening_balance, current_balance, is_default, status, remark,
+               create_by, create_time, update_by, update_time
+        from fin_account
+    </sql>
+
+    <select id="selectFinAccountById" parameterType="Long" resultMap="FinAccountResult">
+        <include refid="selectFinAccountVo"/>
+        where account_id = #{accountId}
+    </select>
+
+    <select id="selectFinAccountByIdForUpdate" parameterType="Long" resultMap="FinAccountResult">
+        <include refid="selectFinAccountVo"/>
+        where account_id = #{accountId}
+        for update
+    </select>
+
+    <select id="selectFinAccountByCode" parameterType="String" resultMap="FinAccountResult">
+        <include refid="selectFinAccountVo"/>
+        where account_code = #{accountCode}
+        limit 1
+    </select>
+
+    <select id="selectFinAccountList" parameterType="FinAccount" resultMap="FinAccountResult">
+        <include refid="selectFinAccountVo"/>
+        <where>
+            <if test="accountCode != null and accountCode != ''">
+                and account_code like concat('%', #{accountCode}, '%')
+            </if>
+            <if test="accountName != null and accountName != ''">
+                and account_name like concat('%', #{accountName}, '%')
+            </if>
+            <if test="accountType != null and accountType != ''">
+                and account_type = #{accountType}
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+        </where>
+        order by case when is_default = 'Y' then 0 else 1 end asc, account_id asc
+    </select>
+
+    <select id="selectFinAccountSummary" resultType="java.util.HashMap">
+        select ifnull(sum(case when status = '0' then current_balance else 0 end), 0) as totalBalance,
+               ifnull(sum(case when status = '0' and account_type = 'bank' then current_balance else 0 end), 0) as bankBalance,
+               ifnull(sum(case when status = '0' and account_type in ('wechat', 'alipay') then current_balance else 0 end), 0) as onlineBalance,
+               ifnull(sum(case when status = '0' and account_type = 'cash' then current_balance else 0 end), 0) as cashBalance,
+               count(case when status = '0' then 1 end) as activeCount
+        from fin_account
+    </select>
+
+    <update id="clearDefaultAccounts">
+        update fin_account set is_default = 'N' where is_default = 'Y'
+    </update>
+
+    <insert id="insertFinAccount" parameterType="FinAccount" useGeneratedKeys="true" keyProperty="accountId">
+        insert into fin_account (
+            account_code, account_name, account_type, bank_name, bank_no,
+            opening_balance, current_balance, is_default, status, remark, create_by, create_time
+        ) values (
+            #{accountCode}, #{accountName}, #{accountType}, #{bankName}, #{bankNo},
+            #{openingBalance}, #{currentBalance}, #{isDefault}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateFinAccount" parameterType="FinAccount">
+        update fin_account
+        <set>
+            <if test="accountCode != null and accountCode != ''">account_code = #{accountCode},</if>
+            <if test="accountName != null and accountName != ''">account_name = #{accountName},</if>
+            <if test="accountType != null and accountType != ''">account_type = #{accountType},</if>
+            <if test="bankName != null">bank_name = #{bankName},</if>
+            <if test="bankNo != null">bank_no = #{bankNo},</if>
+            <if test="isDefault != null and isDefault != ''">is_default = #{isDefault},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where account_id = #{accountId}
+    </update>
+
+    <update id="updateFinAccountBalance">
+        update fin_account
+        set current_balance = #{currentBalance},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where account_id = #{accountId}
+    </update>
+
+    <insert id="insertFinAccountJournal" parameterType="FinAccountJournal" useGeneratedKeys="true" keyProperty="journalId">
+        insert into fin_account_journal (
+            journal_no, account_id, account_name, direction, biz_type, biz_id, biz_no,
+            target_name, amount, before_balance, after_balance, occur_time, remark, create_by, create_time
+        ) values (
+            #{journalNo}, #{accountId}, #{accountName}, #{direction}, #{bizType}, #{bizId}, #{bizNo},
+            #{targetName}, #{amount}, #{beforeBalance}, #{afterBalance}, ifnull(#{occurTime}, sysdate()), #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <select id="selectFinAccountJournalList" parameterType="FinAccountJournal" resultMap="FinAccountJournalResult">
+        select j.journal_id, j.journal_no, j.account_id,
+               coalesce(nullif(j.account_name, ''), a.account_name) as account_name,
+               j.direction, j.biz_type, j.biz_id, j.biz_no, j.target_name,
+               j.amount, j.before_balance, j.after_balance, j.occur_time, j.remark, j.create_by, j.create_time
+        from fin_account_journal j
+        left join fin_account a on a.account_id = j.account_id
+        <where>
+            <if test="accountId != null">
+                and j.account_id = #{accountId}
+            </if>
+            <if test="direction != null and direction != ''">
+                and j.direction = #{direction}
+            </if>
+            <if test="bizType != null and bizType != ''">
+                and j.biz_type = #{bizType}
+            </if>
+            <if test="bizNo != null and bizNo != ''">
+                and j.biz_no like concat('%', #{bizNo}, '%')
+            </if>
+            <if test="targetName != null and targetName != ''">
+                and j.target_name like concat('%', #{targetName}, '%')
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and j.occur_time &gt;= concat(#{params.beginTime}, ' 00:00:00')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and j.occur_time &lt; date_add(concat(#{params.endTime}, ' 00:00:00'), interval 1 day)
+            </if>
+        </where>
+        order by j.occur_time desc, j.journal_id desc
+    </select>
+
+    <select id="selectFinPeriodCloseList" parameterType="FinPeriodClose" resultMap="FinPeriodCloseResult">
+        select period_id, period_month, close_status, sale_amount_snapshot, purchase_amount_snapshot,
+               closed_by, closed_time, reopen_reason, remark, create_time, update_time
+        from fin_period_close
+        <where>
+            <if test="periodMonth != null and periodMonth != ''">
+                and period_month like concat('%', #{periodMonth}, '%')
+            </if>
+            <if test="closeStatus != null and closeStatus != ''">
+                and close_status = #{closeStatus}
+            </if>
+        </where>
+        order by period_month desc
+    </select>
+
+    <select id="selectFinPeriodCloseById" parameterType="Long" resultMap="FinPeriodCloseResult">
+        select period_id, period_month, close_status, sale_amount_snapshot, purchase_amount_snapshot,
+               closed_by, closed_time, reopen_reason, remark, create_time, update_time
+        from fin_period_close
+        where period_id = #{periodId}
+    </select>
+
+    <select id="selectFinPeriodCloseByMonth" parameterType="String" resultMap="FinPeriodCloseResult">
+        select period_id, period_month, close_status, sale_amount_snapshot, purchase_amount_snapshot,
+               closed_by, closed_time, reopen_reason, remark, create_time, update_time
+        from fin_period_close
+        where period_month = #{periodMonth}
+        limit 1
+    </select>
+
+    <select id="selectMonthSnapshot" resultType="java.util.HashMap">
+        select ifnull((
+                   select sum(total_amount)
+                   from wms_sale_order
+                   where status = 'audited'
+                     and date_format(ifnull(audit_time, create_time), '%Y-%m') = #{periodMonth}
+               ), 0) as saleAmount,
+               ifnull((
+                   select sum(total_amount)
+                   from wms_purchase_order
+                   where status in ('1', '2', '3')
+                     and date_format(ifnull(purchase_date, create_time), '%Y-%m') = #{periodMonth}
+               ), 0) as purchaseAmount,
+               (
+                   select count(*)
+                   from wms_sale_order
+                   where status in ('submitted', 'manager_approved')
+                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+               ) + (
+                   select count(*)
+                   from wms_purchase_order
+                   where status = '0'
+                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+               ) + (
+                   select count(*)
+                   from wms_inbound
+                   where status = 'submitted'
+                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+               ) + (
+                   select count(*)
+                   from wms_outbound
+                   where status = 'submitted'
+                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+               ) + (
+                   select count(*)
+                   from wms_sale_return
+                   where status = 'submitted'
+                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+               ) + (
+                   select count(*)
+                   from wms_purchase_return
+                   where status = 'submitted'
+                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+               ) + (
+                   select count(*)
+                   from wms_inventory_check
+                   where status = 'submitted'
+                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+               ) + (
+                   select count(*)
+                   from wms_transfer
+                   where status in ('submitted', 'in_transit')
+                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+               ) as pendingBillCount
+    </select>
+
+    <insert id="insertFinPeriodClose" parameterType="FinPeriodClose" useGeneratedKeys="true" keyProperty="periodId">
+        insert into fin_period_close (
+            period_month, close_status, sale_amount_snapshot, purchase_amount_snapshot,
+            closed_by, closed_time, reopen_reason, remark, create_time
+        ) values (
+            #{periodMonth}, #{closeStatus}, #{saleAmountSnapshot}, #{purchaseAmountSnapshot},
+            #{closedBy}, sysdate(), #{reopenReason}, #{remark}, sysdate()
+        )
+    </insert>
+
+    <update id="updateFinPeriodClose" parameterType="FinPeriodClose">
+        update fin_period_close
+        <set>
+            <if test="closeStatus != null and closeStatus != ''">close_status = #{closeStatus},</if>
+            <if test="saleAmountSnapshot != null">sale_amount_snapshot = #{saleAmountSnapshot},</if>
+            <if test="purchaseAmountSnapshot != null">purchase_amount_snapshot = #{purchaseAmountSnapshot},</if>
+            <if test="closedBy != null">closed_by = #{closedBy},</if>
+            <if test="closedTime != null">closed_time = #{closedTime},</if>
+            <if test="reopenReason != null">reopen_reason = #{reopenReason},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </set>
+        where period_id = #{periodId}
+    </update>
+</mapper>

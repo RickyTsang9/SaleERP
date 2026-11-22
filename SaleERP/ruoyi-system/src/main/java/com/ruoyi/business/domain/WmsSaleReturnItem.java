@@ -18,6 +18,12 @@ public class WmsSaleReturnItem extends BaseEntity
     @Excel(name = "商品编号")
     private Long productId;
 
+    /** 退入库位ID */
+    private Long locationId;
+
+    /** 退回批次号 */
+    private String batchNo;
+
     @Excel(name = "数量")
     private BigDecimal quantity;
 
@@ -26,6 +32,19 @@ public class WmsSaleReturnItem extends BaseEntity
 
     @Excel(name = "金额")
     private BigDecimal amount;
+
+    /** 退货审核时单位成本快照 */
+    private BigDecimal costPriceSnapshot;
+
+    public BigDecimal getCostPriceSnapshot()
+    {
+        return costPriceSnapshot;
+    }
+
+    public void setCostPriceSnapshot(BigDecimal costPriceSnapshot)
+    {
+        this.costPriceSnapshot = costPriceSnapshot;
+    }
 
     public Long getSaleReturnItemId()
     {
@@ -55,6 +74,26 @@ public class WmsSaleReturnItem extends BaseEntity
     public void setProductId(Long productId)
     {
         this.productId = productId;
+    }
+
+    public Long getLocationId()
+    {
+        return locationId;
+    }
+
+    public void setLocationId(Long locationId)
+    {
+        this.locationId = locationId;
+    }
+
+    public String getBatchNo()
+    {
+        return batchNo;
+    }
+
+    public void setBatchNo(String batchNo)
+    {
+        this.batchNo = batchNo;
     }
 
     public BigDecimal getQuantity()

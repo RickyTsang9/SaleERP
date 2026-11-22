@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.business.domain.MdLocation;
 import com.ruoyi.business.service.IMdLocationService;
 import com.ruoyi.common.annotation.Log;
@@ -45,6 +46,25 @@ public class MdLocationController extends BaseController
         List<MdLocation> mdLocationList = mdLocationService.selectMdLocationList(mdLocation);
         ExcelUtil<MdLocation> util = new ExcelUtil<MdLocation>(MdLocation.class);
         util.exportExcel(response, mdLocationList, "库位资料数据");
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:location:import,business:location:add')")
+    @Log(title = "库位资料", businessType = BusinessType.IMPORT)
+    @PostMapping("/importData")
+    public AjaxResult importData(MultipartFile file, boolean updateSupport) throws Exception
+    {
+        ExcelUtil<MdLocation> util = new ExcelUtil<MdLocation>(MdLocation.class);
+        List<MdLocation> locationList = util.importExcel(file.getInputStream());
+        String message = mdLocationService.importMdLocation(locationList, updateSupport, getUsername());
+        return success(message);
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:location:import,business:location:add,business:location:list')")
+    @PostMapping("/importTemplate")
+    public void importTemplate(javax.servlet.http.HttpServletResponse response)
+    {
+        ExcelUtil<MdLocation> util = new ExcelUtil<MdLocation>(MdLocation.class);
+        util.importTemplateExcel(response, "库位资料导入模板");
     }
 
     @PreAuthorize("@ss.hasPermi('business:location:query')")

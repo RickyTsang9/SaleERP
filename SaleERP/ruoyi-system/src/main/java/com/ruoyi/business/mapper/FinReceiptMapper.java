@@ -88,4 +88,10 @@ public interface FinReceiptMapper
      * @return 结果
      */
     public int insertFinReceiptWithoutMethod(FinReceipt finReceipt);
+
+    public java.math.BigDecimal selectValidReceiptSumByReceivableId(Long receivableId);
+
+    public int voidFinReceiptStatus(@org.apache.ibatis.annotations.Param("receiptId") Long receiptId,
+                                    @org.apache.ibatis.annotations.Param("voidReason") String voidReason,
+                                    @org.apache.ibatis.annotations.Param("voidBy") String voidBy);
 }

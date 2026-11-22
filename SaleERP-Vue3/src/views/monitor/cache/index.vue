@@ -1,6 +1,18 @@
 <template>
-  <div class="app-container">
-    <el-row :gutter="10">
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="系统监控"
+      title="缓存监控"
+      subtitle="实时观测 Redis 实例运行状态、Key 容量、命令调用分布与内存使用峰值。"
+      icon="Odometer"
+      tone="blue"
+    >
+      <template #actions>
+        <el-button type="primary" icon="Refresh" @click="getList">刷新监控</el-button>
+      </template>
+    </erp-page-header>
+
+    <el-row :gutter="16">
       <el-col :span="24" class="card-box">
         <el-card>
           <template #header><Monitor style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">基本信息</span></template>
@@ -79,8 +91,9 @@ function getList() {
     proxy.$modal.closeLoading()
     cache.value = response.data
 
-    const commandstatsIntance = echarts.init(commandstats.value, "macarons")
+    const commandstatsIntance = echarts.init(commandstats.value)
     commandstatsIntance.setOption({
+      color: ['#4F46E5', '#2563EB', '#0EA5E9', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'],
       tooltip: {
         trigger: "item",
         formatter: "{a} <br/>{b} : {c} ({d}%)"
@@ -90,15 +103,16 @@ function getList() {
           name: "命令",
           type: "pie",
           roseType: "radius",
-          radius: [15, 95],
-          center: ["50%", "38%"],
+          radius: [20, 105],
+          center: ["50%", "48%"],
+          itemStyle: { borderRadius: 6 },
           data: response.data.commandStats,
           animationEasing: "cubicInOut",
           animationDuration: 1000
         }
       ]
     })
-    const usedmemoryInstance = echarts.init(usedmemory.value, "macarons")
+    const usedmemoryInstance = echarts.init(usedmemory.value)
     usedmemoryInstance.setOption({
       tooltip: {
         formatter: "{b} <br/>{a} : " + cache.value.info.used_memory_human
@@ -109,8 +123,12 @@ function getList() {
           type: "gauge",
           min: 0,
           max: 1000,
+          progress: { show: true, width: 14, itemStyle: { color: '#4F46E5' } },
+          axisLine: { lineStyle: { width: 14 } },
           detail: {
-            formatter: cache.value.info.used_memory_human
+            formatter: cache.value.info.used_memory_human,
+            fontSize: 22,
+            color: '#4F46E5'
           },
           data: [
             {

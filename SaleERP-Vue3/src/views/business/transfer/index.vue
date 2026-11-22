@@ -1,102 +1,112 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="90px">
-      <el-form-item label="调拨单号" prop="transferNo">
-        <el-input v-model="queryParams.transferNo" placeholder="请输入调拨单号" clearable @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="调出仓库" prop="outWarehouseId">
-        <el-select v-model="queryParams.outWarehouseId" placeholder="请选择调出仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading">
-          <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="调入仓库" prop="inWarehouseId">
-        <el-select v-model="queryParams.inWarehouseId" placeholder="请选择调入仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading">
-          <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
-          <el-option v-for="statusOption in transferStatusOptionList" :key="statusOption.value" :label="statusOption.label" :value="statusOption.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="仓储作业 · 仓间调拨"
+      title="库存调拨管理"
+      subtitle="支持【草稿 → 提交待审 → 调出仓审核出库(在途) → 调入仓确认签收】两阶段在途闭环，完整保留原批次效期。"
+      icon="Switch"
+      tone="indigo"
+      :badge="`共 ${total} 笔调拨单`"
+    >
+      <template #actions>
+        <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:transfer:export']">导出</el-button>
+        <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:transfer:add']">新建调拨单</el-button>
+      </template>
+    </erp-page-header>
 
-    <el-alert
-      title="库存调拨保存后直接进入待审核，审核时系统会自动完成调出仓和调入仓的库存变更。"
-      type="info"
-      :closable="false"
-      class="mb8"
-    />
+    <erp-stat-strip :items="transferStatItems" :columns="4" />
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['business:transfer:add']">新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:transfer:edit']">修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:transfer:audit']">审核</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:transfer:remove']">删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:transfer:export']">导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="82px">
+        <el-form-item label="调拨单号" prop="transferNo">
+          <el-input v-model="queryParams.transferNo" placeholder="请输入调拨单号" clearable style="width: 190px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="调出仓库" prop="outWarehouseId">
+          <el-select v-model="queryParams.outWarehouseId" placeholder="请选择调出仓" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 185px">
+            <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="调入仓库" prop="inWarehouseId">
+          <el-select v-model="queryParams.inWarehouseId" placeholder="请选择调入仓" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 185px">
+            <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
 
-    <el-table v-loading="loading" :data="transferList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="调拨单号" align="center" prop="transferNo" />
-      <el-table-column label="调出仓库" align="center" prop="outWarehouseId">
-        <template #default="scope">
-          <span>{{ getWarehouseName(scope.row.outWarehouseId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="调入仓库" align="center" prop="inWarehouseId">
-        <template #default="scope">
-          <span>{{ getWarehouseName(scope.row.inWarehouseId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="调拨日期" align="center" prop="transferDate" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.transferDate, '{y}-{m}-{d}') }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="总数量" align="center" prop="totalQuantity" />
-      <el-table-column label="状态" align="center" prop="status">
-        <template #default="scope">
-          <el-tag :type="getTransferStatusType(scope.row.status)">{{ getTransferStatusName(scope.row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="320" align="center" class-name="small-padding fixed-width">
-        <template #default="scope">
-          <el-button v-if="isPendingTransferStatus(scope.row.status)" link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:transfer:edit']">修改</el-button>
-          <el-button v-if="isPendingTransferStatus(scope.row.status)" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:transfer:audit']">审核</el-button>
-          <el-button v-if="canCancelTransferStatus(scope.row.status)" link type="warning" icon="Close" @click="handleCancelOrder(scope.row)" v-hasPermi="['business:transfer:edit']">作废</el-button>
-          <el-button v-if="isPendingTransferStatus(scope.row.status)" link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:transfer:remove']">删除</el-button>
-          <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    
-    <pagination
-      v-show="total>0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs :model-value="queryParams.status ?? ''" :items="transferStatusTabItems" @change="handleQuickStatus" />
+        </div>
+        <div class="erp-toolbar-right">
+          <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:transfer:edit']">修改</el-button>
+          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:transfer:audit']">审核</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:transfer:remove']">删除</el-button>
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        </div>
+      </div>
+
+      <el-table v-loading="loading" :data="transferList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="调拨单号" align="center" prop="transferNo" min-width="175">
+          <template #default="scope">
+            <span class="erp-code-chip">{{ scope.row.transferNo }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="调拨路径（调出 → 调入）" align="left" min-width="240" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">
+              {{ scope.row.outWarehouseName || getWarehouseName(scope.row.outWarehouseId) }} → {{ scope.row.inWarehouseName || getWarehouseName(scope.row.inWarehouseId) }}
+            </div>
+            <div class="erp-cell-sub">调拨日期：{{ parseTime(scope.row.transferDate, '{y}-{m}-{d}') || '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="调拨总数量" align="right" prop="totalQuantity" width="115">
+          <template #default="scope">
+            <span class="erp-amount is-primary">{{ scope.row.totalQuantity }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" align="center" prop="status" width="125">
+          <template #default="scope">
+            <el-tooltip v-if="scope.row.status === 'draft' && scope.row.rejectReason" :content="`驳回原因：${scope.row.rejectReason}`" placement="top">
+              <el-tag type="danger" effect="light">已驳回待改</el-tag>
+            </el-tooltip>
+            <el-tag v-else :type="getTransferStatusType(scope.row.status)" effect="light">{{ getTransferStatusName(scope.row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="295" fixed="right" align="center">
+          <template #default="scope">
+            <el-button v-if="isEditableTransferStatus(scope.row.status)" link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:transfer:edit']">修改</el-button>
+            <el-button v-if="scope.row.status === 'draft'" link type="primary" icon="Upload" @click="handleSubmitTransfer(scope.row)" v-hasPermi="['business:transfer:edit']">提交</el-button>
+            <el-button v-if="scope.row.status === '0'" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:transfer:audit']">审核调出</el-button>
+            <el-button v-if="scope.row.status === '0'" link type="warning" icon="RefreshLeft" @click="handleRejectTransfer(scope.row)" v-hasPermi="['business:transfer:audit']">驳回</el-button>
+            <el-button v-if="scope.row.status === 'in_transit'" link type="success" icon="Select" @click="handleReceiveTransfer(scope.row)" v-hasPermi="['business:transfer:audit', 'business:transfer:edit']">调入签收</el-button>
+            <el-button v-if="scope.row.status === 'in_transit'" link type="danger" icon="RefreshLeft" @click="handleRecallTransfer(scope.row)" v-hasPermi="['business:transfer:audit', 'business:transfer:edit']">在途撤回</el-button>
+            <el-button v-if="canCancelTransferStatus(scope.row.status)" link type="warning" icon="Close" @click="handleCancelOrder(scope.row)" v-hasPermi="['business:transfer:edit']">作废</el-button>
+            <el-button v-if="isEditableTransferStatus(scope.row.status)" link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:transfer:remove']">删除</el-button>
+            <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
+            <el-button link type="info" icon="Printer" @click="handlePrintTransfer(scope.row)">打印</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
     <el-dialog :title="title" v-model="open" width="800px" append-to-body>
       <el-alert
-        :title="isTransferFormEditable() ? '库存调拨保存后会进入待审核，审核时系统自动完成库存转移。' : '当前为只读查看模式，调拨信息不可编辑。'"
+        :title="isTransferFormEditable() ? '调拨单保存后默认为草稿状态，请点击【提交】进入待审核；审核后调出仓扣减库存进入在途，调入仓签收后入账。' : '当前为只读查看模式，调拨信息不可编辑。'"
         type="info"
         :closable="false"
         class="mb8"
@@ -192,11 +202,14 @@
         </div>
       </template>
     </el-dialog>
+
+    <document-print-dialog ref="printDialogRef" />
   </div>
 </template>
 
 <script setup name="BusinessTransfer">
-import { listTransfer, getTransfer, delTransfer, addTransfer, updateTransfer, auditTransfer, cancelTransfer } from "@/api/business/transfer"
+import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
+import { listTransfer, getTransfer, delTransfer, addTransfer, updateTransfer, submitTransfer, auditTransfer, receiveTransfer, rejectTransfer, recallTransfer, cancelTransfer } from "@/api/business/transfer"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
@@ -205,6 +218,40 @@ import { parseTime } from "@/utils/ruoyi"
 const { proxy } = getCurrentInstance()
 
 const transferList = ref([])
+const printDialogRef = ref(null)
+
+async function handlePrintTransfer(row) {
+  const res = await getTransfer(row.transferId)
+  const detail = res.data || row
+  const items = detail.wmsTransferItemList || []
+  printDialogRef.value?.openPrint({
+    docType: "transfer",
+    title: "仓库库存调拨单",
+    docNo: detail.transferNo || `TF-${detail.transferId}`,
+    defaultPaperMode: "triplicate",
+    metaFields: [
+      { label: "调拨单号", value: detail.transferNo || "-" },
+      { label: "调出仓库", value: detail.outWarehouseName || getWarehouseName(detail.outWarehouseId) },
+      { label: "调入仓库", value: detail.inWarehouseName || getWarehouseName(detail.inWarehouseId) },
+      { label: "调拨日期", value: parseTime(detail.transferDate || detail.createTime, "{y}-{m}-{d}") },
+      { label: "单据状态", value: getTransferStatusName(detail.status) },
+      { label: "制单人", value: detail.createBy || "-" }
+    ],
+    columns: [
+      { label: "商品名称", prop: "productName" },
+      { label: "调拨数量", prop: "quantity", width: "110px", align: "right" },
+      { label: "备注", prop: "remark", width: "200px" }
+    ],
+    items: items.map(it => ({
+      productName: it.productName || getProductName(it.productId),
+      quantity: it.quantity,
+      remark: it.remark || "-"
+    })),
+    totalQty: detail.totalQuantity || items.reduce((s, i) => s + Number(i.quantity || 0), 0),
+    totalAmount: 0,
+    remark: detail.remark || ""
+  })
+}
 const wmsTransferItemList = ref([])
 const open = ref(false)
 const loading = ref(true)
@@ -220,8 +267,10 @@ const productList = ref([])
 const productListLoading = ref(false)
 
 const transferStatusOptionList = [
+  { label: "草稿", value: "draft", type: "info" },
   { label: "待审核", value: "0", type: "warning" },
-  { label: "已审核", value: "1", type: "success" },
+  { label: "在途待签收", value: "in_transit", type: "primary" },
+  { label: "已签收完成", value: "1", type: "success" },
   { label: "已作废", value: "2", type: "danger" }
 ]
 
@@ -244,12 +293,39 @@ const data = reactive({
 
 const { queryParams, form, rules } = toRefs(data)
 
+const transferStatusTabItems = [
+  { label: "全部", value: "" },
+  { label: "草稿", value: "draft", dot: "slate" },
+  { label: "待审核", value: "0", dot: "amber" },
+  { label: "在途待签收", value: "in_transit", dot: "blue" },
+  { label: "已签收", value: "1", dot: "emerald" },
+  { label: "已作废", value: "2", dot: "rose" }
+]
+
+const transferStatItems = computed(() => {
+  const rows = transferList.value || []
+  const pendingCount = rows.filter(r => r.status === "0").length
+  const inTransitCount = rows.filter(r => r.status === "in_transit").length
+  const totalQty = rows.reduce((s, r) => s + Number(r.totalQuantity || 0), 0)
+  return [
+    { label: "调拨单总数", value: total.value, suffix: "单", hint: "跨仓调拨任务总数", icon: "Switch", tone: "indigo" },
+    { label: "本页待审调出", value: pendingCount, suffix: "单", hint: "审核后扣减调出仓进入在途", icon: "Stamp", tone: "amber" },
+    { label: "本页在途待签", value: inTransitCount, suffix: "单", hint: "等待调入仓确认入库", icon: "Van", tone: "blue" },
+    { label: "本页调拨总量", value: totalQty, suffix: "件", hint: "当前页调拨货品总数量", icon: "Box", tone: "emerald" }
+  ]
+})
+
+function handleQuickStatus(val) {
+  queryParams.value.status = val === "" ? undefined : val
+  handleQuery()
+}
+
 const warehouseSelectOptionList = computed(() => buildWarehouseSelectOptionList())
 const productSelectOptionList = computed(() => buildProductSelectOptionList())
 
-const canUpdateSelected = computed(() => ids.value.length === 1 && transferList.value.some(transfer => transfer.transferId === ids.value[0] && isPendingTransferStatus(transfer.status)))
+const canUpdateSelected = computed(() => ids.value.length === 1 && transferList.value.some(transfer => transfer.transferId === ids.value[0] && isEditableTransferStatus(transfer.status)))
 const canAuditSelected = computed(() => ids.value.length === 1 && transferList.value.some(transfer => transfer.transferId === ids.value[0] && isPendingTransferStatus(transfer.status)))
-const canDeleteSelected = computed(() => ids.value.length > 0 && transferList.value.filter(transfer => ids.value.includes(transfer.transferId)).every(transfer => isPendingTransferStatus(transfer.status)))
+const canDeleteSelected = computed(() => ids.value.length > 0 && transferList.value.filter(transfer => ids.value.includes(transfer.transferId)).every(transfer => isEditableTransferStatus(transfer.status)))
 
 // 初始化页面基础主数据，保证首次进入即可进行名称搜索。
 async function initBasicData() {
@@ -341,16 +417,27 @@ async function ensureProductOptionLoaded(productIdList) {
   }
 }
 
-// 批量补齐调拨主单相关引用数据，保证列表和弹窗都用名称展示。
+// 批量补齐调拨主单相关引用数据，优先复用后端关联字段，消除冗余 N+1 查询。
 async function ensureTransferReferenceOptionsLoaded(targetTransferList = []) {
   const warehouseIdList = [
     queryParams.value.outWarehouseId,
     queryParams.value.inWarehouseId,
     form.value.outWarehouseId,
-    form.value.inWarehouseId,
-    ...targetTransferList.map(transfer => transfer.outWarehouseId),
-    ...targetTransferList.map(transfer => transfer.inWarehouseId)
+    form.value.inWarehouseId
   ]
+  ;(targetTransferList || []).forEach(transfer => {
+    if (!transfer) return
+    if (transfer.outWarehouseId != null && transfer.outWarehouseName) {
+      appendUniqueSelectOption(warehouseList.value, { warehouseId: transfer.outWarehouseId, warehouseName: transfer.outWarehouseName }, "warehouseId")
+    } else if (transfer.outWarehouseId != null) {
+      warehouseIdList.push(transfer.outWarehouseId)
+    }
+    if (transfer.inWarehouseId != null && transfer.inWarehouseName) {
+      appendUniqueSelectOption(warehouseList.value, { warehouseId: transfer.inWarehouseId, warehouseName: transfer.inWarehouseName }, "warehouseId")
+    } else if (transfer.inWarehouseId != null) {
+      warehouseIdList.push(transfer.inWarehouseId)
+    }
+  })
   await ensureWarehouseOptionLoaded(warehouseIdList)
 }
 
@@ -408,9 +495,13 @@ function isPendingTransferStatus(statusValue) {
   return statusValue === "0"
 }
 
+function isEditableTransferStatus(statusValue) {
+  return statusValue === "draft"
+}
+
 // 判断库存调拨当前是否允许作废。
 function canCancelTransferStatus(statusValue) {
-  return statusValue !== "1" && statusValue !== "2"
+  return statusValue === "draft" || statusValue === "0"
 }
 
 // 判断当前弹窗是否允许编辑。
@@ -454,7 +545,7 @@ function reset() {
     outWarehouseId: undefined,
     inWarehouseId: undefined,
     transferDate: buildCurrentDateValue(),
-    status: "0",
+    status: "draft",
     totalQuantity: 0,
     remark: undefined
   }
@@ -617,38 +708,89 @@ function submitForm() {
   })
 }
 
-// 删除库存调拨主单，仅允许删除待审核单据。
+// 删除库存调拨主单，仅允许删除待审核单据，并在空选择时及时提醒用户。
 function handleDelete(row) {
-  const transferIds = row?.transferId || ids.value
-  if (!transferIds || transferIds.length === 0) {
+  const transferIdList = row?.transferId ? [row.transferId] : ids.value
+  if (!transferIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的调拨单")
     return
   }
-  proxy.$modal.confirm(`是否确认删除调拨单编号为"${transferIds}"的数据项？`).then(function () {
-    return delTransfer(transferIds)
+  proxy.$modal.confirm(`是否确认删除调拨单编号为"${transferIdList.join("、")}"的数据项？`).then(function () {
+    return delTransfer(transferIdList)
   }).then(() => {
     proxy.$modal.msgSuccess("删除成功")
     getList()
   }).catch(() => {})
 }
 
+// 返回当前要操作的库存调拨单，兼容工具栏和行内入口，未选中时先提示用户。
+function getTargetTransferRow(row, actionText) {
+  const transferRow = row || transferList.value.find(transfer => transfer.transferId === ids.value[0])
+  if (!transferRow) {
+    proxy.$modal.msgWarning(`请选择要${actionText}的调拨单`)
+    return undefined
+  }
+  return transferRow
+}
+
 // 审核库存调拨，审核后系统自动处理调出和调入库存。
 function handleAudit(row) {
-  const transferRow = row || transferList.value.find(transfer => transfer.transferId === ids.value[0])
+  const transferRow = getTargetTransferRow(row, "审核")
   if (!transferRow) {
     return
   }
-  proxy.$modal.confirm(`是否确认审核库存调拨单号为"${transferRow.transferNo}"的数据项？`).then(function () {
+  proxy.$modal.confirm(`是否确认审核调出库存调拨单号"${transferRow.transferNo}"？审核后调出仓将扣减库存并进入【在途待签收】状态。`).then(function () {
     return auditTransfer(transferRow.transferId)
   }).then(() => {
-    proxy.$modal.msgSuccess("审核成功")
+    proxy.$modal.msgSuccess("调出仓审核完成，货物已进入在途待签收状态")
+    getList()
+  }).catch(() => {})
+}
+
+function handleSubmitTransfer(row) {
+  proxy.$modal.confirm(`确认提交库存调拨单"${row.transferNo}"进入待审核？`).then(() => {
+    return submitTransfer(row.transferId)
+  }).then(() => {
+    proxy.$modal.msgSuccess("提交成功")
+    getList()
+  }).catch(() => {})
+}
+
+function handleReceiveTransfer(row) {
+  proxy.$modal.confirm(`确认调入仓已核对无误并签收在途调拨单"${row.transferNo}"？签收后库存将正式入账调入仓。`).then(() => {
+    return receiveTransfer(row.transferId)
+  }).then(() => {
+    proxy.$modal.msgSuccess("调入签收完成，库存已入账")
+    getList()
+  }).catch(() => {})
+}
+
+function handleRejectTransfer(row) {
+  proxy.$modal.prompt(`确认驳回调拨单"${row.transferNo}"？请输入驳回原因：`).then(({ value }) => {
+    return rejectTransfer(row.transferId, value || "调拨明细待核实")
+  }).then(() => {
+    proxy.$modal.msgSuccess("调拨单已驳回至草稿")
+    getList()
+  }).catch(() => {})
+}
+
+function handleRecallTransfer(row) {
+  proxy.$modal.prompt(`确认撤回在途调拨单"${row.transferNo}"？撤回后已调出库存将全额退回原调出仓！请输入撤回原因：`).then(({ value }) => {
+    return recallTransfer(row.transferId, value || "物流取消在途撤回")
+  }).then(() => {
+    proxy.$modal.msgSuccess("在途调拨已撤回，库存已恢复至原调出仓")
     getList()
   }).catch(() => {})
 }
 
 // 作废库存调拨，阻止异常调拨单继续流转。
 function handleCancelOrder(row) {
-  proxy.$modal.confirm(`是否确认作废库存调拨单号为"${row.transferNo}"的数据项？`).then(function () {
-    return cancelTransfer(row.transferId)
+  const transferRow = getTargetTransferRow(row, "作废")
+  if (!transferRow) {
+    return
+  }
+  proxy.$modal.confirm(`是否确认作废库存调拨单号为"${transferRow.transferNo}"的数据项？`).then(function () {
+    return cancelTransfer(transferRow.transferId)
   }).then(() => {
     proxy.$modal.msgSuccess("作废成功")
     getList()
@@ -665,8 +807,10 @@ function handleExport() {
 // 初始化页面筛选条件和基础资料，保证重复跳转到调拨页时列表会按最新地址参数刷新。
 async function initializePage() {
   initializeQueryParamsFromRoute()
-  await initBasicData()
-  await getList()
+  await Promise.all([
+    Promise.resolve(initBasicData()),
+    Promise.resolve(getList())
+  ])
 }
 
 // 监听同一路由下的查询参数变化，避免库存调拨页继续显示旧的仓库或单号筛选结果。

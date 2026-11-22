@@ -2,6 +2,7 @@ package com.ruoyi.business.domain;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import com.ruoyi.common.annotation.Excel;
@@ -19,8 +20,14 @@ public class WmsSaleOrder extends BaseEntity
     @Excel(name = "客户编号")
     private Long customerId;
 
+    /** 客户名称 */
+    private String customerName;
+
     @Excel(name = "仓库编号")
     private Long warehouseId;
+
+    /** 仓库名称 */
+    private String warehouseName;
 
     @Excel(name = "总数量")
     private BigDecimal totalQty;
@@ -54,6 +61,16 @@ public class WmsSaleOrder extends BaseEntity
     @Excel(name = "付款状态")
     private String paymentStatus;
 
+    /** 已开票金额 */
+    @Excel(name = "已开票金额")
+    private BigDecimal invoicedAmount;
+
+    /** 开票状态（uninvoiced/partial/invoiced） */
+    @Excel(name = "开票状态")
+    private String invoiceStatus;
+
+    private String stockDeductMode;
+
     @Excel(name = "审核人")
     private String auditBy;
 
@@ -69,6 +86,19 @@ public class WmsSaleOrder extends BaseEntity
 
     @Excel(name = "财务审核意见")
     private String financeAuditComment;
+
+    /** 一体化建单明细列表（非表字段） */
+    private List<WmsSaleOrderItem> items;
+
+    public List<WmsSaleOrderItem> getItems()
+    {
+        return items;
+    }
+
+    public void setItems(List<WmsSaleOrderItem> items)
+    {
+        this.items = items;
+    }
 
     public Long getSaleOrderId()
     {
@@ -98,6 +128,26 @@ public class WmsSaleOrder extends BaseEntity
     public void setCustomerId(Long customerId)
     {
         this.customerId = customerId;
+    }
+
+    public String getCustomerName()
+    {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName)
+    {
+        this.customerName = customerName;
+    }
+
+    public String getWarehouseName()
+    {
+        return warehouseName;
+    }
+
+    public void setWarehouseName(String warehouseName)
+    {
+        this.warehouseName = warehouseName;
     }
 
     public Long getWarehouseId()
@@ -248,6 +298,36 @@ public class WmsSaleOrder extends BaseEntity
     public void setPaymentStatus(String paymentStatus)
     {
         this.paymentStatus = paymentStatus;
+    }
+
+    public BigDecimal getInvoicedAmount()
+    {
+        return invoicedAmount;
+    }
+
+    public void setInvoicedAmount(BigDecimal invoicedAmount)
+    {
+        this.invoicedAmount = invoicedAmount;
+    }
+
+    public String getInvoiceStatus()
+    {
+        return invoiceStatus;
+    }
+
+    public void setInvoiceStatus(String invoiceStatus)
+    {
+        this.invoiceStatus = invoiceStatus;
+    }
+
+    public String getStockDeductMode()
+    {
+        return stockDeductMode;
+    }
+
+    public void setStockDeductMode(String stockDeductMode)
+    {
+        this.stockDeductMode = stockDeductMode;
     }
 
     public String getAuditBy()

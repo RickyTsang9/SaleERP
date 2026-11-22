@@ -59,6 +59,12 @@ public interface IWmsTransferService
      */
     public int auditWmsTransfer(Long transferId);
 
+    public int recallWmsTransfer(Long transferId, String reason);
+
+    public int confirmReceiveWmsTransfer(Long transferId, Long inLocationId);
+
+    public int rejectWmsTransfer(Long transferId, String rejectReason);
+
     /**
      * 作废库存调拨
      * 

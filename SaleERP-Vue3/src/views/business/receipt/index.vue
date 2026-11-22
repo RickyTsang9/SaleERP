@@ -1,103 +1,130 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-      <el-form-item label="应收编号" prop="receivableId">
-        <el-input v-model="queryParams.receivableId" placeholder="请输入应收编号" clearable style="width: 180px" @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="销售单编号" prop="saleOrderId">
-        <el-input v-model="queryParams.saleOrderId" placeholder="请输入销售单编号" clearable style="width: 180px" @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="客户" prop="customerId">
-        <el-select v-model="queryParams.customerId" placeholder="请选择客户" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadCustomerOptionList" :loading="customerListLoading" style="width: 220px">
-          <el-option
-            v-for="customer in customerSelectOptionList"
-            :key="customer.customerId"
-            :label="customer.customerName"
-            :value="customer.customerId"
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="财务核算 · 资金流水"
+      title="客户回款记录"
+      subtitle="完整留痕每一笔销售回款与结算账户入账，支持差错冲红作废并自动回退应收余额与账户资金。"
+      icon="CreditCard"
+      tone="emerald"
+      :badge="`共 ${total} 笔回款`"
+    >
+      <template #actions>
+        <el-button type="primary" icon="Download" @click="handleExport" v-hasPermi="['business:receipt:export']">导出回款</el-button>
+      </template>
+    </erp-page-header>
+
+    <erp-stat-strip :items="receiptStatItems" :columns="3" />
+
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true">
+        <el-form-item label="销售单号" prop="saleOrderNo">
+          <el-input v-model="queryParams.saleOrderNo" placeholder="请输入销售单号" clearable style="width: 175px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="客户" prop="customerId">
+          <el-select v-model="queryParams.customerId" placeholder="请选择客户" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadCustomerOptionList" :loading="customerListLoading" style="width: 195px">
+            <el-option v-for="customer in customerSelectOptionList" :key="customer.customerId" :label="customer.customerName" :value="customer.customerId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="回款方式" prop="paymentMethod">
+          <el-select v-model="queryParams.paymentMethod" placeholder="全部方式" clearable style="width: 145px">
+            <el-option v-for="paymentMethodOption in receiptPaymentMethodOptionList" :key="paymentMethodOption.value" :label="paymentMethodOption.label" :value="paymentMethodOption.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="回款时间">
+          <el-date-picker
+            v-model="receiptTimeRange"
+            type="datetimerange"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            range-separator="-"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            style="width: 320px"
           />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="回款方式" prop="paymentMethod">
-        <el-select v-model="queryParams.paymentMethod" placeholder="请选择回款方式" clearable style="width: 180px">
-          <el-option
-            v-for="paymentMethodOption in receiptPaymentMethodOptionList"
-            :key="paymentMethodOption.value"
-            :label="paymentMethodOption.label"
-            :value="paymentMethodOption.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="回款时间" style="width: 360px">
-        <el-date-picker
-          v-model="receiptTimeRange"
-          type="datetimerange"
-          value-format="YYYY-MM-DD HH:mm:ss"
-          range-separator="-"
-          start-placeholder="开始时间"
-          end-placeholder="结束时间"
-        />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
 
-    <el-alert
-      title="回款流水请从应收台账发起登记，当前页面仅用于查询和导出，不支持手工新增、修改或删除。"
-      type="info"
-      :closable="false"
-      class="mb8"
-    />
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <span class="erp-cell-sub">若录入金额或账户有误，可执行【冲红】自动回退应收已收金额与结算账户余额</span>
+        </div>
+        <div class="erp-toolbar-right">
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        </div>
+      </div>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:receipt:export']">导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+      <el-table v-loading="loading" :data="receiptList">
+        <el-table-column label="回款 / 应收单" align="left" min-width="155">
+          <template #default="scope">
+            <span class="erp-code-chip">{{ 'RC' + String(scope.row.receiptId || '').padStart(5, '0') }}</span>
+            <div class="erp-cell-sub">{{ scope.row.receivableId ? ('AR' + String(scope.row.receivableId).padStart(5, '0')) : '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="客户 / 来源销售单" align="left" min-width="195" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.customerName || getCustomerName(scope.row.customerId, scope.row.saleOrderId) }}</div>
+            <div class="erp-cell-sub">{{ scope.row.saleOrderNo || (scope.row.saleOrderId ? ('SO-' + scope.row.saleOrderId) : '-') }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="回款金额" align="right" prop="amount" min-width="118">
+          <template #default="scope">
+            <span class="erp-amount" :class="scope.row.status === 'voided' ? 'is-danger' : 'is-positive'">
+              ¥{{ Number(scope.row.amount || 0).toFixed(2) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="方式 / 结算账户" align="left" min-width="160" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ getReceiptPaymentMethodLabel(scope.row.paymentMethod) }}</div>
+            <div class="erp-cell-sub">{{ scope.row.accountName || getAccountName(scope.row.accountId) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="回款时间" align="center" prop="paymentTime" width="165">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.paymentTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" align="center" prop="status" width="96">
+          <template #default="scope">
+            <el-tooltip v-if="scope.row.status === 'voided'" :content="scope.row.voidReason || '已冲红'" placement="top">
+              <el-tag type="danger" effect="light">已冲红</el-tag>
+            </el-tooltip>
+            <el-tag v-else type="success" effect="light">正常</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="备注" align="left" prop="remark" min-width="140" show-overflow-tooltip />
+        <el-table-column label="操作" width="265" fixed="right" align="center">
+          <template #default="scope">
+            <el-button link type="primary" icon="View" @click="handleViewReceivable(scope.row)" v-hasPermi="['business:receivable:list']">应收</el-button>
+            <el-button link type="primary" icon="Tickets" @click="handleViewSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:list']" v-if="scope.row.saleOrderId">销售单</el-button>
+            <el-button link type="info" icon="Printer" @click="handlePrintReceipt(scope.row)">凭证</el-button>
+            <el-button v-if="scope.row.status !== 'voided'" link type="danger" icon="RefreshLeft" @click="handleVoidReceipt(scope.row)" v-hasPermi="['business:receipt:edit']">冲红</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
-    <el-table v-loading="loading" :data="receiptList">
-      <el-table-column label="回款编号" align="center" prop="receiptId" />
-      <el-table-column label="应收编号" align="center" prop="receivableId" />
-      <el-table-column label="销售单编号" align="center" prop="saleOrderId" />
-      <el-table-column label="客户" align="center" prop="customerId" min-width="180">
-        <template #default="scope">
-          <span>{{ getCustomerName(scope.row.customerId, scope.row.saleOrderId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="回款金额" align="center" prop="amount" />
-      <el-table-column label="回款时间" align="center" prop="paymentTime" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.paymentTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="回款方式" align="center" prop="paymentMethod">
-        <template #default="scope">
-          <span>{{ getReceiptPaymentMethodLabel(scope.row.paymentMethod) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="备注" align="center" prop="remark" min-width="180" show-overflow-tooltip />
-      <el-table-column label="操作" width="220" align="center" class-name="small-padding fixed-width">
-        <template #default="scope">
-          <el-button link type="primary" icon="View" @click="handleViewReceivable(scope.row)" v-hasPermi="['business:receivable:list']">查看应收</el-button>
-          <el-button link type="primary" icon="Tickets" @click="handleViewSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:list']" v-if="scope.row.saleOrderId">查看销售单</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+    <document-print-dialog ref="printDialogRef" />
   </div>
 </template>
 
 <script setup name="BusinessReceipt">
-import { listReceipt } from "@/api/business/receipt"
+import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
+import { listReceipt, voidReceipt } from "@/api/business/receipt"
+import { listAccount } from "@/api/business/account"
 import { listCustomer, getCustomer } from "@/api/business/customer"
 import { getSaleOrder } from "@/api/business/saleOrder"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
@@ -108,7 +135,9 @@ const route = useRoute()
 const router = useRouter()
 
 const receiptList = ref([])
+const printDialogRef = ref(null)
 const customerList = ref([])
+const accountMap = ref({})
 const customerListLoading = ref(false)
 const loading = ref(true)
 const showSearch = ref(true)
@@ -119,13 +148,9 @@ const customerSelectOptionList = computed(() => buildCustomerSelectOptionList())
 
 const receiptPaymentMethodOptionList = [
   { label: "银行转账", value: "bank_transfer" },
-  { label: "现金", value: "cash" },
-  { label: "微信", value: "wechat" },
+  { label: "微信支付", value: "wechat" },
   { label: "支付宝", value: "alipay" },
-  { label: "银行转账", value: "银行转账" },
-  { label: "现金", value: "现金" },
-  { label: "微信", value: "微信" },
-  { label: "支付宝", value: "支付宝" }
+  { label: "现金", value: "cash" }
 ]
 
 const data = reactive({
@@ -134,12 +159,24 @@ const data = reactive({
     pageSize: 10,
     receivableId: undefined,
     saleOrderId: undefined,
+    saleOrderNo: undefined,
     customerId: undefined,
     paymentMethod: undefined
   }
 })
 
 const { queryParams } = toRefs(data)
+
+const receiptStatItems = computed(() => {
+  const rows = receiptList.value || []
+  const validAmt = rows.filter(r => r.status !== "voided").reduce((s, r) => s + Number(r.amount || 0), 0)
+  const voidCount = rows.filter(r => r.status === "voided").length
+  return [
+    { label: "回款流水总数", value: total.value, suffix: "笔", hint: "匹配当前筛选的全部流水", icon: "CreditCard", tone: "indigo" },
+    { label: "本页有效回款额", prefix: "¥", value: validAmt.toFixed(2), hint: "不含已冲红作废流水", icon: "CircleCheck", tone: "emerald" },
+    { label: "本页冲红作废", value: voidCount, suffix: "笔", hint: "冲红后已自动回退台账与余额", icon: "RefreshLeft", tone: "rose" }
+  ]
+})
 
 // 根据首页或其他业务页传入的参数初始化回款流水筛选条件，保证落地页即开即用。
 function initializeQueryParamsFromRoute() {
@@ -151,6 +188,69 @@ function initializeQueryParamsFromRoute() {
 // 初始化客户远程下拉数据，避免页面初始阶段一次性加载过多基础资料。
 function initBasicData() {
   loadCustomerOptionList()
+  listAccount({ pageNum: 1, pageSize: 50 }).then(res => {
+    const map = {}
+    ;(res.rows || []).forEach(acc => {
+      map[acc.accountId] = acc.accountName
+    })
+    accountMap.value = map
+  }).catch(() => {})
+}
+
+function getAccountName(accountId) {
+  if (!accountId) return "-"
+  return accountMap.value[accountId] || `账户#${accountId}`
+}
+
+function handlePrintReceipt(row) {
+  const isRefund = Number(row.amount || 0) < 0
+  const docNo = "RC" + String(row.receiptId || "").padStart(5, "0")
+  printDialogRef.value?.openPrint({
+    docType: "receipt",
+    title: isRefund ? "销售红字退款凭证" : "销售收款记账凭证",
+    docNo,
+    defaultPaperMode: "triplicate",
+    metaFields: [
+      { label: "凭证编号", value: docNo },
+      { label: "往来客户", value: row.customerName || getCustomerName(row.customerId, row.saleOrderId) },
+      { label: "关联销售单", value: row.saleOrderNo || (row.saleOrderId ? `SO-${row.saleOrderId}` : "-") },
+      { label: "关联应收单", value: row.receivableId ? `AR${String(row.receivableId).padStart(5, "0")}` : "-" },
+      { label: "结算方式", value: getReceiptPaymentMethodLabel(row.paymentMethod) },
+      { label: "结算账户", value: row.accountName || getAccountName(row.accountId) },
+      { label: "记账时间", value: parseTime(row.paymentTime, "{y}-{m}-{d} {h}:{i}:{s}") },
+      { label: "凭证状态", value: row.status === "voided" ? `已冲红（${row.voidReason || "-"}）` : "正常有效" }
+    ],
+    columns: [
+      { label: "款项摘要", prop: "summary" },
+      { label: "关联单号", prop: "orderNo", width: "160px" },
+      { label: "结算账户", prop: "accountName", width: "170px" },
+      { label: "金额(元)", prop: "amount", width: "130px", align: "right", type: "money" }
+    ],
+    items: [
+      {
+        summary: isRefund ? "销售退货/溢收客户退款" : "销售货款回款核销",
+        orderNo: row.saleOrderNo || "-",
+        accountName: row.accountName || getAccountName(row.accountId),
+        amount: Number(row.amount || 0)
+      }
+    ],
+    totalQty: 1,
+    totalAmount: Number(row.amount || 0),
+    remark: row.remark || ""
+  })
+}
+
+function handleVoidReceipt(row) {
+  proxy.$modal.prompt(`确认冲红回款单 RC${String(row.receiptId || '').padStart(5, '0')}（金额：¥${row.amount}）？请输入冲红作废原因：`).then(({ value }) => {
+    if (!value || !value.trim()) {
+      proxy.$modal.msgWarning("请填写冲红原因")
+      return Promise.reject(new Error("empty reason"))
+    }
+    return voidReceipt(row.receiptId, value.trim())
+  }).then(() => {
+    proxy.$modal.msgSuccess("回款冲红成功，应收余额与结算账户已同步回退")
+    getList()
+  }).catch(() => {})
 }
 
 // 远程加载客户下拉选项，按需补充客户名称数据，减少页面初始加载压力。
@@ -247,9 +347,20 @@ function ensureCustomerOptionLoaded(customerId, saleOrderId) {
   })
 }
 
-// 批量补充回款流水列表依赖的客户名称，保证远程下拉模式下列表展示仍然可读。
+// 批量补充回款流水列表依赖的客户名称，优先复用后端关联字段，消除冗余 N+1 查询。
 function ensureReceiptReferenceOptionsLoaded(receiptRowList) {
-  Promise.all((receiptRowList || []).map(receiptRow => ensureCustomerOptionLoaded(receiptRow.customerId, receiptRow.saleOrderId))).catch(() => {})
+  const missingRows = []
+  ;(receiptRowList || []).forEach(receiptRow => {
+    if (receiptRow.customerId != null && receiptRow.customerName) {
+      appendUniqueSelectOption(customerList.value, {
+        customerId: receiptRow.customerId,
+        customerName: normalizeCustomerDisplayName(receiptRow.customerName)
+      }, "customerId")
+    } else {
+      missingRows.push(receiptRow)
+    }
+  })
+  Promise.all(missingRows.map(receiptRow => ensureCustomerOptionLoaded(receiptRow.customerId, receiptRow.saleOrderId))).catch(() => {})
 }
 
 // 组合客户下拉选项，兼容历史回款记录中主数据缺失时的兜底回显。
@@ -302,6 +413,9 @@ function handleQuery() {
 // 重置筛选条件并清空时间范围，恢复回款流水默认查询口径。
 function resetQuery() {
   proxy.resetForm("queryRef")
+  queryParams.value.receivableId = undefined
+  queryParams.value.saleOrderId = undefined
+  queryParams.value.saleOrderNo = undefined
   receiptTimeRange.value = []
   handleQuery()
 }
@@ -344,8 +458,10 @@ function handleExport() {
 // 初始化页面筛选条件和客户下拉，保证从应收或销售单重复跳转时回款流水会立即刷新。
 async function initializePage() {
   initializeQueryParamsFromRoute()
-  await initBasicData()
-  await getList()
+  await Promise.all([
+    Promise.resolve(initBasicData()),
+    Promise.resolve(getList())
+  ])
 }
 
 // 监听同一路由下的查询参数变化，避免回款流水仍然停留在旧的单据或客户筛选条件。

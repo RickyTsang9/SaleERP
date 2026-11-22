@@ -319,8 +319,8 @@ $lighterBlue: #409EFF;
 .container {
   position: relative;
   width: 100%;
-  background-color: var(--el-bg-color-overlay);
-  height: calc(100vh - 50px - 40px);
+  background-color: var(--erp-surface);
+  height: calc(100vh - 96px);
   overflow: hidden;
 
   .left-board {
@@ -328,12 +328,12 @@ $lighterBlue: #409EFF;
     position: absolute;
     left: 0;
     top: 0;
-    height: calc(100vh - 50px - 40px);
+    height: calc(100vh - 96px);
 
     .logo-wrapper {
       position: relative;
       height: 42px;
-      border-bottom: 1px solid var(--el-border-color-extra-light);
+      border-bottom: 1px solid var(--erp-border);
       box-sizing: border-box;
 
       .logo {
@@ -341,9 +341,9 @@ $lighterBlue: #409EFF;
         left: 12px;
         top: 6px;
         line-height: 30px;
-        color: #00afff;
-        font-weight: 600;
-        font-size: 17px;
+        color: var(--erp-primary);
+        font-weight: 700;
+        font-size: 16px;
         white-space: nowrap;
 
         >img {
@@ -429,7 +429,7 @@ $lighterBlue: #409EFF;
   }
 
   .center-board {
-    height: calc(100vh - 50px - 40px);
+    height: calc(100vh - 96px);
     width: auto;
     margin: 0 350px 0 260px;
     box-sizing: border-box;
@@ -439,8 +439,7 @@ $lighterBlue: #409EFF;
       height: 42px;
       padding: 0 15px;
       box-sizing: border-box;
-      ;
-      border: 1px solid var(--el-border-color-extra-light);
+      border: 1px solid var(--erp-border);
       border-top: none;
       border-left: none;
       display: flex;
@@ -453,10 +452,10 @@ $lighterBlue: #409EFF;
     }
 
     .center-scrollbar {
-      height: calc(100vh - 50px - 40px - 42px);
+      height: calc(100vh - 96px - 42px);
       overflow: hidden;
-      border-left: 1px solid var(--el-border-color-extra-light);
-      border-right: 1px solid var(--el-border-color-extra-light);
+      border-left: 1px solid var(--erp-border);
+      border-right: 1px solid var(--erp-border);
       box-sizing: border-box;
 
       .el-scrollbar__view {

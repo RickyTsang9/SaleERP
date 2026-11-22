@@ -33,6 +33,9 @@ public class FinPayable extends BaseEntity
     @Excel(name = "供应商ID")
     private Long supplierId;
 
+    /** 供应商名称 */
+    private String supplierName;
+
     /** 应付金额 */
     @Excel(name = "应付金额")
     private BigDecimal amountDue;
@@ -66,6 +69,16 @@ public class FinPayable extends BaseEntity
     public Long getPayableId() 
     {
         return payableId;
+    }
+
+    public String getSupplierName()
+    {
+        return supplierName;
+    }
+
+    public void setSupplierName(String supplierName)
+    {
+        this.supplierName = supplierName;
     }
 
     public void setPurchaseOrderId(Long purchaseOrderId) 

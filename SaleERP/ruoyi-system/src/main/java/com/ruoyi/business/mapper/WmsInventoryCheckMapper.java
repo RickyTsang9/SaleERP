@@ -15,6 +15,13 @@ public interface WmsInventoryCheckMapper
 
     public int updateWmsInventoryCheckStatus(Long checkId, String status, String auditBy);
 
+    public int auditWmsInventoryCheckStatusCas(@org.apache.ibatis.annotations.Param("checkId") Long checkId,
+                                               @org.apache.ibatis.annotations.Param("auditBy") String auditBy);
+
+    public int rejectWmsInventoryCheckStatus(@org.apache.ibatis.annotations.Param("checkId") Long checkId,
+                                             @org.apache.ibatis.annotations.Param("rejectReason") String rejectReason,
+                                             @org.apache.ibatis.annotations.Param("updateBy") String updateBy);
+
     public int deleteWmsInventoryCheckById(Long checkId);
 
     public int deleteWmsInventoryCheckByIds(Long[] checkIds);

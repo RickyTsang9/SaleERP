@@ -30,9 +30,15 @@ public class WmsTransfer extends BaseEntity
     @Excel(name = "调出仓库ID")
     private Long outWarehouseId;
 
+    /** 调出仓库名称 */
+    private String outWarehouseName;
+
     /** 调入仓库ID */
     @Excel(name = "调入仓库ID")
     private Long inWarehouseId;
+
+    /** 调入仓库名称 */
+    private String inWarehouseName;
 
     /** 调拨日期 */
     @JsonFormat(pattern = "yyyy-MM-dd")
@@ -40,8 +46,45 @@ public class WmsTransfer extends BaseEntity
     private Date transferDate;
 
     /** 状态（0待审核 1已审核 2已作废） */
-    @Excel(name = "状态", readConverterExp = "0=待审核,1=已审核,2=已作废")
+    @Excel(name = "状态", readConverterExp = "draft=草稿,0=待审核,in_transit=在途待签收,1=已签收完成,2=已作废")
     private String status;
+
+    private String receiveBy;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date receiveTime;
+
+    private String rejectReason;
+
+    public String getReceiveBy()
+    {
+        return receiveBy;
+    }
+
+    public void setReceiveBy(String receiveBy)
+    {
+        this.receiveBy = receiveBy;
+    }
+
+    public Date getReceiveTime()
+    {
+        return receiveTime;
+    }
+
+    public void setReceiveTime(Date receiveTime)
+    {
+        this.receiveTime = receiveTime;
+    }
+
+    public String getRejectReason()
+    {
+        return rejectReason;
+    }
+
+    public void setRejectReason(String rejectReason)
+    {
+        this.rejectReason = rejectReason;
+    }
 
     /** 总数量 */
     @Excel(name = "总数量")
@@ -58,6 +101,26 @@ public class WmsTransfer extends BaseEntity
     public Long getTransferId() 
     {
         return transferId;
+    }
+
+    public String getOutWarehouseName()
+    {
+        return outWarehouseName;
+    }
+
+    public void setOutWarehouseName(String outWarehouseName)
+    {
+        this.outWarehouseName = outWarehouseName;
+    }
+
+    public String getInWarehouseName()
+    {
+        return inWarehouseName;
+    }
+
+    public void setInWarehouseName(String inWarehouseName)
+    {
+        this.inWarehouseName = inWarehouseName;
     }
 
     public void setTransferNo(String transferNo) 

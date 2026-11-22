@@ -70,6 +70,16 @@ public class WmsPurchaseOrderController extends BaseController
     }
 
     /**
+     * 查询采购订单全链路追踪
+     */
+    @PreAuthorize("@ss.hasPermi('business:purchaseOrder:query')")
+    @GetMapping("/chain/{purchaseOrderId}")
+    public AjaxResult chain(@PathVariable("purchaseOrderId") Long purchaseOrderId)
+    {
+        return success(wmsPurchaseOrderService.selectWmsPurchaseOrderChain(purchaseOrderId));
+    }
+
+    /**
      * 新增采购订单
      */
     @PreAuthorize("@ss.hasPermi('business:purchaseOrder:add')")
@@ -111,6 +121,31 @@ public class WmsPurchaseOrderController extends BaseController
     public AjaxResult audit(@PathVariable Long purchaseOrderId)
     {
         return toAjax(wmsPurchaseOrderService.auditWmsPurchaseOrder(purchaseOrderId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:purchaseOrder:audit')")
+    @Log(title = "采购订单驳回", businessType = BusinessType.UPDATE)
+    @PostMapping("/reject/{purchaseOrderId}")
+    public AjaxResult reject(@PathVariable Long purchaseOrderId, @RequestBody(required = false) WmsPurchaseOrder body)
+    {
+        String reason = body == null ? null : body.getRejectReason();
+        return toAjax(wmsPurchaseOrderService.rejectWmsPurchaseOrder(purchaseOrderId, reason));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:purchaseOrder:audit')")
+    @Log(title = "采购订单反审核", businessType = BusinessType.UPDATE)
+    @PostMapping("/reverseAudit/{purchaseOrderId}")
+    public AjaxResult reverseAudit(@PathVariable Long purchaseOrderId)
+    {
+        return toAjax(wmsPurchaseOrderService.reverseAuditWmsPurchaseOrder(purchaseOrderId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:purchaseOrder:audit')")
+    @Log(title = "采购订单短装结案", businessType = BusinessType.UPDATE)
+    @PostMapping("/forceClose/{purchaseOrderId}")
+    public AjaxResult forceClose(@PathVariable Long purchaseOrderId)
+    {
+        return toAjax(wmsPurchaseOrderService.forceCloseWmsPurchaseOrder(purchaseOrderId));
     }
 
     /**

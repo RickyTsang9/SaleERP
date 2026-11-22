@@ -30,6 +30,9 @@ public class WmsPurchaseOrder extends BaseEntity
     @Excel(name = "供应商ID")
     private Long supplierId;
 
+    /** 供应商名称 */
+    private String supplierName;
+
     /** 采购日期 */
     @JsonFormat(pattern = "yyyy-MM-dd")
     @Excel(name = "采购日期", width = 30, dateFormat = "yyyy-MM-dd")
@@ -38,6 +41,12 @@ public class WmsPurchaseOrder extends BaseEntity
     /** 总金额 */
     @Excel(name = "总金额")
     private BigDecimal totalAmount;
+
+    /** 已收票金额 */
+    private BigDecimal invoicedAmount;
+
+    /** 收票状态 */
+    private String invoiceStatus;
 
     /** 采购数量 */
     @Excel(name = "采购数量")
@@ -56,8 +65,20 @@ public class WmsPurchaseOrder extends BaseEntity
     private BigDecimal remainQuantity;
 
     /** 状态（0待审核 1已审核 2部分入库 3已完成 4已作废） */
-    @Excel(name = "状态", readConverterExp = "0=待审核,1=已审核,2=部分入库,3=已完成,4=已作废")
+    @Excel(name = "状态", readConverterExp = "draft=草稿,0=待审核,1=已审核,2=部分入库,3=已完成,4=已作废")
     private String status;
+
+    private String rejectReason;
+
+    public String getRejectReason()
+    {
+        return rejectReason;
+    }
+
+    public void setRejectReason(String rejectReason)
+    {
+        this.rejectReason = rejectReason;
+    }
 
     /** 采购订单明细信息 */
     private List<WmsPurchaseOrderItem> wmsPurchaseOrderItemList;
@@ -92,6 +113,16 @@ public class WmsPurchaseOrder extends BaseEntity
         return supplierId;
     }
 
+    public void setSupplierName(String supplierName)
+    {
+        this.supplierName = supplierName;
+    }
+
+    public String getSupplierName()
+    {
+        return supplierName;
+    }
+
     public void setPurchaseDate(Date purchaseDate) 
     {
         this.purchaseDate = purchaseDate;
@@ -110,6 +141,26 @@ public class WmsPurchaseOrder extends BaseEntity
     public BigDecimal getTotalAmount() 
     {
         return totalAmount;
+    }
+
+    public BigDecimal getInvoicedAmount()
+    {
+        return invoicedAmount;
+    }
+
+    public void setInvoicedAmount(BigDecimal invoicedAmount)
+    {
+        this.invoicedAmount = invoicedAmount;
+    }
+
+    public String getInvoiceStatus()
+    {
+        return invoiceStatus;
+    }
+
+    public void setInvoiceStatus(String invoiceStatus)
+    {
+        this.invoiceStatus = invoiceStatus;
     }
 
     /**

@@ -17,6 +17,10 @@ public interface IWmsInventoryCheckService
 
     public int auditWmsInventoryCheck(Long checkId);
 
+    public int rejectWmsInventoryCheck(Long checkId, String rejectReason);
+
+    public int loadWarehouseStockSnapshot(Long checkId, Long locationId, Boolean blindMode);
+
     public int cancelWmsInventoryCheck(Long checkId);
 
     public int deleteWmsInventoryCheckById(Long checkId);

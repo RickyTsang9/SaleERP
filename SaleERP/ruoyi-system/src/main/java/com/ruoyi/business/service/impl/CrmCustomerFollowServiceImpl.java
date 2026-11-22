@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.ruoyi.business.mapper.CrmCustomerFollowMapper;
 import com.ruoyi.business.domain.CrmCustomerFollow;
 import com.ruoyi.business.service.ICrmCustomerFollowService;
+import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.utils.SecurityUtils;
 
 /**
@@ -41,6 +42,7 @@ public class CrmCustomerFollowServiceImpl implements ICrmCustomerFollowService
      * @return 客户跟进记录
      */
     @Override
+    @DataScope(deptAlias = "su", userAlias = "su", permission = "business:customerFollow:list")
     public List<CrmCustomerFollow> selectCrmCustomerFollowList(CrmCustomerFollow crmCustomerFollow)
     {
         return crmCustomerFollowMapper.selectCrmCustomerFollowList(crmCustomerFollow);
@@ -53,6 +55,7 @@ public class CrmCustomerFollowServiceImpl implements ICrmCustomerFollowService
      * @return 客户跟进待办摘要
      */
     @Override
+    @DataScope(deptAlias = "su", userAlias = "su", permission = "business:customerFollow:list")
     public Map<String, Object> selectCrmCustomerFollowTodoSummary(CrmCustomerFollow crmCustomerFollow)
     {
         return crmCustomerFollowMapper.selectCrmCustomerFollowTodoSummary(crmCustomerFollow);

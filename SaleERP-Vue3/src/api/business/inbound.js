@@ -45,6 +45,14 @@ export function auditInbound(inboundId) {
   })
 }
 
+export function rejectInbound(inboundId, rejectReason) {
+  return request({
+    url: '/business/inbound/reject/' + inboundId,
+    method: 'post',
+    data: { rejectReason }
+  })
+}
+
 export function cancelInbound(inboundId) {
   return request({
     url: '/business/inbound/cancel/' + inboundId,

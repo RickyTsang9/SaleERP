@@ -1,6 +1,7 @@
 package com.ruoyi.business.service;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.business.domain.WmsPurchaseOrder;
 
 /**
@@ -18,6 +19,14 @@ public interface IWmsPurchaseOrderService
      * @return 采购订单
      */
     public WmsPurchaseOrder selectWmsPurchaseOrderByPurchaseOrderId(Long purchaseOrderId);
+
+    /**
+     * 查询采购订单全链路追踪
+     *
+     * @param purchaseOrderId 采购订单主键
+     * @return 采购订单链路数据
+     */
+    public Map<String, Object> selectWmsPurchaseOrderChain(Long purchaseOrderId);
 
     /**
      * 查询采购订单列表
@@ -58,6 +67,12 @@ public interface IWmsPurchaseOrderService
      * @return 结果
      */
     public int auditWmsPurchaseOrder(Long purchaseOrderId);
+
+    public int rejectWmsPurchaseOrder(Long purchaseOrderId, String rejectReason);
+
+    public int reverseAuditWmsPurchaseOrder(Long purchaseOrderId);
+
+    public int forceCloseWmsPurchaseOrder(Long purchaseOrderId);
 
     /**
      * 作废采购订单

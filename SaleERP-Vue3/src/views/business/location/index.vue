@@ -1,94 +1,114 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-      <el-form-item label="仓库" prop="warehouseId">
-        <el-select
-          v-model="queryParams.warehouseId"
-          placeholder="请选择仓库"
-          clearable
-          filterable
-          remote
-          reserve-keyword
-          remote-show-suffix
-          :remote-method="loadWarehouseOptionList"
-          :loading="warehouseListLoading"
-          style="width: 220px"
-        >
-          <el-option
-            v-for="warehouse in warehouseSelectOptionList"
-            :key="warehouse.warehouseId"
-            :label="warehouse.warehouseName"
-            :value="warehouse.warehouseId"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="库位编码" prop="locationCode">
-        <el-input v-model="queryParams.locationCode" placeholder="请输入库位编码" clearable style="width: 200px" @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="库位名称" prop="locationName">
-        <el-input v-model="queryParams.locationName" placeholder="请输入库位名称" clearable style="width: 200px" @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" clearable style="width: 200px" placeholder="请选择状态">
-          <el-option v-for="dict in sys_normal_disable" :key="dict.value" :label="dict.label" :value="dict.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="仓储基础架构"
+      title="库位管理"
+      subtitle="按所属仓库精细化划分货架与库位编码，支撑批次精准定位及移动 PDA 扫码上架。"
+      icon="Grid"
+      tone="blue"
+      :badge="`共 ${total} 个库位`"
+    >
+      <template #actions>
+        <el-button icon="Upload" plain @click="handleImport" v-hasPermi="['business:location:add']">批量导入</el-button>
+        <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:location:export']">导出</el-button>
+        <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:location:add']">新增库位</el-button>
+      </template>
+    </erp-page-header>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['business:location:add']">新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:location:edit']">修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:location:remove']">删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:location:export']">导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="handleQuery"></right-toolbar>
-    </el-row>
+    <erp-stat-strip :items="locationStatItems" :columns="3" />
 
-    <el-table v-loading="loading" :data="locationList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="仓库" align="center" prop="warehouseId" min-width="180">
-        <template #default="scope">
-          <span>{{ getWarehouseName(scope.row.warehouseId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="库位编码" align="center" prop="locationCode" min-width="140" />
-      <el-table-column label="库位名称" align="center" prop="locationName" min-width="180" />
-      <el-table-column label="状态" align="center" prop="status" width="120">
-        <template #default="scope">
-          <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="180" align="center" class-name="small-padding fixed-width">
-        <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:location:edit']">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:location:remove']">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true">
+        <el-form-item label="仓库" prop="warehouseId">
+          <el-select
+            v-model="queryParams.warehouseId"
+            placeholder="请选择仓库"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            remote-show-suffix
+            :remote-method="loadWarehouseOptionList"
+            :loading="warehouseListLoading"
+            style="width: 210px"
+          >
+            <el-option
+              v-for="warehouse in warehouseSelectOptionList"
+              :key="warehouse.warehouseId"
+              :label="warehouse.warehouseName"
+              :value="warehouse.warehouseId"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="库位编码" prop="locationCode">
+          <el-input v-model="queryParams.locationCode" placeholder="请输入库位编码" clearable style="width: 185px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="库位名称" prop="locationName">
+          <el-input v-model="queryParams.locationName" placeholder="请输入库位名称" clearable style="width: 185px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="queryParams.status" clearable style="width: 140px" placeholder="全部状态">
+            <el-option v-for="dict in sys_normal_disable" :key="dict.value" :label="dict.label" :value="dict.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
 
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs :model-value="queryParams.status ?? ''" :items="statusTabItems" @change="handleQuickStatus" />
+          <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['business:location:edit']">修改</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['business:location:remove']">删除</el-button>
+        </div>
+        <div class="erp-toolbar-right">
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="handleQuery" />
+        </div>
+      </div>
+
+      <el-table v-loading="loading" :data="locationList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="所属仓库" align="left" prop="warehouseId" min-width="180">
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.warehouseName || getWarehouseName(scope.row.warehouseId) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="库位编码" align="center" prop="locationCode" min-width="140">
+          <template #default="scope">
+            <span class="erp-code-chip">{{ scope.row.locationCode }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="库位名称" align="left" prop="locationName" min-width="180" />
+        <el-table-column label="状态" align="center" prop="status" width="110">
+          <template #default="scope">
+            <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" align="center" prop="createTime" width="175">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="160" fixed="right" align="center">
+          <template #default="scope">
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:location:edit']">修改</el-button>
+            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:location:remove']">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
     <el-dialog :title="title" v-model="open" width="700px" append-to-body>
       <el-form ref="locationRef" :model="form" :rules="rules" label-width="100px">
@@ -147,6 +167,37 @@
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog :title="upload.title" v-model="upload.open" width="420px" append-to-body>
+      <el-upload
+        ref="uploadRef"
+        :limit="1"
+        accept=".xlsx, .xls"
+        :headers="upload.headers"
+        :action="upload.url + '?updateSupport=' + upload.updateSupport"
+        :disabled="upload.isUploading"
+        :on-progress="() => (upload.isUploading = true)"
+        :on-success="handleFileSuccess"
+        :auto-upload="false"
+        drag
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+        <template #tip>
+          <div class="el-upload__tip text-center">
+            <div class="el-upload__tip"><el-checkbox v-model="upload.updateSupport" />是否更新已经存在的库位资料</div>
+            <span>仅允许导入 xls、xlsx 格式文件。</span>
+            <el-link type="primary" :underline="false" style="font-size: 12px; vertical-align: baseline" @click="importTemplate">下载模板</el-link>
+          </div>
+        </template>
+      </el-upload>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" :loading="upload.isUploading" @click="submitFileForm">确 定</el-button>
+          <el-button @click="upload.open = false">取 消</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -155,6 +206,7 @@ import { listLocation, getLocation, addLocation, updateLocation, delLocation } f
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
 import { parseTime } from "@/utils/ruoyi"
+import { getToken } from "@/utils/auth"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
@@ -171,6 +223,14 @@ const total = ref(0)
 const title = ref("")
 const warehouseList = ref([])
 const warehouseListLoading = ref(false)
+const upload = reactive({
+  open: false,
+  title: "库位资料导入",
+  isUploading: false,
+  updateSupport: false,
+  headers: { Authorization: "Bearer " + getToken() },
+  url: import.meta.env.VITE_APP_BASE_API + "/business/location/importData"
+})
 
 const data = reactive({
   form: {},
@@ -191,6 +251,28 @@ const data = reactive({
 
 const { queryParams, form, rules } = toRefs(data)
 const warehouseSelectOptionList = computed(() => buildWarehouseSelectOptionList())
+
+const statusTabItems = [
+  { label: '全部库位', value: '' },
+  { label: '启用中', value: '0', dot: 'emerald' },
+  { label: '已停用', value: '1', dot: 'slate' }
+]
+
+const locationStatItems = computed(() => {
+  const rows = locationList.value || []
+  const enabledCount = rows.filter(r => r.status === '0').length
+  const warehouseSet = new Set(rows.map(r => r.warehouseId).filter(Boolean))
+  return [
+    { label: '库位配置总数', value: total.value, suffix: '个', hint: '支持扫码定位与精准拣货', icon: 'Grid', tone: 'blue' },
+    { label: '本页启用库位', value: enabledCount, suffix: `/ ${rows.length}`, hint: '可用于上架与移库', icon: 'CircleCheck', tone: 'emerald' },
+    { label: '本页覆盖仓库', value: warehouseSet.size, suffix: '座', hint: '跨仓货位协同分布', icon: 'House', tone: 'indigo' }
+  ]
+})
+
+function handleQuickStatus(val) {
+  queryParams.value.status = val === '' ? undefined : val
+  handleQuery()
+}
 
 // 根据路由参数恢复库位筛选条件，支持从仓库页直接跳到指定仓库的库位列表。
 function initializeQueryParamsFromRoute() {
@@ -359,12 +441,16 @@ function buildDeleteLocationDisplayText(row) {
   return `已选中的 ${ids.value.length} 个库位`
 }
 
-// 删除按钮操作
+// 删除按钮操作，兼容单条删除和批量删除，并在空选择时及时提醒用户。
 function handleDelete(row) {
-  const locationIds = row?.locationId || ids.value
+  const locationIdList = row?.locationId ? [row.locationId] : ids.value
+  if (!locationIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的库位")
+    return
+  }
   const displayLocationText = buildDeleteLocationDisplayText(row)
   proxy.$modal.confirm(`是否确认删除“${displayLocationText}”？`).then(function () {
-    return delLocation(locationIds)
+    return delLocation(locationIdList)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")
@@ -378,11 +464,33 @@ function handleExport() {
   }, `location_${new Date().getTime()}.xlsx`)
 }
 
+function handleImport() {
+  upload.open = true
+}
+
+function importTemplate() {
+  proxy.download("business/location/importTemplate", {}, `location_template_${new Date().getTime()}.xlsx`)
+}
+
+function submitFileForm() {
+  proxy.$refs["uploadRef"].submit()
+}
+
+function handleFileSuccess(response) {
+  upload.open = false
+  upload.isUploading = false
+  proxy.$refs["uploadRef"].handleRemove()
+  proxy.$alert("<div style='overflow: auto;max-height: 60vh;padding: 10px 16px;'>" + (response.msg || "导入完成") + "</div>", "导入结果", { dangerouslyUseHTMLString: true })
+  getList()
+}
+
 // 初始化页面筛选条件和下拉数据，保证从仓库页重复跳转时库位列表会正确刷新。
 async function initializePage() {
   initializeQueryParamsFromRoute()
-  await initBasicData()
-  await getList()
+  await Promise.all([
+    Promise.resolve(initBasicData()),
+    Promise.resolve(getList())
+  ])
 }
 
 // 监听同一路由下的查询参数变化，避免切换仓库后列表仍停留在旧筛选结果。

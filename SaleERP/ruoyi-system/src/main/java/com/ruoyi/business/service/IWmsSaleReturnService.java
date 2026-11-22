@@ -17,6 +17,8 @@ public interface IWmsSaleReturnService
 
     public int auditWmsSaleReturn(Long saleReturnId);
 
+    public int rejectWmsSaleReturn(Long saleReturnId, String rejectReason);
+
     public int cancelWmsSaleReturn(Long saleReturnId);
 
     public int deleteWmsSaleReturnById(Long saleReturnId);

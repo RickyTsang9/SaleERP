@@ -1,5 +1,6 @@
 package com.ruoyi.business.service.impl;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -12,6 +13,7 @@ import com.ruoyi.business.mapper.WmsSaleOrderMapper;
 import com.ruoyi.business.mapper.WmsSaleOrderItemMapper;
 import com.ruoyi.business.service.IWmsSaleOrderItemService;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
 
 @Service
 public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
@@ -47,6 +49,7 @@ public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
     public int insertWmsSaleOrderItem(WmsSaleOrderItem wmsSaleOrderItem)
     {
         validateSaleOrderEditable(wmsSaleOrderItem.getSaleOrderId());
+        prepareSaleOrderItemForSave(wmsSaleOrderItem);
         int insertRows = wmsSaleOrderItemMapper.insertWmsSaleOrderItem(wmsSaleOrderItem);
         refreshSaleOrderTotal(wmsSaleOrderItem.getSaleOrderId());
         return insertRows;
@@ -63,6 +66,7 @@ public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
         }
         validateSaleOrderEditable(databaseSaleOrderItem.getSaleOrderId());
         wmsSaleOrderItem.setSaleOrderId(databaseSaleOrderItem.getSaleOrderId());
+        prepareSaleOrderItemForSave(wmsSaleOrderItem);
         int updateRows = wmsSaleOrderItemMapper.updateWmsSaleOrderItem(wmsSaleOrderItem);
         refreshSaleOrderTotal(wmsSaleOrderItem.getSaleOrderId());
         if (databaseSaleOrderItem != null && databaseSaleOrderItem.getSaleOrderId() != null
@@ -138,6 +142,58 @@ public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
         }
     }
 
+    /**
+     * 保存前校验销售明细字段并重算金额
+     *
+     * @param wmsSaleOrderItem 销售明细
+     */
+    private void prepareSaleOrderItemForSave(WmsSaleOrderItem wmsSaleOrderItem)
+    {
+        if (wmsSaleOrderItem == null)
+        {
+            throw new ServiceException("销售明细不能为空");
+        }
+        if (wmsSaleOrderItem.getProductId() == null)
+        {
+            throw new ServiceException("销售明细商品不能为空");
+        }
+        if (wmsSaleOrderItem.getLocationId() == null)
+        {
+            throw new ServiceException("销售明细库位不能为空");
+        }
+        if (StringUtils.isEmpty(wmsSaleOrderItem.getBatchNo()))
+        {
+            throw new ServiceException("销售明细批次不能为空");
+        }
+        if (wmsSaleOrderItem.getQuantity() == null || wmsSaleOrderItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+        {
+            throw new ServiceException("销售数量必须大于0");
+        }
+        if (wmsSaleOrderItem.getPrice() == null || wmsSaleOrderItem.getPrice().compareTo(BigDecimal.ZERO) < 0)
+        {
+            throw new ServiceException("销售单价不能小于0");
+        }
+        wmsSaleOrderItem.setAmount(calculateSaleOrderItemAmount(wmsSaleOrderItem));
+    }
+
+    /**
+     * 计算销售明细金额
+     *
+     * @param wmsSaleOrderItem 销售明细
+     * @return 金额
+     */
+    private BigDecimal calculateSaleOrderItemAmount(WmsSaleOrderItem wmsSaleOrderItem)
+    {
+        BigDecimal quantityValue = wmsSaleOrderItem.getQuantity() == null ? BigDecimal.ZERO : wmsSaleOrderItem.getQuantity();
+        BigDecimal priceValue = wmsSaleOrderItem.getPrice() == null ? BigDecimal.ZERO : wmsSaleOrderItem.getPrice();
+        return quantityValue.multiply(priceValue);
+    }
+
+    /**
+     * 刷新销售单主表总数量与总金额
+     *
+     * @param saleOrderId 销售单编号
+     */
     private void refreshSaleOrderTotal(Long saleOrderId)
     {
         if (saleOrderId != null)

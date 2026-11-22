@@ -106,11 +106,37 @@ public class WmsTransferController extends BaseController
      * 审核库存调拨
      */
     @PreAuthorize("@ss.hasPermi('business:transfer:audit')")
-    @Log(title = "库存调拨", businessType = BusinessType.UPDATE)
+    @Log(title = "库存调拨出库审核", businessType = BusinessType.UPDATE)
     @PostMapping("/audit/{transferId}")
     public AjaxResult audit(@PathVariable Long transferId)
     {
         return toAjax(wmsTransferService.auditWmsTransfer(transferId));
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:transfer:audit,business:transfer:edit')")
+    @Log(title = "库存调拨调入签收", businessType = BusinessType.UPDATE)
+    @PostMapping("/receive/{transferId}")
+    public AjaxResult receive(@PathVariable Long transferId, Long inLocationId)
+    {
+        return toAjax(wmsTransferService.confirmReceiveWmsTransfer(transferId, inLocationId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:transfer:audit')")
+    @Log(title = "库存调拨驳回", businessType = BusinessType.UPDATE)
+    @PostMapping("/reject/{transferId}")
+    public AjaxResult reject(@PathVariable Long transferId, @RequestBody(required = false) WmsTransfer body)
+    {
+        String reason = body == null ? null : body.getRejectReason();
+        return toAjax(wmsTransferService.rejectWmsTransfer(transferId, reason));
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:transfer:audit,business:transfer:edit')")
+    @Log(title = "库存调拨在途撤回", businessType = BusinessType.UPDATE)
+    @PostMapping("/recall/{transferId}")
+    public AjaxResult recall(@PathVariable Long transferId, @RequestBody(required = false) WmsTransfer body)
+    {
+        String reason = body == null ? null : body.getRejectReason();
+        return toAjax(wmsTransferService.recallWmsTransfer(transferId, reason));
     }
 
     /**

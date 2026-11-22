@@ -7,9 +7,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <resultMap type="WmsStock" id="WmsStockResult">
         <id     property="stockId"        column="stock_id"        />
         <result property="warehouseId"    column="warehouse_id"    />
+        <result property="warehouseName"  column="warehouse_name"  />
         <result property="productId"      column="product_id"      />
+        <result property="productCode"    column="product_code"    />
+        <result property="productName"    column="product_name"    />
         <result property="locationId"     column="location_id"     />
+        <result property="locationName"   column="location_name"   />
         <result property="batchNo"        column="batch_no"        />
+        <result property="expireDate"     column="expire_date"     />
         <result property="quantity"       column="quantity"        />
         <result property="lockedQuantity" column="locked_quantity" />
         <result property="frozenQuantity" column="frozen_quantity" />
@@ -23,26 +28,56 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsStockVo">
-        select stock_id, warehouse_id, product_id, location_id, batch_no, quantity, locked_quantity, frozen_quantity,
-               warning_min_qty, warning_max_qty, version, create_by, create_time, update_by, update_time
-        from wms_stock
+        select st.stock_id, st.warehouse_id, mw.warehouse_name, st.product_id, mp.product_code, mp.product_name,
+               st.location_id, ml.location_name, st.batch_no, st.expire_date, st.quantity, st.locked_quantity, st.frozen_quantity,
+               st.warning_min_qty, st.warning_max_qty, st.version, st.create_by, st.create_time, st.update_by, st.update_time
+        from wms_stock st
+        left join md_warehouse mw on mw.warehouse_id = st.warehouse_id
+        left join md_product mp on mp.product_id = st.product_id
+        left join md_location ml on ml.location_id = st.location_id
     </sql>
 
     <select id="selectWmsStockById" parameterType="Long" resultMap="WmsStockResult">
         <include refid="selectWmsStockVo"/>
-        where stock_id = #{stockId}
+        where st.stock_id = #{stockId}
     </select>
 
     <select id="selectWmsStockByKey" parameterType="WmsStock" resultMap="WmsStockResult">
         <include refid="selectWmsStockVo"/>
-        where warehouse_id = #{warehouseId}
-          and product_id = #{productId}
-          and location_id = #{locationId}
-          and batch_no = #{batchNo}
+        where st.warehouse_id = #{warehouseId}
+          and st.product_id = #{productId}
+          and st.location_id &lt;=&gt; #{locationId}
+          and nullif(st.batch_no, '') &lt;=&gt; nullif(#{batchNo}, '')
+        order by st.stock_id asc
+        limit 1
     </select>
 
     <select id="selectWmsStockWarningList" parameterType="WmsStock" resultMap="WmsStockResult">
         <include refid="selectWmsStockVo"/>
+        <where>
+            <if test="warehouseId != null">
+                and st.warehouse_id = #{warehouseId}
+            </if>
+            <if test="productId != null">
+                and st.product_id = #{productId}
+            </if>
+            <if test="locationId != null">
+                and st.location_id = #{locationId}
+            </if>
+            <if test="batchNo != null and batchNo != ''">
+                and st.batch_no = #{batchNo}
+            </if>
+            and (
+                (st.warning_min_qty is not null and st.quantity &lt; st.warning_min_qty)
+                or
+                (st.warning_max_qty is not null and st.quantity &gt; st.warning_max_qty)
+            )
+        </where>
+    </select>
+
+    <select id="selectWmsStockWarningCount" parameterType="WmsStock" resultType="java.lang.Long">
+        select count(1)
+        from wms_stock
         <where>
             <if test="warehouseId != null">
                 and warehouse_id = #{warehouseId}
@@ -68,18 +103,48 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <include refid="selectWmsStockVo"/>
         <where>
             <if test="warehouseId != null">
-                and warehouse_id = #{warehouseId}
+                and st.warehouse_id = #{warehouseId}
             </if>
             <if test="productId != null">
-                and product_id = #{productId}
+                and st.product_id = #{productId}
             </if>
             <if test="locationId != null">
-                and location_id = #{locationId}
+                and st.location_id = #{locationId}
             </if>
             <if test="batchNo != null and batchNo != ''">
-                and batch_no = #{batchNo}
+                and st.batch_no = #{batchNo}
+            </if>
+            <if test="params.expiringQuery != null and params.expiringQuery != ''">
+                and st.quantity &gt; 0
+                and st.expire_date is not null
+                and st.expire_date &lt;= date_add(curdate(), interval 30 day)
             </if>
         </where>
+    </select>
+
+    <select id="selectFirstWmsStockByWarehouseAndProduct" resultMap="WmsStockResult">
+        <include refid="selectWmsStockVo"/>
+        where st.warehouse_id = #{warehouseId}
+          and st.product_id = #{productId}
+        order by st.stock_id asc
+        limit 1
+    </select>
+
+    <select id="selectFefoCandidateBatches" resultMap="WmsStockResult">
+        <include refid="selectWmsStockVo"/>
+        where st.warehouse_id = #{warehouseId}
+          and st.product_id = #{productId}
+          and (ifnull(st.quantity, 0) - ifnull(st.locked_quantity, 0) - ifnull(st.frozen_quantity, 0)) &gt; 0
+          and (st.expire_date is null or st.expire_date &gt;= curdate())
+        order by case when st.expire_date is null then 1 else 0 end asc,
+                 st.expire_date asc,
+                 st.stock_id asc
+    </select>
+
+    <select id="selectTotalProductStockQuantity" resultType="java.math.BigDecimal">
+        select ifnull(sum(ifnull(quantity, 0)), 0)
+        from wms_stock
+        where product_id = #{productId}
     </select>
 
     <insert id="insertWmsStock" parameterType="WmsStock" useGeneratedKeys="true" keyProperty="stockId">
@@ -89,6 +154,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="productId != null">product_id,</if>
             <if test="locationId != null">location_id,</if>
             <if test="batchNo != null and batchNo != ''">batch_no,</if>
+            <if test="expireDate != null">expire_date,</if>
             <if test="quantity != null">quantity,</if>
             <if test="lockedQuantity != null">locked_quantity,</if>
             <if test="frozenQuantity != null">frozen_quantity,</if>
@@ -104,6 +170,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="productId != null">#{productId},</if>
             <if test="locationId != null">#{locationId},</if>
             <if test="batchNo != null and batchNo != ''">#{batchNo},</if>
+            <if test="expireDate != null">#{expireDate},</if>
             <if test="quantity != null">#{quantity},</if>
             <if test="lockedQuantity != null">#{lockedQuantity},</if>
             <if test="frozenQuantity != null">#{frozenQuantity},</if>
@@ -123,6 +190,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="productId != null">product_id = #{productId},</if>
             <if test="locationId != null">location_id = #{locationId},</if>
             <if test="batchNo != null and batchNo != ''">batch_no = #{batchNo},</if>
+            <if test="expireDate != null">expire_date = #{expireDate},</if>
             <if test="quantity != null">quantity = #{quantity},</if>
             <if test="lockedQuantity != null">locked_quantity = #{lockedQuantity},</if>
             <if test="frozenQuantity != null">frozen_quantity = #{frozenQuantity},</if>
@@ -133,6 +201,93 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             update_time = sysdate()
         </set>
         where stock_id = #{stockId}
+    </update>
+
+    <update id="updateWmsStockWarningThreshold" parameterType="WmsStock">
+        update wms_stock
+        set warning_min_qty = #{warningMinQty},
+            warning_max_qty = #{warningMaxQty},
+            expire_date = #{expireDate},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where stock_id = #{stockId}
+    </update>
+
+    <update id="increaseStockAtomically">
+        update wms_stock
+        set quantity = ifnull(quantity, 0) + #{deltaQty},
+            expire_date = coalesce(#{expireDate}, expire_date),
+            version = ifnull(version, 0) + 1,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where stock_id = #{stockId}
+          and ifnull(version, 0) = #{version}
+    </update>
+
+    <update id="deductAvailableStockAtomically">
+        update wms_stock
+        set quantity = ifnull(quantity, 0) - #{deltaQty},
+            version = ifnull(version, 0) + 1,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where stock_id = #{stockId}
+          and ifnull(version, 0) = #{version}
+          and (ifnull(quantity, 0) - ifnull(locked_quantity, 0) - ifnull(frozen_quantity, 0)) &gt;= #{deltaQty}
+    </update>
+
+    <update id="lockStockAtomically">
+        update wms_stock
+        set locked_quantity = ifnull(locked_quantity, 0) + #{lockQty},
+            version = ifnull(version, 0) + 1,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where stock_id = #{stockId}
+          and ifnull(version, 0) = #{version}
+          and (ifnull(quantity, 0) - ifnull(locked_quantity, 0) - ifnull(frozen_quantity, 0)) &gt;= #{lockQty}
+    </update>
+
+    <update id="releaseLockAtomically">
+        update wms_stock
+        set locked_quantity = greatest(ifnull(locked_quantity, 0) - #{releaseQty}, 0),
+            version = ifnull(version, 0) + 1,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where stock_id = #{stockId}
+          and ifnull(version, 0) = #{version}
+    </update>
+
+    <update id="shipLockedStockAtomically">
+        update wms_stock
+        set quantity = ifnull(quantity, 0) - #{shipQty},
+            locked_quantity = greatest(ifnull(locked_quantity, 0) - #{shipQty}, 0),
+            version = ifnull(version, 0) + 1,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where stock_id = #{stockId}
+          and ifnull(version, 0) = #{version}
+          and ifnull(quantity, 0) &gt;= #{shipQty}
+    </update>
+
+    <update id="freezeStockAtomically">
+        update wms_stock
+        set frozen_quantity = ifnull(frozen_quantity, 0) + #{freezeQty},
+            version = ifnull(version, 0) + 1,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where stock_id = #{stockId}
+          and ifnull(version, 0) = #{version}
+          and (ifnull(quantity, 0) - ifnull(locked_quantity, 0) - ifnull(frozen_quantity, 0)) &gt;= #{freezeQty}
+    </update>
+
+    <update id="unfreezeStockAtomically">
+        update wms_stock
+        set frozen_quantity = ifnull(frozen_quantity, 0) - #{unfreezeQty},
+            version = ifnull(version, 0) + 1,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where stock_id = #{stockId}
+          and ifnull(version, 0) = #{version}
+          and ifnull(frozen_quantity, 0) &gt;= #{unfreezeQty}
     </update>
 
     <delete id="deleteWmsStockById" parameterType="Long">

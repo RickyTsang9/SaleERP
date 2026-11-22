@@ -7,6 +7,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <resultMap type="MdLocation" id="MdLocationResult">
         <id     property="locationId"   column="location_id"   />
         <result property="warehouseId"  column="warehouse_id"  />
+        <result property="warehouseName" column="warehouse_name" />
         <result property="locationCode" column="location_code" />
         <result property="locationName" column="location_name" />
         <result property="status"       column="status"        />
@@ -19,33 +20,34 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectMdLocationVo">
-        select location_id, warehouse_id, location_code, location_name, status, del_flag,
-               create_by, create_time, update_by, update_time, remark
-        from md_location
+        select l.location_id, l.warehouse_id, mw.warehouse_name, l.location_code, l.location_name, l.status, l.del_flag,
+               l.create_by, l.create_time, l.update_by, l.update_time, l.remark
+        from md_location l
+        left join md_warehouse mw on mw.warehouse_id = l.warehouse_id
     </sql>
 
     <select id="selectMdLocationById" parameterType="Long" resultMap="MdLocationResult">
         <include refid="selectMdLocationVo"/>
-        where location_id = #{locationId}
+        where l.location_id = #{locationId}
     </select>
 
     <select id="selectMdLocationList" parameterType="MdLocation" resultMap="MdLocationResult">
         <include refid="selectMdLocationVo"/>
         <where>
             <if test="warehouseId != null">
-                and warehouse_id = #{warehouseId}
+                and l.warehouse_id = #{warehouseId}
             </if>
             <if test="locationCode != null and locationCode != ''">
-                and location_code like concat('%', #{locationCode}, '%')
+                and l.location_code like concat('%', #{locationCode}, '%')
             </if>
             <if test="locationName != null and locationName != ''">
-                and location_name like concat('%', #{locationName}, '%')
+                and l.location_name like concat('%', #{locationName}, '%')
             </if>
             <if test="status != null and status != ''">
-                and status = #{status}
+                and l.status = #{status}
             </if>
             <if test="delFlag != null and delFlag != ''">
-                and del_flag = #{delFlag}
+                and l.del_flag = #{delFlag}
             </if>
         </where>
     </select>
@@ -99,6 +101,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             + (select count(1) from wms_outbound_item where location_id = #{locationId})
             + (select count(1) from wms_inbound_item where location_id = #{locationId})
             + (select count(1) from wms_inventory_check_item where location_id = #{locationId})
+            + (select count(1) from wms_sale_return_item where location_id = #{locationId})
+            + (select count(1) from wms_purchase_return_item where location_id = #{locationId})
+            + (select count(1) from wms_transfer_item where out_location_id = #{locationId} or in_location_id = #{locationId})
     </select>
 
     <delete id="deleteMdLocationById" parameterType="Long">

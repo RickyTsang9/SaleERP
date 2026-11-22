@@ -24,6 +24,9 @@ public class CrmCustomerFollow extends BaseEntity
     @Excel(name = "客户ID")
     private Long customerId;
 
+    /** 客户名称 */
+    private String customerName;
+
     /** 跟进方式（如电话、上门、微信等） */
     @Excel(name = "跟进方式", readConverterExp = "如=电话、上门、微信等")
     private String followType;
@@ -67,6 +70,16 @@ public class CrmCustomerFollow extends BaseEntity
     public Long getCustomerId() 
     {
         return customerId;
+    }
+
+    public String getCustomerName()
+    {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName)
+    {
+        this.customerName = customerName;
     }
 
     public void setFollowType(String followType) 

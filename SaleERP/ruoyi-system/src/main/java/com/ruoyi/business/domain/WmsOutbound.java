@@ -22,6 +22,9 @@ public class WmsOutbound extends BaseEntity
     @Excel(name = "客户编号")
     private Long customerId;
 
+    /** 客户名称 */
+    private String customerName;
+
     /** 来源销售单编号 */
     @Excel(name = "来源销售单编号")
     private Long saleOrderId;
@@ -32,6 +35,9 @@ public class WmsOutbound extends BaseEntity
 
     @Excel(name = "仓库编号")
     private Long warehouseId;
+
+    /** 仓库名称 */
+    private String warehouseName;
 
     @Excel(name = "总数量")
     private BigDecimal totalQty;
@@ -68,6 +74,18 @@ public class WmsOutbound extends BaseEntity
     @Excel(name = "配送状态")
     private String deliveryStatus;
 
+    private String rejectReason;
+
+    public String getRejectReason()
+    {
+        return rejectReason;
+    }
+
+    public void setRejectReason(String rejectReason)
+    {
+        this.rejectReason = rejectReason;
+    }
+
     public Long getOutboundId()
     {
         return outboundId;
@@ -96,6 +114,26 @@ public class WmsOutbound extends BaseEntity
     public void setOutboundType(String outboundType)
     {
         this.outboundType = outboundType;
+    }
+
+    public String getCustomerName()
+    {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName)
+    {
+        this.customerName = customerName;
+    }
+
+    public String getWarehouseName()
+    {
+        return warehouseName;
+    }
+
+    public void setWarehouseName(String warehouseName)
+    {
+        this.warehouseName = warehouseName;
     }
 
     public Long getCustomerId()

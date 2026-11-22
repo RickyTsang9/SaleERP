@@ -1,113 +1,138 @@
 <template>
-   <div class="app-container">
-      <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-         <el-form-item label="岗位编码" prop="postCode">
-            <el-input
-               v-model="queryParams.postCode"
-               placeholder="请输入岗位编码"
-               clearable
-               style="width: 200px"
-               @keyup.enter="handleQuery"
-            />
-         </el-form-item>
-         <el-form-item label="岗位名称" prop="postName">
-            <el-input
-               v-model="queryParams.postName"
-               placeholder="请输入岗位名称"
-               clearable
-               style="width: 200px"
-               @keyup.enter="handleQuery"
-            />
-         </el-form-item>
-         <el-form-item label="状态" prop="status">
-            <el-select v-model="queryParams.status" placeholder="岗位状态" clearable style="width: 200px">
-               <el-option
-                  v-for="dict in sys_normal_disable"
-                  :key="dict.value"
-                  :label="dict.label"
-                  :value="dict.value"
+   <div class="app-container erp-page">
+      <erp-page-header
+         eyebrow="系统管理"
+         title="岗位管理"
+         subtitle="维护企业岗位编码、职务排序与状态配置。"
+         icon="Briefcase"
+         tone="indigo"
+      >
+         <template #actions>
+            <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['system:post:add']">新增岗位</el-button>
+            <el-button icon="Download" @click="handleExport" v-hasPermi="['system:post:export']">导出</el-button>
+         </template>
+      </erp-page-header>
+
+      <div class="erp-filter-card" v-show="showSearch">
+         <el-form :model="queryParams" ref="queryRef" :inline="true">
+            <el-form-item label="岗位编码" prop="postCode">
+               <el-input
+                  v-model="queryParams.postCode"
+                  placeholder="请输入岗位编码"
+                  clearable
+                  style="width: 210px"
+                  @keyup.enter="handleQuery"
                />
-            </el-select>
-         </el-form-item>
-         <el-form-item>
-            <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-            <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-         </el-form-item>
-      </el-form>
+            </el-form-item>
+            <el-form-item label="岗位名称" prop="postName">
+               <el-input
+                  v-model="queryParams.postName"
+                  placeholder="请输入岗位名称"
+                  clearable
+                  style="width: 210px"
+                  @keyup.enter="handleQuery"
+               />
+            </el-form-item>
+            <el-form-item label="状态" prop="status">
+               <el-select v-model="queryParams.status" placeholder="岗位状态" clearable style="width: 170px">
+                  <el-option
+                     v-for="dict in sys_normal_disable"
+                     :key="dict.value"
+                     :label="dict.label"
+                     :value="dict.value"
+                  />
+               </el-select>
+            </el-form-item>
+            <el-form-item>
+               <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+            </el-form-item>
+         </el-form>
+      </div>
 
-      <el-row :gutter="10" class="mb8">
-         <el-col :span="1.5">
-            <el-button
-               type="primary"
-               plain
-               icon="Plus"
-               @click="handleAdd"
-               v-hasPermi="['system:post:add']"
-            >新增</el-button>
-         </el-col>
-         <el-col :span="1.5">
-            <el-button
-               type="success"
-               plain
-               icon="Edit"
-               :disabled="single"
-               @click="handleUpdate"
-               v-hasPermi="['system:post:edit']"
-            >修改</el-button>
-         </el-col>
-         <el-col :span="1.5">
-            <el-button
-               type="danger"
-               plain
-               icon="Delete"
-               :disabled="multiple"
-               @click="handleDelete"
-               v-hasPermi="['system:post:remove']"
-            >删除</el-button>
-         </el-col>
-         <el-col :span="1.5">
-            <el-button
-               type="warning"
-               plain
-               icon="Download"
-               @click="handleExport"
-               v-hasPermi="['system:post:export']"
-            >导出</el-button>
-         </el-col>
-         <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-      </el-row>
+      <div class="erp-table-card">
+         <el-row :gutter="10" class="erp-toolbar-row">
+            <el-col :span="1.5">
+               <el-button
+                  type="primary"
+                  plain
+                  icon="Plus"
+                  @click="handleAdd"
+                  v-hasPermi="['system:post:add']"
+               >新增</el-button>
+            </el-col>
+            <el-col :span="1.5">
+               <el-button
+                  type="success"
+                  plain
+                  icon="Edit"
+                  :disabled="single"
+                  @click="handleUpdate"
+                  v-hasPermi="['system:post:edit']"
+               >修改</el-button>
+            </el-col>
+            <el-col :span="1.5">
+               <el-button
+                  type="danger"
+                  plain
+                  icon="Delete"
+                  :disabled="multiple"
+                  @click="handleDelete"
+                  v-hasPermi="['system:post:remove']"
+               >删除</el-button>
+            </el-col>
+            <el-col :span="1.5">
+               <el-button
+                  type="warning"
+                  plain
+                  icon="Download"
+                  @click="handleExport"
+                  v-hasPermi="['system:post:export']"
+               >导出</el-button>
+            </el-col>
+            <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
+         </el-row>
 
-      <el-table v-loading="loading" :data="postList" @selection-change="handleSelectionChange">
-         <el-table-column type="selection" width="55" align="center" />
-         <el-table-column label="岗位编号" align="center" prop="postId" />
-         <el-table-column label="岗位编码" align="center" prop="postCode" />
-         <el-table-column label="岗位名称" align="center" prop="postName" />
-         <el-table-column label="岗位排序" align="center" prop="postSort" />
-         <el-table-column label="状态" align="center" prop="status">
-            <template #default="scope">
-               <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
-            </template>
-         </el-table-column>
-         <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-            <template #default="scope">
-               <span>{{ parseTime(scope.row.createTime) }}</span>
-            </template>
-         </el-table-column>
-         <el-table-column label="操作" width="180" align="center" class-name="small-padding fixed-width">
-            <template #default="scope">
-               <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:post:edit']">修改</el-button>
-               <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:post:remove']">删除</el-button>
-            </template>
-         </el-table-column>
-      </el-table>
+         <el-table v-loading="loading" :data="postList" @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="55" align="center" />
+            <el-table-column label="岗位编号" align="center" prop="postId" width="100" />
+            <el-table-column label="岗位编码" align="center" prop="postCode">
+               <template #default="scope">
+                  <span class="erp-code-chip">{{ scope.row.postCode }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="岗位名称" align="center" prop="postName">
+               <template #default="scope">
+                  <span class="erp-cell-title">{{ scope.row.postName }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="岗位排序" align="center" prop="postSort" width="100" />
+            <el-table-column label="状态" align="center" prop="status" width="100">
+               <template #default="scope">
+                  <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
+               </template>
+            </el-table-column>
+            <el-table-column label="创建时间" align="center" prop="createTime" width="180">
+               <template #default="scope">
+                  <span>{{ parseTime(scope.row.createTime) }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" align="center" class-name="small-padding fixed-width">
+               <template #default="scope">
+                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:post:edit']">修改</el-button>
+                  <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:post:remove']">删除</el-button>
+               </template>
+            </el-table-column>
+         </el-table>
 
-      <pagination
-         v-show="total > 0"
-         :total="total"
-         v-model:page="queryParams.pageNum"
-         v-model:limit="queryParams.pageSize"
-         @pagination="getList"
-      />
+         <pagination
+            v-show="total > 0"
+            :total="total"
+            v-model:page="queryParams.pageNum"
+            v-model:limit="queryParams.pageSize"
+            @pagination="getList"
+         />
+      </div>
 
       <!-- 添加或修改岗位对话框 -->
       <el-dialog :title="title" v-model="open" width="500px" append-to-body>
@@ -269,6 +294,10 @@ function submitForm() {
 /** 删除按钮操作 */
 function handleDelete(row) {
   const postIds = row.postId || ids.value
+  if (!postIds || (Array.isArray(postIds) && !postIds.length)) {
+    proxy.$modal.msgWarning("请选择要删除的岗位")
+    return
+  }
   proxy.$modal.confirm('是否确认删除岗位编号为"' + postIds + '"的数据项？').then(function() {
     return delPost(postIds)
   }).then(() => {

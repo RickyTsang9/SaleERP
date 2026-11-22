@@ -45,6 +45,22 @@ export function auditOutbound(outboundId) {
   })
 }
 
+export function rejectOutbound(outboundId, rejectReason) {
+  return request({
+    url: '/business/outbound/reject/' + outboundId,
+    method: 'post',
+    data: { rejectReason }
+  })
+}
+
+export function updateOutboundDelivery(outboundId, data) {
+  return request({
+    url: '/business/outbound/delivery/' + outboundId,
+    method: 'post',
+    data: data
+  })
+}
+
 export function cancelOutbound(outboundId) {
   return request({
     url: '/business/outbound/cancel/' + outboundId,

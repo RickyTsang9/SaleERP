@@ -41,6 +41,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			</if>
 		</where>
     </select>
+
+    <select id="selectNoticeByTitle" parameterType="String" resultMap="SysNoticeResult">
+        <include refid="selectNoticeVo"/>
+        where notice_title = #{noticeTitle}
+        limit 1
+    </select>
     
     <insert id="insertNotice" parameterType="SysNotice">
         insert into sys_notice (

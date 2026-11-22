@@ -45,7 +45,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 and brief_status = #{briefStatus}
             </if>
             <if test="briefDate != null">
-                and date(brief_date) = date(#{briefDate})
+                and brief_date &gt;= date(#{briefDate})
+                and brief_date &lt; date_add(date(#{briefDate}), interval 1 day)
             </if>
         </where>
         order by brief_date desc, brief_id desc

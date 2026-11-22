@@ -1,6 +1,20 @@
 <template>
-  <div class="app-container">
-    <el-row :gutter="10">
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="系统监控"
+      title="服务监控"
+      subtitle="实时采集主机 CPU、物理内存、JVM 堆内存与磁盘分区的运行健康指标。"
+      icon="Monitor"
+      tone="blue"
+    >
+      <template #actions>
+        <el-button type="primary" icon="Refresh" @click="getList">刷新指标</el-button>
+      </template>
+    </erp-page-header>
+
+    <erp-stat-strip :items="serverStats" :columns="4" />
+
+    <el-row :gutter="16">
       <el-col :span="12" class="card-box">
         <el-card>
           <template #header><Cpu style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">CPU</span></template>
@@ -174,6 +188,38 @@ import { getServer } from '@/api/monitor/server'
 
 const server = ref([])
 const { proxy } = getCurrentInstance()
+
+const serverStats = computed(() => {
+  const cpuUsed = server.value?.cpu ? Number(server.value.cpu.used || 0) + Number(server.value.cpu.sys || 0) : 0
+  const memUsage = Number(server.value?.mem?.usage || 0)
+  const jvmUsage = Number(server.value?.jvm?.usage || 0)
+  return [
+    {
+      label: 'CPU 综合负载',
+      value: server.value?.cpu ? `${cpuUsed.toFixed(1)}%` : '--',
+      hint: server.value?.cpu ? `${server.value.cpu.cpuNum} 逻辑核心 · 空闲 ${server.value.cpu.free}%` : '等待采集',
+      tone: cpuUsed > 80 ? 'rose' : 'indigo'
+    },
+    {
+      label: '主机内存使用率',
+      value: server.value?.mem ? `${memUsage}%` : '--',
+      hint: server.value?.mem ? `已用 ${server.value.mem.used}G / 总计 ${server.value.mem.total}G` : '等待采集',
+      tone: memUsage > 80 ? 'rose' : 'blue'
+    },
+    {
+      label: 'JVM 内存占用',
+      value: server.value?.jvm ? `${jvmUsage}%` : '--',
+      hint: server.value?.jvm ? `已用 ${server.value.jvm.used}M / 总计 ${server.value.jvm.total}M` : '等待采集',
+      tone: jvmUsage > 80 ? 'amber' : 'emerald'
+    },
+    {
+      label: 'JVM 运行时长',
+      value: server.value?.jvm?.runTime || '--',
+      hint: server.value?.sys?.osName || '操作系统环境',
+      tone: 'violet'
+    }
+  ]
+})
 
 function getList() {
   proxy.$modal.loading("正在加载服务监控数据，请稍候！")

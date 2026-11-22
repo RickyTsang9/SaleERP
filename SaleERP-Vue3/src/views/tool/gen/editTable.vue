@@ -1,5 +1,18 @@
 <template>
-  <el-card>
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="研发工具"
+      title="生成配置编辑"
+      subtitle="配置数据表实体属性、字段映射类型、表单控件与字典关联规则。"
+      icon="EditPen"
+      tone="violet"
+    >
+      <template #actions>
+        <el-button type="primary" @click="submitForm()">保存配置</el-button>
+        <el-button @click="close()">返回</el-button>
+      </template>
+    </erp-page-header>
+    <el-card>
     <el-tabs v-model="activeName">
       <el-tab-pane label="基本信息" name="basic">
         <basic-info-form ref="basicInfo" :info="info" />
@@ -113,12 +126,13 @@
       </el-tab-pane>
     </el-tabs>
     <el-form label-width="100px">
-      <div style="text-align: center;margin-left:-100px;margin-top:10px;">
+      <div style="text-align: center; margin-top: 16px;">
         <el-button type="primary" @click="submitForm()">提交</el-button>
         <el-button @click="close()">返回</el-button>
       </div>
     </el-form>
   </el-card>
+  </div>
 </template>
 
 <script setup name="GenEdit">

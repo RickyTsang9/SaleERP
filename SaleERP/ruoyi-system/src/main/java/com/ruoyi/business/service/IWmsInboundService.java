@@ -17,6 +17,8 @@ public interface IWmsInboundService
 
     public int auditWmsInbound(Long inboundId);
 
+    public int rejectWmsInbound(Long inboundId, String rejectReason);
+
     public int cancelWmsInbound(Long inboundId);
 
     public int deleteWmsInboundById(Long inboundId);

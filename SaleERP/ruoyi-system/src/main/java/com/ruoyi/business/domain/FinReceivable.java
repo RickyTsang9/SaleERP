@@ -16,8 +16,14 @@ public class FinReceivable extends BaseEntity
     @Excel(name = "销售单编号")
     private Long saleOrderId;
 
+    @Excel(name = "销售单号")
+    private String saleOrderNo;
+
     @Excel(name = "客户编号")
     private Long customerId;
+
+    /** 客户名称 */
+    private String customerName;
 
     @Excel(name = "应收金额")
     private BigDecimal amountDue;
@@ -56,6 +62,16 @@ public class FinReceivable extends BaseEntity
         this.saleOrderId = saleOrderId;
     }
 
+    public String getSaleOrderNo()
+    {
+        return saleOrderNo;
+    }
+
+    public void setSaleOrderNo(String saleOrderNo)
+    {
+        this.saleOrderNo = saleOrderNo;
+    }
+
     public Long getCustomerId()
     {
         return customerId;
@@ -64,6 +80,16 @@ public class FinReceivable extends BaseEntity
     public void setCustomerId(Long customerId)
     {
         this.customerId = customerId;
+    }
+
+    public String getCustomerName()
+    {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName)
+    {
+        this.customerName = customerName;
     }
 
     public BigDecimal getAmountDue()

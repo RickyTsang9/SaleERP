@@ -1,8 +1,10 @@
 package com.ruoyi.business.service.impl;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -179,6 +181,14 @@ public class WmsOutboundItemServiceImpl implements IWmsOutboundItemService
      */
     private void prepareOutboundItemForSave(WmsOutbound databaseOutbound, WmsOutboundItem wmsOutboundItem)
     {
+        if (wmsOutboundItem.getQuantity() == null || wmsOutboundItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+        {
+            throw new ServiceException("出库数量必须大于0");
+        }
+        if (wmsOutboundItem.getPrice() != null && wmsOutboundItem.getPrice().compareTo(BigDecimal.ZERO) < 0)
+        {
+            throw new ServiceException("出库单价不能小于0");
+        }
         if (databaseOutbound.getSaleOrderId() != null)
         {
             applySaleOrderItemConstraint(databaseOutbound, wmsOutboundItem);
@@ -213,9 +223,10 @@ public class WmsOutboundItemServiceImpl implements IWmsOutboundItemService
             throw new ServiceException("出库数量必须大于0");
         }
         BigDecimal remainQuantity = saleOrderItem.getRemainQuantity() == null ? BigDecimal.ZERO : saleOrderItem.getRemainQuantity();
-        if (wmsOutboundItem.getQuantity().compareTo(remainQuantity) > 0)
+        BigDecimal accumulatedOutboundQuantity = calculateAccumulatedOutboundQuantity(databaseOutbound, wmsOutboundItem);
+        if (accumulatedOutboundQuantity.compareTo(remainQuantity) > 0)
         {
-            throw new ServiceException("出库数量不能超过待出库数量");
+            throw new ServiceException("同一来源销售明细的累计出库数量不能超过待出库数量");
         }
         wmsOutboundItem.setProductId(saleOrderItem.getProductId());
         wmsOutboundItem.setLocationId(saleOrderItem.getLocationId());
@@ -224,6 +235,39 @@ public class WmsOutboundItemServiceImpl implements IWmsOutboundItemService
         wmsOutboundItem.setSaleQuantity(saleOrderItem.getQuantity());
         wmsOutboundItem.setShippedQuantity(saleOrderItem.getOutboundQuantity());
         wmsOutboundItem.setRemainQuantity(saleOrderItem.getRemainQuantity());
+    }
+
+    /**
+     * 计算当前草稿出库单内同一来源销售明细的累计出库数量
+     *
+     * @param databaseOutbound 数据库中的出库单
+     * @param wmsOutboundItem 当前待保存的出库明细
+     * @return 累计出库数量
+     */
+    private BigDecimal calculateAccumulatedOutboundQuantity(WmsOutbound databaseOutbound, WmsOutboundItem wmsOutboundItem)
+    {
+        WmsOutboundItem outboundItemQuery = new WmsOutboundItem();
+        outboundItemQuery.setOutboundId(databaseOutbound.getOutboundId());
+        List<WmsOutboundItem> databaseOutboundItemList = wmsOutboundItemMapper.selectWmsOutboundItemList(outboundItemQuery);
+        Map<Long, BigDecimal> outboundQuantityMap = new HashMap<Long, BigDecimal>();
+        if (databaseOutboundItemList != null)
+        {
+            for (WmsOutboundItem databaseOutboundItem : databaseOutboundItemList)
+            {
+                if (databaseOutboundItem.getSaleOrderItemId() == null)
+                {
+                    continue;
+                }
+                if (wmsOutboundItem.getOutboundItemId() != null
+                    && Objects.equals(databaseOutboundItem.getOutboundItemId(), wmsOutboundItem.getOutboundItemId()))
+                {
+                    continue;
+                }
+                accumulateOutboundQuantity(outboundQuantityMap, databaseOutboundItem.getSaleOrderItemId(),
+                    databaseOutboundItem.getQuantity());
+            }
+        }
+        return accumulateOutboundQuantity(outboundQuantityMap, wmsOutboundItem.getSaleOrderItemId(), wmsOutboundItem.getQuantity());
     }
 
     /**
@@ -257,6 +301,29 @@ public class WmsOutboundItemServiceImpl implements IWmsOutboundItemService
         BigDecimal safeQuantityValue = quantityValue == null ? BigDecimal.ZERO : quantityValue;
         BigDecimal safePriceValue = priceValue == null ? BigDecimal.ZERO : priceValue;
         return safeQuantityValue.multiply(safePriceValue);
+    }
+
+    /**
+     * 按来源销售明细累计出库数量
+     *
+     * @param outboundQuantityMap 来源销售明细累计出库数量映射
+     * @param saleOrderItemId 来源销售明细编号
+     * @param currentOutboundQuantity 当前出库数量
+     * @return 累计出库数量
+     */
+    private BigDecimal accumulateOutboundQuantity(Map<Long, BigDecimal> outboundQuantityMap, Long saleOrderItemId,
+        BigDecimal currentOutboundQuantity)
+    {
+        BigDecimal historyOutboundQuantity = outboundQuantityMap.get(saleOrderItemId);
+        if (historyOutboundQuantity == null)
+        {
+            historyOutboundQuantity = BigDecimal.ZERO;
+        }
+        BigDecimal validCurrentOutboundQuantity =
+            currentOutboundQuantity == null ? BigDecimal.ZERO : currentOutboundQuantity;
+        BigDecimal accumulatedOutboundQuantity = historyOutboundQuantity.add(validCurrentOutboundQuantity);
+        outboundQuantityMap.put(saleOrderItemId, accumulatedOutboundQuantity);
+        return accumulatedOutboundQuantity;
     }
 
     /**

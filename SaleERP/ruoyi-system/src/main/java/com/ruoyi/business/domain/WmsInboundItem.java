@@ -1,6 +1,8 @@
 package com.ruoyi.business.domain;
 
 import java.math.BigDecimal;
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import com.ruoyi.common.annotation.Excel;
@@ -27,6 +29,11 @@ public class WmsInboundItem extends BaseEntity
 
     @Excel(name = "批次号")
     private String batchNo;
+
+    /** 批次效期/到期日 */
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    @Excel(name = "效期到期日", width = 20, dateFormat = "yyyy-MM-dd")
+    private Date expireDate;
 
     @Excel(name = "数量")
     private BigDecimal quantity;
@@ -117,6 +124,16 @@ public class WmsInboundItem extends BaseEntity
     public void setBatchNo(String batchNo)
     {
         this.batchNo = batchNo;
+    }
+
+    public Date getExpireDate()
+    {
+        return expireDate;
+    }
+
+    public void setExpireDate(Date expireDate)
+    {
+        this.expireDate = expireDate;
     }
 
     public BigDecimal getQuantity()

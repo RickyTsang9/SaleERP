@@ -8,11 +8,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <id     property="checkId"          column="check_id"          />
         <result property="checkNo"          column="check_no"          />
         <result property="warehouseId"      column="warehouse_id"      />
+        <result property="warehouseName"    column="warehouse_name"    />
         <result property="status"           column="status"            />
         <result property="totalDiffQty"     column="total_diff_qty"    />
         <result property="totalDiffAmount"  column="total_diff_amount" />
         <result property="auditBy"          column="audit_by"          />
         <result property="auditTime"        column="audit_time"        />
+        <result property="rejectReason"     column="reject_reason"     />
         <result property="createBy"         column="create_by"         />
         <result property="createTime"       column="create_time"       />
         <result property="updateBy"         column="update_by"         />
@@ -21,30 +23,33 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsInventoryCheckVo">
-        select check_id, check_no, warehouse_id, status, total_diff_qty, total_diff_amount,
-               audit_by, audit_time, create_by, create_time, update_by, update_time, remark
-        from wms_inventory_check
+        select ic.check_id, ic.check_no, ic.warehouse_id, mw.warehouse_name, ic.status, ic.total_diff_qty, ic.total_diff_amount,
+               ic.audit_by, ic.audit_time, ic.reject_reason, ic.create_by, ic.create_time, ic.update_by, ic.update_time, ic.remark
+        from wms_inventory_check ic
+        left join md_warehouse mw on mw.warehouse_id = ic.warehouse_id
+        left join sys_user su on su.user_name = ic.create_by
     </sql>
 
     <select id="selectWmsInventoryCheckById" parameterType="Long" resultMap="WmsInventoryCheckResult">
         <include refid="selectWmsInventoryCheckVo"/>
-        where check_id = #{checkId}
+        where ic.check_id = #{checkId}
     </select>
 
     <select id="selectWmsInventoryCheckList" parameterType="WmsInventoryCheck" resultMap="WmsInventoryCheckResult">
         <include refid="selectWmsInventoryCheckVo"/>
         <where>
             <if test="checkNo != null and checkNo != ''">
-                and check_no like concat('%', #{checkNo}, '%')
+                and ic.check_no like concat('%', #{checkNo}, '%')
             </if>
             <if test="warehouseId != null">
-                and warehouse_id = #{warehouseId}
+                and ic.warehouse_id = #{warehouseId}
             </if>
             <if test="status != null and status != ''">
-                and status = #{status}
+                and ic.status = #{status}
             </if>
+            ${params.dataScope}
         </where>
-        order by check_id desc
+        order by ic.check_id desc
     </select>
 
     <insert id="insertWmsInventoryCheck" parameterType="WmsInventoryCheck" useGeneratedKeys="true" keyProperty="checkId">
@@ -97,12 +102,37 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="updateWmsInventoryCheckStatus">
         update wms_inventory_check
         set status = #{status},
+            reject_reason = null,
             <if test="auditBy != null and auditBy != ''">
                 audit_by = #{auditBy},
                 audit_time = sysdate(),
             </if>
             update_time = sysdate()
         where check_id = #{checkId}
+    </update>
+
+    <update id="auditWmsInventoryCheckStatusCas">
+        update wms_inventory_check
+        set status = 'audited',
+            reject_reason = null,
+            audit_by = #{auditBy},
+            audit_time = sysdate(),
+            update_by = #{auditBy},
+            update_time = sysdate()
+        where check_id = #{checkId}
+          and status = 'submitted'
+    </update>
+
+    <update id="rejectWmsInventoryCheckStatus">
+        update wms_inventory_check
+        set status = 'draft',
+            reject_reason = #{rejectReason},
+            audit_by = null,
+            audit_time = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where check_id = #{checkId}
+          and status = 'submitted'
     </update>
 
     <delete id="deleteWmsInventoryCheckById" parameterType="Long">

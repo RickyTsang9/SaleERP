@@ -20,7 +20,9 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.framework.web.service.PermissionService;
 
 @RestController
 @RequestMapping("/business/product")
@@ -29,12 +31,42 @@ public class MdProductController extends BaseController
     @Autowired
     private IMdProductService mdProductService;
 
+    @Autowired
+    private PermissionService permissionService;
+
+    private boolean canViewCostPrice()
+    {
+        try
+        {
+            return SecurityUtils.isAdmin(getUserId()) || permissionService.hasPermi("business:report:profit");
+        }
+        catch (Exception ignored)
+        {
+            return false;
+        }
+    }
+
+    private void maskProductCostIfUnauthorized(MdProduct product)
+    {
+        if (product != null && !canViewCostPrice())
+        {
+            product.setCostPrice(null);
+        }
+    }
+
     @PreAuthorize("@ss.hasPermi('business:product:list')")
     @GetMapping("/list")
     public TableDataInfo list(MdProduct mdProduct)
     {
         startPage();
         List<MdProduct> mdProductList = mdProductService.selectMdProductList(mdProduct);
+        if (!canViewCostPrice() && mdProductList != null)
+        {
+            for (MdProduct item : mdProductList)
+            {
+                item.setCostPrice(null);
+            }
+        }
         return getDataTable(mdProductList);
     }
 
@@ -60,6 +92,7 @@ public class MdProductController extends BaseController
         return success(message);
     }
 
+    @PreAuthorize("@ss.hasAnyPermi('business:product:import,business:product:add,business:product:list')")
     @PostMapping("/importTemplate")
     public void importTemplate(javax.servlet.http.HttpServletResponse response)
     {
@@ -71,7 +104,25 @@ public class MdProductController extends BaseController
     @GetMapping("/{productId}")
     public AjaxResult getInfo(@PathVariable Long productId)
     {
-        return success(mdProductService.selectMdProductById(productId));
+        MdProduct product = mdProductService.selectMdProductById(productId);
+        maskProductCostIfUnauthorized(product);
+        return success(product);
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:product:query')")
+    @GetMapping("/{productId}/profile")
+    public AjaxResult getProfile(@PathVariable Long productId)
+    {
+        return success(mdProductService.selectProductProfile(productId));
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:product:list,business:inbound:add,business:outbound:add,business:inventoryCheck:add')")
+    @GetMapping("/scan/{scanCode}")
+    public AjaxResult scanByCode(@PathVariable String scanCode)
+    {
+        MdProduct product = mdProductService.selectMdProductByScanCode(scanCode);
+        maskProductCostIfUnauthorized(product);
+        return success(product);
     }
 
     @PreAuthorize("@ss.hasPermi('business:product:add')")

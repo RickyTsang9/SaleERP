@@ -15,11 +15,20 @@ public class WmsStockLog extends BaseEntity
     @Excel(name = "仓库编号")
     private Long warehouseId;
 
+    /** 仓库名称 */
+    private String warehouseName;
+
     @Excel(name = "商品编号")
     private Long productId;
 
+    /** 商品名称 */
+    private String productName;
+
     @Excel(name = "库位编号")
     private Long locationId;
+
+    /** 库位名称 */
+    private String locationName;
 
     @Excel(name = "批次号")
     private String batchNo;
@@ -54,6 +63,36 @@ public class WmsStockLog extends BaseEntity
     public Long getStockLogId()
     {
         return stockLogId;
+    }
+
+    public String getWarehouseName()
+    {
+        return warehouseName;
+    }
+
+    public void setWarehouseName(String warehouseName)
+    {
+        this.warehouseName = warehouseName;
+    }
+
+    public String getProductName()
+    {
+        return productName;
+    }
+
+    public void setProductName(String productName)
+    {
+        this.productName = productName;
+    }
+
+    public String getLocationName()
+    {
+        return locationName;
+    }
+
+    public void setLocationName(String locationName)
+    {
+        this.locationName = locationName;
     }
 
     public void setStockLogId(Long stockLogId)

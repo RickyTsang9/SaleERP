@@ -103,6 +103,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             + (select count(1) from wms_inbound where supplier_id = #{supplierId})
             + (select count(1) from fin_payable where supplier_id = #{supplierId})
             + (select count(1) from fin_payment where supplier_id = #{supplierId})
+            + (select count(1) from fin_invoice where invoice_direction = 'purchase' and target_id = #{supplierId})
     </select>
 
     <delete id="deleteMdSupplierBySupplierId" parameterType="Long">

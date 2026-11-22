@@ -4,7 +4,7 @@
     <breadcrumb v-if="settingsStore.navType == 1" id="breadcrumb-container" class="breadcrumb-container" />
     <top-nav v-if="settingsStore.navType == 2" id="topmenu-container" class="topmenu-container" />
     <template v-if="settingsStore.navType == 3">
-      <logo v-show="settingsStore.sidebarLogo" :collapse="false"></logo>
+      <logo v-show="settingsStore.sidebarLogo" :collapse="false" />
       <top-bar id="topbar-container" class="topbar-container" />
     </template>
 
@@ -16,22 +16,25 @@
 
         <screenfull id="screenfull" class="right-menu-item hover-effect" />
 
-        <el-tooltip content="主题模式" effect="dark" placement="bottom">
+        <el-tooltip :content="settingsStore.isDark ? '切换亮色模式' : '切换暗黑模式'" effect="dark" placement="bottom">
           <div class="right-menu-item hover-effect theme-switch-wrapper" @click="toggleTheme">
             <svg-icon v-if="settingsStore.isDark" icon-class="sunny" />
             <svg-icon v-if="!settingsStore.isDark" icon-class="moon" />
           </div>
         </el-tooltip>
 
-        <el-tooltip content="布局大小" effect="dark" placement="bottom">
+        <el-tooltip content="布局密度" effect="dark" placement="bottom">
           <size-select id="size-select" class="right-menu-item hover-effect" />
         </el-tooltip>
       </template>
 
-      <el-dropdown @command="handleCommand" class="avatar-container right-menu-item hover-effect" trigger="hover">
+      <div class="navbar-divider" />
+
+      <el-dropdown @command="handleCommand" class="avatar-container right-menu-item" trigger="hover">
         <div class="avatar-wrapper">
           <img :src="userStore.avatar" class="user-avatar" />
-          <span class="user-nickname"> {{ userStore.nickName }} </span>
+          <span class="user-nickname">{{ userStore.nickName }}</span>
+          <el-icon class="avatar-chevron" :size="13"><ArrowDown /></el-icon>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
@@ -39,8 +42,8 @@
               <el-dropdown-item>个人中心</el-dropdown-item>
             </router-link>
             <el-dropdown-item command="setLayout" v-if="settingsStore.showSettings">
-                <span>布局设置</span>
-              </el-dropdown-item>
+              <span>外观与布局设置</span>
+            </el-dropdown-item>
             <el-dropdown-item divided command="logout">
               <span>退出登录</span>
             </el-dropdown-item>
@@ -53,6 +56,7 @@
 
 <script setup>
 import { ElMessageBox } from 'element-plus'
+import { ArrowDown } from '@element-plus/icons-vue'
 import Breadcrumb from '@/components/Breadcrumb'
 import TopNav from '@/components/TopNav'
 import TopBar from './TopBar'
@@ -131,7 +135,7 @@ async function toggleTheme(event) {
       {
         clipPath: !wasDark ? [...clipPath].reverse() : clipPath
       }, {
-        duration: 650,
+        duration: 500,
         easing: "cubic-bezier(0.4, 0, 0.2, 1)",
         fill: "forwards",
         pseudoElement: !wasDark ? "::view-transition-old(root)" : "::view-transition-new(root)"
@@ -153,29 +157,35 @@ async function toggleTheme(event) {
 }
 
 .navbar {
-  height: 50px;
-  overflow: hidden;
+  height: 58px;
+  overflow: visible;
   position: relative;
   background: var(--navbar-bg);
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--erp-border);
   display: flex;
   align-items: center;
-  // padding: 0 8px;
+  padding: 0 20px 0 12px;
   box-sizing: border-box;
 
   .hamburger-container {
-    line-height: 46px;
-    height: 100%;
+    line-height: 36px;
+    height: 36px;
+    width: 36px;
+    justify-content: center;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: background 0.18s ease, color 0.18s ease;
     -webkit-tap-highlight-color: transparent;
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    margin-right: 8px;
+    margin-right: 10px;
+    border-radius: 10px;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.025);
+      background: var(--erp-primary-hover);
+      color: var(--erp-primary);
     }
   }
 
@@ -185,7 +195,7 @@ async function toggleTheme(event) {
 
   .topmenu-container {
     position: absolute;
-    left: 50px;
+    left: 56px;
   }
 
   .topbar-container {
@@ -197,84 +207,102 @@ async function toggleTheme(event) {
     margin-left: 8px;
   }
 
-  .errLog-container {
-    display: inline-block;
-    vertical-align: top;
+  .navbar-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--erp-border);
+    margin: 0 4px;
   }
 
   .right-menu {
     height: 100%;
-    line-height: 50px;
+    line-height: 58px;
     display: flex;
     align-items: center;
     margin-left: auto;
+    gap: 6px;
 
     &:focus {
       outline: none;
     }
 
     .right-menu-item {
-      display: inline-block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 0 8px;
-      height: 100%;
-      font-size: 18px;
-      color: #5a5e66;
+      min-width: 36px;
+      height: 36px;
+      font-size: 17px;
+      color: var(--erp-text-muted);
+      border-radius: 10px;
       vertical-align: text-bottom;
 
       &.hover-effect {
         cursor: pointer;
-        transition: background 0.3s;
+        transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
 
         &:hover {
-          background: rgba(0, 0, 0, 0.025);
+          color: var(--erp-primary);
+          background: var(--erp-primary-hover);
+          transform: translateY(-1px);
         }
       }
 
       &.theme-switch-wrapper {
-        display: flex;
-        align-items: center;
-
         svg {
-          transition: transform 0.3s;
-          
+          transition: transform 0.28s ease;
           &:hover {
-            transform: scale(1.15);
+            transform: rotate(18deg) scale(1.1);
           }
         }
       }
     }
 
     .avatar-container {
-      margin-right: 0px;
-      padding-right: 0px;
+      margin-right: 0;
+      padding: 0;
 
       .avatar-wrapper {
-        margin-top: 10px;
-        right: 8px;
-        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        height: 38px;
+        padding: 0 12px 0 5px;
+        border: 1px solid var(--erp-border);
+        border-radius: 999px;
+        background: var(--erp-surface);
+        cursor: pointer;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+
+        &:hover {
+          border-color: rgba(var(--erp-primary-rgb), 0.45);
+          box-shadow: 0 2px 10px rgba(var(--erp-primary-rgb), 0.10);
+        }
 
         .user-avatar {
-          cursor: pointer;
-          width: 30px;
-          height: 30px;
-          margin-right: 8px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
+          object-fit: cover;
+          border: 1.5px solid rgba(var(--erp-primary-rgb), 0.25);
         }
 
-        .user-nickname{
-          position: relative;
-          left: 0px;
-          bottom: 10px;
-          font-size: 14px;
-          font-weight: bold;
+        .user-nickname {
+          font-size: 13.5px;
+          font-weight: 600;
+          line-height: 1;
+          color: var(--navbar-text);
+          max-width: 112px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
-        i {
-          cursor: pointer;
-          position: absolute;
-          right: -20px;
-          top: 25px;
-          font-size: 12px;
+        .avatar-chevron {
+          color: var(--erp-text-muted);
+          margin-left: -2px;
         }
       }
     }

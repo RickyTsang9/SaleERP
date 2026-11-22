@@ -23,32 +23,34 @@ export function remindWarningStock() {
   })
 }
 
-export function getStock(stockId) {
+export function updateStockWarningThreshold(data) {
   return request({
-    url: '/business/stock/' + stockId,
-    method: 'get'
-  })
-}
-
-export function addStock(data) {
-  return request({
-    url: '/business/stock',
-    method: 'post',
-    data: data
-  })
-}
-
-export function updateStock(data) {
-  return request({
-    url: '/business/stock',
+    url: '/business/stock/warningThreshold',
     method: 'put',
     data: data
   })
 }
 
-export function delStock(stockId) {
+export function recommendStockBatch(warehouseId, productId) {
   return request({
-    url: '/business/stock/' + stockId,
-    method: 'delete'
+    url: '/business/stock/recommendBatch',
+    method: 'get',
+    params: { warehouseId, productId }
+  })
+}
+
+export function freezeStock(data) {
+  return request({
+    url: '/business/stock/freeze',
+    method: 'post',
+    data: data
+  })
+}
+
+export function unfreezeStock(data) {
+  return request({
+    url: '/business/stock/unfreeze',
+    method: 'post',
+    data: data
   })
 }

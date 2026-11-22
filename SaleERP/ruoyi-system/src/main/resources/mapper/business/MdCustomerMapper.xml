@@ -71,6 +71,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </where>
     </select>
 
+    <select id="selectMdCustomerByCustomerCode" parameterType="String" resultMap="MdCustomerResult">
+        <include refid="selectMdCustomerVo"/>
+        where c.customer_code = #{customerCode}
+        limit 1
+    </select>
+
+    <select id="selectMdCustomerListByCustomerCodes" resultMap="MdCustomerResult">
+        <include refid="selectMdCustomerVo"/>
+        where c.customer_code in
+        <foreach collection="list" item="customerCode" open="(" separator="," close=")">
+            #{customerCode}
+        </foreach>
+    </select>
+
     <insert id="insertMdCustomer" parameterType="MdCustomer" useGeneratedKeys="true" keyProperty="customerId">
         insert into md_customer
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -133,6 +147,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectCustomerReferenceCount" parameterType="Long" resultType="int">
         select
             (select count(1) from crm_customer_follow where customer_id = #{customerId})
+            + (select count(1) from md_customer_price where customer_id = #{customerId})
+            + (select count(1) from fin_invoice where invoice_direction = 'sale' and target_id = #{customerId})
             + (select count(1) from wms_sale_order where customer_id = #{customerId})
             + (select count(1) from wms_sale_return where customer_id = #{customerId})
             + (select count(1) from wms_outbound where customer_id = #{customerId})
@@ -150,4 +166,77 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{customerId}
         </foreach>
     </delete>
+
+    <select id="selectCustomerOrderSummary" parameterType="Long" resultType="java.util.HashMap">
+        select count(1) as totalOrderCount,
+               ifnull(sum(case when status = 'audited' then total_amount else 0 end), 0) as totalSaleAmount,
+               ifnull(sum(case when status = 'audited' then 1 else 0 end), 0) as auditedOrderCount,
+               max(create_time) as lastOrderTime
+        from wms_sale_order
+        where customer_id = #{customerId}
+          and status not in ('rejected', 'cancelled')
+    </select>
+
+    <select id="selectCustomerReceivableSummary" parameterType="Long" resultType="java.util.HashMap">
+        select ifnull(sum(ifnull(fr.amount_due, 0)), 0) as totalReceivableAmount,
+               ifnull(sum(ifnull(fr.amount_paid, 0)), 0) as totalReceivedAmount,
+               ifnull(sum(greatest(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0), 0)), 0) as remainReceivableAmount,
+               ifnull(sum(case
+                   when fr.status in ('unpaid', 'partial') and fr.due_date is not null and fr.due_date &lt; curdate()
+                   then greatest(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0), 0)
+                   else 0
+               end), 0) as overdueAmount,
+               ifnull(sum(case
+                   when fr.status in ('unpaid', 'partial') and fr.due_date is not null and fr.due_date &lt; curdate()
+                        and ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0) &gt; 0
+                   then 1
+                   else 0
+               end), 0) as overdueCount
+        from fin_receivable fr
+        left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
+        where coalesce(fr.customer_id, so.customer_id) = #{customerId}
+    </select>
+
+    <select id="selectCustomerRecentOrders" parameterType="Long" resultType="java.util.HashMap">
+        select sale_order_id as saleOrderId,
+               order_no as orderNo,
+               ifnull(total_qty, 0) as totalQty,
+               ifnull(total_amount, 0) as totalAmount,
+               status,
+               payment_status as paymentStatus,
+               create_time as createTime
+        from wms_sale_order
+        where customer_id = #{customerId}
+        order by sale_order_id desc
+        limit 5
+    </select>
+
+    <select id="selectCustomerRecentFollows" parameterType="Long" resultType="java.util.HashMap">
+        select follow_id as followId,
+               follow_type as followType,
+               follow_time as followTime,
+               follow_content as followContent,
+               next_follow_time as nextFollowTime,
+               status
+        from crm_customer_follow
+        where customer_id = #{customerId}
+        order by follow_time desc, follow_id desc
+        limit 5
+    </select>
+
+    <select id="selectCustomerTopProducts" parameterType="Long" resultType="java.util.HashMap">
+        select soi.product_id as productId,
+               mp.product_code as productCode,
+               ifnull(mp.product_name, concat('商品#', soi.product_id)) as productName,
+               ifnull(sum(soi.quantity), 0) as totalQty,
+               ifnull(sum(soi.amount), 0) as totalAmount
+        from wms_sale_order_item soi
+        join wms_sale_order so on so.sale_order_id = soi.sale_order_id
+        left join md_product mp on mp.product_id = soi.product_id
+        where so.customer_id = #{customerId}
+          and so.status = 'audited'
+        group by soi.product_id, mp.product_code, mp.product_name
+        order by totalAmount desc
+        limit 5
+    </select>
 </mapper>

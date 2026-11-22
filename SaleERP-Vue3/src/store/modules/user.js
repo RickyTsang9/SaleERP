@@ -71,17 +71,21 @@ const useUserStore = defineStore(
           })
         })
       },
-      // 退出系统
+      // 退出系统（后端连接异常时同样清理本地会话，防止路由守卫死锁）
       logOut() {
-        return new Promise((resolve, reject) => {
+        const clearLocalSession = () => {
+          this.token = ''
+          this.roles = []
+          this.permissions = []
+          removeToken()
+        }
+        return new Promise((resolve) => {
           logout(this.token).then(() => {
-            this.token = ''
-            this.roles = []
-            this.permissions = []
-            removeToken()
+            clearLocalSession()
             resolve()
-          }).catch(error => {
-            reject(error)
+          }).catch(() => {
+            clearLocalSession()
+            resolve()
           })
         })
       }

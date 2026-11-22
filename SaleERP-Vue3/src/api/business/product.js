@@ -15,6 +15,20 @@ export function getProduct(productId) {
   })
 }
 
+export function getProductProfile(productId) {
+  return request({
+    url: '/business/product/' + productId + '/profile',
+    method: 'get'
+  })
+}
+
+export function scanProductByCode(scanCode) {
+  return request({
+    url: '/business/product/scan/' + encodeURIComponent(scanCode),
+    method: 'get'
+  })
+}
+
 export function addProduct(data) {
   return request({
     url: '/business/product',

@@ -1,5 +1,6 @@
 const menuTitleIconMap = {
   "首页": "dashboard",
+  "统一待办中心": "checkbox",
   "系统管理": "system",
   "基础资料": "tree",
   "商品管理": "list",
@@ -35,6 +36,7 @@ const menuTitleIconMap = {
 
 const menuPathIconMap = {
   "/index": "dashboard",
+  "todoCenter": "checkbox",
   "customer": "user",
   "supplier": "peoples",
   "product": "list",

@@ -9,12 +9,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="returnNo"         column="return_no" />
         <result property="returnType"       column="return_type" />
         <result property="supplierId"       column="supplier_id" />
+        <result property="purchaseOrderId"  column="purchase_order_id" />
+        <result property="purchaseOrderNo"  column="purchase_order_no" />
+        <result property="supplierName"     column="supplier_name" />
         <result property="warehouseId"      column="warehouse_id" />
+        <result property="warehouseName"    column="warehouse_name" />
         <result property="totalQty"         column="total_qty" />
         <result property="totalAmount"      column="total_amount" />
         <result property="status"           column="status" />
         <result property="auditBy"          column="audit_by" />
         <result property="auditTime"        column="audit_time" />
+        <result property="rejectReason"     column="reject_reason" />
         <result property="createBy"         column="create_by" />
         <result property="createTime"       column="create_time" />
         <result property="updateBy"         column="update_by" />
@@ -23,35 +28,46 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsPurchaseReturnVo">
-        select purchase_return_id, return_no, return_type, supplier_id, warehouse_id, total_qty, total_amount,
-               status, audit_by, audit_time, create_by, create_time, update_by, update_time, remark
-        from wms_purchase_return
+        select pr.purchase_return_id, pr.return_no, pr.return_type, pr.supplier_id, pr.purchase_order_id, po.order_no as purchase_order_no,
+               ms.supplier_name,
+               pr.warehouse_id, mw.warehouse_name, pr.total_qty, pr.total_amount,
+               pr.status, pr.audit_by, pr.audit_time, pr.reject_reason, pr.create_by, pr.create_time, pr.update_by, pr.update_time, pr.remark
+        from wms_purchase_return pr
+        left join wms_purchase_order po on po.purchase_order_id = pr.purchase_order_id
+        left join md_supplier ms on ms.supplier_id = pr.supplier_id
+        left join md_warehouse mw on mw.warehouse_id = pr.warehouse_id
+        left join sys_user su on su.user_name = pr.create_by
     </sql>
 
     <select id="selectWmsPurchaseReturnById" parameterType="Long" resultMap="WmsPurchaseReturnResult">
         <include refid="selectWmsPurchaseReturnVo"/>
-        where purchase_return_id = #{purchaseReturnId}
+        where pr.purchase_return_id = #{purchaseReturnId}
     </select>
 
     <select id="selectWmsPurchaseReturnList" parameterType="WmsPurchaseReturn" resultMap="WmsPurchaseReturnResult">
         <include refid="selectWmsPurchaseReturnVo"/>
         <where>
             <if test="returnNo != null and returnNo != ''">
-                and return_no like concat('%', #{returnNo}, '%')
+                and pr.return_no like concat('%', #{returnNo}, '%')
             </if>
             <if test="returnType != null and returnType != ''">
-                and return_type = #{returnType}
+                and pr.return_type = #{returnType}
             </if>
             <if test="supplierId != null">
-                and supplier_id = #{supplierId}
+                and pr.supplier_id = #{supplierId}
+            </if>
+            <if test="purchaseOrderId != null">
+                and pr.purchase_order_id = #{purchaseOrderId}
             </if>
             <if test="warehouseId != null">
-                and warehouse_id = #{warehouseId}
+                and pr.warehouse_id = #{warehouseId}
             </if>
             <if test="status != null and status != ''">
-                and status = #{status}
+                and pr.status = #{status}
             </if>
+            ${params.dataScope}
         </where>
+        order by pr.purchase_return_id desc
     </select>
 
     <insert id="insertWmsPurchaseReturn" parameterType="WmsPurchaseReturn" useGeneratedKeys="true" keyProperty="purchaseReturnId">
@@ -60,6 +76,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="returnNo != null and returnNo != ''">return_no,</if>
             <if test="returnType != null">return_type,</if>
             <if test="supplierId != null">supplier_id,</if>
+            <if test="purchaseOrderId != null">purchase_order_id,</if>
             <if test="warehouseId != null">warehouse_id,</if>
             <if test="totalQty != null">total_qty,</if>
             <if test="totalAmount != null">total_amount,</if>
@@ -75,6 +92,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="returnNo != null and returnNo != ''">#{returnNo},</if>
             <if test="returnType != null">#{returnType},</if>
             <if test="supplierId != null">#{supplierId},</if>
+            <if test="purchaseOrderId != null">#{purchaseOrderId},</if>
             <if test="warehouseId != null">#{warehouseId},</if>
             <if test="totalQty != null">#{totalQty},</if>
             <if test="totalAmount != null">#{totalAmount},</if>
@@ -94,6 +112,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="returnNo != null and returnNo != ''">return_no = #{returnNo},</if>
             <if test="returnType != null">return_type = #{returnType},</if>
             <if test="supplierId != null">supplier_id = #{supplierId},</if>
+            <if test="purchaseOrderId != null">purchase_order_id = #{purchaseOrderId},</if>
             <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
             <if test="totalQty != null">total_qty = #{totalQty},</if>
             <if test="totalAmount != null">total_amount = #{totalAmount},</if>
@@ -135,9 +154,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         set status = #{newStatus},
             audit_by = #{auditBy},
             audit_time = case when #{auditBy} is not null and #{auditBy} != '' then sysdate() else null end,
+            reject_reason = case when #{newStatus} = 'submitted' or #{newStatus} = 'audited' then null else reject_reason end,
             update_by = #{updateBy},
             update_time = sysdate()
         where purchase_return_id = #{purchaseReturnId}
           and status = #{oldStatus}
+    </update>
+
+    <update id="rejectWmsPurchaseReturnStatus">
+        update wms_purchase_return
+        set status = 'draft',
+            reject_reason = #{rejectReason},
+            audit_by = null,
+            audit_time = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where purchase_return_id = #{purchaseReturnId}
+          and status = 'submitted'
     </update>
 </mapper>

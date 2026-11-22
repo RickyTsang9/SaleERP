@@ -1,5 +1,6 @@
 package com.ruoyi.business.service.impl;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +42,7 @@ public class WmsPurchaseReturnItemServiceImpl implements IWmsPurchaseReturnItemS
     public int insertWmsPurchaseReturnItem(WmsPurchaseReturnItem wmsPurchaseReturnItem)
     {
         validatePurchaseReturnEditable(wmsPurchaseReturnItem.getPurchaseReturnId());
+        preparePurchaseReturnItemForSave(wmsPurchaseReturnItem);
         int insertRows = wmsPurchaseReturnItemMapper.insertWmsPurchaseReturnItem(wmsPurchaseReturnItem);
         refreshPurchaseReturnTotal(wmsPurchaseReturnItem.getPurchaseReturnId());
         return insertRows;
@@ -57,6 +59,7 @@ public class WmsPurchaseReturnItemServiceImpl implements IWmsPurchaseReturnItemS
         }
         validatePurchaseReturnEditable(databasePurchaseReturnItem.getPurchaseReturnId());
         wmsPurchaseReturnItem.setPurchaseReturnId(databasePurchaseReturnItem.getPurchaseReturnId());
+        preparePurchaseReturnItemForSave(wmsPurchaseReturnItem);
         int updateRows = wmsPurchaseReturnItemMapper.updateWmsPurchaseReturnItem(wmsPurchaseReturnItem);
         refreshPurchaseReturnTotal(wmsPurchaseReturnItem.getPurchaseReturnId());
         if (databasePurchaseReturnItem != null && databasePurchaseReturnItem.getPurchaseReturnId() != null
@@ -132,6 +135,51 @@ public class WmsPurchaseReturnItemServiceImpl implements IWmsPurchaseReturnItemS
         }
     }
 
+    /**
+     * 保存前校验采购退货明细字段并重算金额
+     *
+     * @param wmsPurchaseReturnItem 采购退货明细
+     */
+    private void preparePurchaseReturnItemForSave(WmsPurchaseReturnItem wmsPurchaseReturnItem)
+    {
+        if (wmsPurchaseReturnItem == null)
+        {
+            throw new ServiceException("采购退货明细不能为空");
+        }
+        if (wmsPurchaseReturnItem.getProductId() == null)
+        {
+            throw new ServiceException("采购退货明细商品不能为空");
+        }
+        if (wmsPurchaseReturnItem.getQuantity() == null || wmsPurchaseReturnItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+        {
+            throw new ServiceException("采购退货数量必须大于0");
+        }
+        if (wmsPurchaseReturnItem.getPrice() == null || wmsPurchaseReturnItem.getPrice().compareTo(BigDecimal.ZERO) < 0)
+        {
+            throw new ServiceException("采购退货单价不能小于0");
+        }
+        wmsPurchaseReturnItem.setAmount(calculatePurchaseReturnItemAmount(wmsPurchaseReturnItem));
+    }
+
+    /**
+     * 计算采购退货明细金额
+     *
+     * @param wmsPurchaseReturnItem 采购退货明细
+     * @return 金额
+     */
+    private BigDecimal calculatePurchaseReturnItemAmount(WmsPurchaseReturnItem wmsPurchaseReturnItem)
+    {
+        BigDecimal quantityValue =
+            wmsPurchaseReturnItem.getQuantity() == null ? BigDecimal.ZERO : wmsPurchaseReturnItem.getQuantity();
+        BigDecimal priceValue = wmsPurchaseReturnItem.getPrice() == null ? BigDecimal.ZERO : wmsPurchaseReturnItem.getPrice();
+        return quantityValue.multiply(priceValue);
+    }
+
+    /**
+     * 刷新采购退货单主表总数量与总金额
+     *
+     * @param purchaseReturnId 采购退货单编号
+     */
     private void refreshPurchaseReturnTotal(Long purchaseReturnId)
     {
         if (purchaseReturnId != null)

@@ -87,22 +87,30 @@ SaleERP管理系统是一个基于若依 `RuoYi v3.9.1` 二次开发的销售管
 
 ### 仓储与库存
 
-- 库存台账
-- 库存流水
-- 库存盘点
-- 库存调拨
+- 库存台账（支持乐观锁防超卖、批次效期/临期预警、冻结/解冻、期初导入）
+- 库存流水（支持单号溯源直达源单）
+- 库存盘点（全仓快照载入与盲盘模式）
+- 库存调拨（调出在途 → 调入签收 / 在途撤回闭环）
+- 移动仓配 PDA 工作台（扫码收货、FEFO 拣货、移动连续盲盘）
+
+### 财务与税务核算
+
+- 应收/应付台账（红字退款、多单合并核销/付款、账龄下钻）
+- 回款/付款记录（差错冲红作废、凭证打印）
+- 资金账户与月结关账（多渠道余额池、资金收支流水、账户互转、日常收支、会计期间锁定与反结账）
+- 进销项发票台账（多税率价税分离、防超额开票、订单开票进度反写、红冲留痕）
 
 ### 经营分析
 
-- 经营看板
-- 销售报表
-- 往来对账
-- 发票税务统计
-- 现金流预测
-- 年度预算计划
-- 经营简报归档
+- 经营看板（Light & Dark 双主题、当月/上月净额毛利与健康评分）
+- 销售明细报表（含退货冲减、历史成本快照、权限脱敏与 Excel 导出）
+- 往来对账与标准往来对账单（CSV 导出 / 打印）
+- 商品经营多维排行、客户/商品 360° 经营画像
+- 发票税务统计与现金流预测
+- 年度预算计划、经营简报归档与决议事项
+- 统一待办中心（19 类跨模块待办按岗位权限过滤）
 - 站内消息提醒
-- 数据备份与恢复
+- 数据备份与离线包容灾恢复（GZIP `.json.gz` 下载与上传恢复）
 
 ### 系统基础能力
 
@@ -157,34 +165,18 @@ SaleERP/
 
 ### 1. 初始化数据库
 
-推荐优先执行以下脚本：
+推荐直接执行最新全量一键初始化基线脚本（包含 72 张表结构、全部菜单权限及闭环演示数据）：
 
-- `SaleERP/sql/all_in_one_20260319.sql`：基础库结构、菜单、权限、基础数据
-- `SaleERP/sql/mock_demo_data.sql`：演示数据
+- `SaleERP/sql/sale_erp_full_baseline_20261122.sql`
 
-如果你的数据库不是从最新版本完整初始化，建议再按文件名日期顺序补充执行 `SaleERP/sql` 目录下的增量脚本，例如：
-
-- `fix_sys_menu_mojibake_20260409.sql`
-- `add_sale_order_link_to_outbound_20260410.sql`
-- `add_purchase_order_link_to_inbound_20260410.sql`
-- `add_purchase_order_item_link_to_inbound_item_20260410.sql`
-- `fix_business_menu_entry_20260410.sql`
-- `upgrade_fin_receipt_20260411.sql`
-- `fix_menu_icons_20260411.sql`
-- `add_management_phase2_20260411.sql`
+> 默认演示管理员账号：`admin` / `admin123`（上线前请及时修改密码）。
 
 ### 2. 修改后端配置
 
-启动前请按本地环境修改以下配置：
+后端已支持通过环境变量（`DB_URL` / `DB_USERNAME` / `DB_PASSWORD` / `REDIS_HOST` / `REDIS_PASSWORD` / `JWT_TOKEN_SECRET` / `SERVER_PORT` / `UPLOAD_PATH`）注入生产配置，也可直接修改以下配置文件：
 
 - `SaleERP/ruoyi-admin/src/main/resources/application.yml`
-  - 服务端口
-  - 文件上传路径
-  - Redis 配置
-  - Token 配置
 - `SaleERP/ruoyi-admin/src/main/resources/application-druid.yml`
-  - MySQL 数据源地址
-  - 数据库用户名与密码
 
 ### 3. 启动后端
 
@@ -196,12 +188,12 @@ mvn clean package -DskipTests
 java -jar ruoyi-admin/target/ruoyi-admin.jar
 ```
 
-后端默认端口配置为 `5589`。
+后端默认端口配置为 `5954`。
 
 接口文档默认地址：
 
 ```text
-http://localhost:5589/swagger-ui.html
+http://localhost:5954/swagger-ui.html
 ```
 
 ### 4. 启动前端
@@ -218,19 +210,13 @@ npm run dev
 
 ### 5. 前端代理配置说明
 
-前端开发代理配置位于：
-
-```text
-SaleERP-Vue3/vite.config.js
-```
-
-开发时会通过 `/dev-api` 代理到后端接口地址。若你的后端地址不是当前仓库配置中的地址，请先修改该文件中的代理目标后再启动前端。
+前端开发代理优先读取 `SaleERP-Vue3/.env.development` 中的 `VITE_PROXY_TARGET`（默认 `http://127.0.0.1:5954`），通过 `/dev-api` 转发到后端服务。
 
 ## 常用访问地址
 
 - 前端开发地址：`http://localhost:8064`
-- 后端接口地址：`http://localhost:5589`
-- Swagger 文档：`http://localhost:5589/swagger-ui.html`
+- 后端接口地址：`http://localhost:5954`
+- Swagger 文档：`http://localhost:5954/swagger-ui.html`
 
 ## 已落地的业务接口与页面
 

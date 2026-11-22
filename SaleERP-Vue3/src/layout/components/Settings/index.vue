@@ -121,7 +121,7 @@ const navType = ref(settingsStore.navType)
 const theme = ref(settingsStore.theme)
 const sideTheme = ref(settingsStore.sideTheme)
 const storeSettings = computed(() => settingsStore)
-const predefineColors = ref(["#409EFF", "#ff4500", "#ff8c00", "#ffd700", "#90ee90", "#00ced1", "#1e90ff", "#c71585"])
+const predefineColors = ref(["#4F46E5", "#2563EB", "#0EA5E9", "#059669", "#7C3AED", "#E11D48", "#D97706", "#334155"])
 
 /** 是否需要dynamicTitle */
 function dynamicTitleChange() {
@@ -130,7 +130,7 @@ function dynamicTitleChange() {
 
 function themeChange(val) {
   settingsStore.theme = val
-  handleThemeStyle(val)
+  handleThemeStyle(val, settingsStore.isDark)
 }
 
 function handleTheme(val) {
@@ -165,6 +165,7 @@ watch(() => navType, val => {
 function saveSetting() {
   proxy.$modal.loading("正在保存到本地，请稍候...")
   let layoutSetting = {
+    "uiVersion": "aura-v2",
     "navType": storeSettings.value.navType,
     "tagsView": storeSettings.value.tagsView,
     "tagsIcon": storeSettings.value.tagsIcon,

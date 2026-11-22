@@ -1,20 +1,40 @@
 import defaultSettings from '@/settings'
 import { useDark, useToggle } from '@vueuse/core'
 import { useDynamicTitle } from '@/utils/dynamicTitle'
+import { handleThemeStyle } from '@/utils/theme'
 
 const isDark = useDark()
 const toggleDark = useToggle(isDark)
 
-const { sideTheme, showSettings, navType, tagsView, tagsIcon, fixedHeader, sidebarLogo, dynamicTitle, footerVisible, footerContent } = defaultSettings
+const { sideTheme, theme, uiVersion, showSettings, navType, tagsView, tagsIcon, fixedHeader, sidebarLogo, dynamicTitle, footerVisible, footerContent } = defaultSettings
 
-const storageSetting = JSON.parse(localStorage.getItem('layout-setting')) || ''
+function loadStorageSetting() {
+  try {
+    const raw = localStorage.getItem('layout-setting')
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) || {}
+    if (parsed.uiVersion !== uiVersion) {
+      const legacyThemes = ['#1E6F7A', '#1e6f7a', '#409EFF', '#409eff']
+      if (!parsed.theme || legacyThemes.includes(parsed.theme)) {
+        parsed.theme = theme
+      }
+      parsed.uiVersion = uiVersion
+      localStorage.setItem('layout-setting', JSON.stringify(parsed))
+    }
+    return parsed
+  } catch (e) {
+    return {}
+  }
+}
+
+const storageSetting = loadStorageSetting()
 
 const useSettingsStore = defineStore(
   'settings',
   {
     state: () => ({
       title: '',
-      theme: storageSetting.theme || '#409EFF',
+      theme: storageSetting.theme || theme,
       sideTheme: storageSetting.sideTheme || sideTheme,
       showSettings: showSettings,
       navType: storageSetting.navType === undefined ? navType : storageSetting.navType,
@@ -44,6 +64,7 @@ const useSettingsStore = defineStore(
       toggleTheme() {
         this.isDark = !this.isDark
         toggleDark()
+        handleThemeStyle(this.theme, this.isDark)
       }
     }
   })

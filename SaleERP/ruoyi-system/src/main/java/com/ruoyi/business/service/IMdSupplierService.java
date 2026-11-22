@@ -58,4 +58,9 @@ public interface IMdSupplierService
      * @return 结果
      */
     public int deleteMdSupplierBySupplierId(Long supplierId);
+
+    /**
+     * 导入供应商数据
+     */
+    public String importMdSupplier(List<MdSupplier> supplierList, boolean updateSupport, String operName);
 }

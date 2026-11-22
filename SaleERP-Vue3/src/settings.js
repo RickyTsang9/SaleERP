@@ -2,12 +2,22 @@ export default {
   /**
    * 网页标题
    */
-  title: 'SaleERP管理系统',
+  title: 'SaleERP 智慧经销',
 
   /**
    * 侧边栏主题 深色主题theme-dark，浅色主题theme-light
    */
-  sideTheme: 'theme-dark',
+  sideTheme: 'theme-light',
+
+  /**
+   * 系统默认主题色 (Aura Deep Indigo)
+   */
+  theme: '#4F46E5',
+
+  /**
+   * 界面设计版本（用于自动平滑迁移旧版主题缓存）
+   */
+  uiVersion: 'aura-v2',
 
   /**
    * 是否系统布局配置
@@ -23,7 +33,7 @@ export default {
    * 是否显示 tagsView
    */
   tagsView: true,
-  
+
   /**
    * 显示页签图标
    */
@@ -52,6 +62,5 @@ export default {
   /**
    * 底部版权文本内容
    */
-  footerContent: 'Copyright © 2018-2026 SaleERP. All Rights Reserved.'
+  footerContent: 'Copyright © 2018-2026 SaleERP Enterprise Cloud. All Rights Reserved.'
 }
-

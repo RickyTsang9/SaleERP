@@ -3,6 +3,7 @@ package com.ruoyi.business.service.impl;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.business.domain.BizMessage;
 import com.ruoyi.business.mapper.BizMessageMapper;
 import com.ruoyi.business.service.IBizMessageService;
@@ -42,6 +43,7 @@ public class BizMessageServiceImpl implements IBizMessageService
         return bizMessageMapper.insertBizMessageRead(messageId, userId);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int markAllBizMessageRead(Long userId, String messageType)
     {

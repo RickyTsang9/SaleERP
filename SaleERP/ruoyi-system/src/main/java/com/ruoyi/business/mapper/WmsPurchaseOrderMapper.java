@@ -105,4 +105,8 @@ public interface WmsPurchaseOrderMapper
      * @return 结果
      */
     public int deleteWmsPurchaseOrderItemByPurchaseOrderId(Long purchaseOrderId);
+
+    public int rejectWmsPurchaseOrderStatus(@org.apache.ibatis.annotations.Param("purchaseOrderId") Long purchaseOrderId,
+                                            @org.apache.ibatis.annotations.Param("rejectReason") String rejectReason,
+                                            @org.apache.ibatis.annotations.Param("updateBy") String updateBy);
 }

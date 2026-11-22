@@ -5,9 +5,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="com.ruoyi.business.mapper.BizReportMapper">
 
     <select id="selectApprovedSaleAmount" resultType="java.math.BigDecimal">
-        select ifnull(sum(total_amount), 0)
-        from wms_sale_order
-        where status = 'audited'
+        select ifnull((
+                   select sum(total_amount)
+                   from wms_sale_order
+                   where status in ('audited', 'closed')
+               ), 0) - ifnull((
+                   select sum(total_amount)
+                   from wms_sale_return
+                   where status = 'audited'
+               ), 0)
     </select>
 
     <select id="selectReceivableAmount" resultType="java.math.BigDecimal">
@@ -18,14 +24,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectReceivedAmount" resultType="java.math.BigDecimal">
         select ifnull(sum(amount), 0)
         from fin_receipt
+        where ifnull(status, 'normal') = 'normal'
     </select>
 
     <select id="selectOverdueReceivableCount" resultType="java.lang.Long">
         select count(1)
         from fin_receivable
-        where status != 'paid'
+        where status in ('unpaid', 'partial')
           and due_date is not null
-          and due_date &lt; sysdate()
+          and due_date &lt; curdate()
     </select>
 
     <select id="selectStockWarningCount" resultType="java.lang.Long">
@@ -38,10 +45,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectSaleTrendList" resultType="java.util.HashMap">
         select date_format(sale_date, '%y-%m-%d') as date, amount
         from (
-            select date(ifnull(audit_time, create_time)) as sale_date, ifnull(sum(total_amount), 0) as amount
-            from wms_sale_order
-            where status = 'audited'
-            group by date(ifnull(audit_time, create_time))
+            select sale_date, ifnull(sum(net_amount), 0) as amount
+            from (
+                select date(ifnull(audit_time, create_time)) as sale_date, ifnull(total_amount, 0) as net_amount
+                from wms_sale_order
+                where status in ('audited', 'closed')
+                union all
+                select date(ifnull(audit_time, create_time)) as sale_date, -ifnull(total_amount, 0) as net_amount
+                from wms_sale_return
+                where status = 'audited'
+            ) net_daily_sales
+            group by sale_date
             order by sale_date desc
             limit 7
         ) recent_sale_trend
@@ -49,11 +63,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectTopCustomerList" resultType="java.util.HashMap">
-        select ifnull(c.customer_name, concat('客户', cast(o.customer_id as char))) as customer, ifnull(sum(o.total_amount), 0) as amount
-        from wms_sale_order o
-        left join md_customer c on o.customer_id = c.customer_id
-        where o.status = 'audited'
-        group by o.customer_id, c.customer_name
+        select ifnull(c.customer_name, concat('客户', cast(t.customer_id as char))) as customer,
+               ifnull(sum(t.net_amount), 0) as amount
+        from (
+            select o.customer_id, ifnull(o.total_amount, 0) as net_amount
+            from wms_sale_order o
+            where o.status in ('audited', 'closed')
+            union all
+            select r.customer_id, -ifnull(r.total_amount, 0) as net_amount
+            from wms_sale_return r
+            where r.status = 'audited'
+        ) t
+        left join md_customer c on t.customer_id = c.customer_id
+        group by t.customer_id, c.customer_name
         order by amount desc
         limit 5
     </select>
@@ -123,60 +145,126 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectProductCategorySales" resultType="java.util.HashMap">
-        select ifnull(p.category_name, '未分类') as categoryName, ifnull(sum(i.amount), 0) as amount
-        from wms_sale_order_item i
-        join wms_sale_order o on i.sale_order_id = o.sale_order_id
-        left join md_product p on i.product_id = p.product_id
-        where o.status = 'audited'
-        group by ifnull(p.category_name, '未分类')
+        select category_name as categoryName, ifnull(sum(net_amount), 0) as amount
+        from (
+            select ifnull(p.category_name, '未分类') as category_name, ifnull(i.amount, 0) as net_amount
+            from wms_sale_order_item i
+            join wms_sale_order o on i.sale_order_id = o.sale_order_id
+            left join md_product p on i.product_id = p.product_id
+            where o.status in ('audited', 'closed')
+            union all
+            select ifnull(p.category_name, '未分类') as category_name, -ifnull(ri.amount, 0) as net_amount
+            from wms_sale_return_item ri
+            join wms_sale_return r on ri.sale_return_id = r.sale_return_id
+            left join md_product p on ri.product_id = p.product_id
+            where r.status = 'audited'
+        ) cat_net
+        group by category_name
+        having sum(net_amount) &gt; 0
         order by amount desc
     </select>
 
     <select id="selectSaleReportList" parameterType="java.util.Map" resultType="java.util.HashMap">
-        select o.order_no as orderNo, ifnull(o.audit_time, o.create_time) as saleDate, c.customer_name as customerName,
-               p.product_code as productCode, p.product_name as productName, p.category_name as categoryName,
-               i.quantity as quantity, i.price as price, i.amount as amount
-        from wms_sale_order_item i
-        join wms_sale_order o on i.sale_order_id = o.sale_order_id
-        left join md_customer c on o.customer_id = c.customer_id
-        left join md_product p on i.product_id = p.product_id
+        select sale_detail.orderNo,
+               sale_detail.billType,
+               sale_detail.saleDate,
+               sale_detail.customerName,
+               sale_detail.customerId,
+               sale_detail.productCode,
+               sale_detail.productName,
+               sale_detail.categoryName,
+               sale_detail.quantity,
+               sale_detail.price,
+               sale_detail.amount,
+               sale_detail.costPrice,
+               round(sale_detail.quantity * sale_detail.costPrice, 2) as costAmount,
+               round(sale_detail.amount - (sale_detail.quantity * sale_detail.costPrice), 2) as grossProfit
+        from (
+            select o.order_no as orderNo,
+                   'sale_order' as billType,
+                   ifnull(o.audit_time, o.create_time) as saleDate,
+                   c.customer_name as customerName,
+                   o.customer_id as customerId,
+                   p.product_code as productCode,
+                   p.product_name as productName,
+                   p.category_name as categoryName,
+                   i.quantity as quantity,
+                   i.price as price,
+                   i.amount as amount,
+                   ifnull(
+                       (select round(sum(oi.quantity * ifnull(oi.cost_price_snapshot, p.cost_price)) / nullif(sum(oi.quantity), 0), 2)
+                        from wms_outbound_item oi
+                        join wms_outbound wo on wo.outbound_id = oi.outbound_id
+                        where wo.status = 'audited' and oi.sale_order_item_id = i.sale_order_item_id),
+                       ifnull(p.cost_price, 0)
+                   ) as costPrice
+            from wms_sale_order_item i
+            join wms_sale_order o on i.sale_order_id = o.sale_order_id
+            left join md_customer c on o.customer_id = c.customer_id
+            left join md_product p on i.product_id = p.product_id
+            where o.status in ('audited', 'closed')
+            union all
+            select r.return_no as orderNo,
+                   'sale_return' as billType,
+                   ifnull(r.audit_time, r.create_time) as saleDate,
+                   c.customer_name as customerName,
+                   r.customer_id as customerId,
+                   p.product_code as productCode,
+                   p.product_name as productName,
+                   p.category_name as categoryName,
+                   -ri.quantity as quantity,
+                   ri.price as price,
+                   -ri.amount as amount,
+                   ifnull(ri.cost_price_snapshot, ifnull(p.cost_price, 0)) as costPrice
+            from wms_sale_return_item ri
+            join wms_sale_return r on ri.sale_return_id = r.sale_return_id
+            left join md_customer c on r.customer_id = c.customer_id
+            left join md_product p on ri.product_id = p.product_id
+            where r.status = 'audited'
+        ) sale_detail
         <where>
-            o.status = 'audited'
             <if test="startDate != null and startDate != ''">
-                and ifnull(o.audit_time, o.create_time) &gt;= concat(#{startDate}, ' 00:00:00')
+                and sale_detail.saleDate &gt;= concat(#{startDate}, ' 00:00:00')
             </if>
             <if test="endDate != null and endDate != ''">
-                and ifnull(o.audit_time, o.create_time) &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+                and sale_detail.saleDate &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
             </if>
             <if test="customerId != null">
-                and o.customer_id = #{customerId}
+                and sale_detail.customerId = #{customerId}
             </if>
             <if test="categoryName != null and categoryName != ''">
-                and p.category_name like concat('%', #{categoryName}, '%')
+                and sale_detail.categoryName like concat('%', #{categoryName}, '%')
             </if>
             <if test="productName != null and productName != ''">
-                and p.product_name like concat('%', #{productName}, '%')
+                and sale_detail.productName like concat('%', #{productName}, '%')
             </if>
         </where>
-        order by ifnull(o.audit_time, o.create_time) desc
+        order by sale_detail.saleDate desc
     </select>
 
     <select id="selectReconciliationList" parameterType="java.util.Map" resultType="java.util.HashMap">
         select 'receivable' as reconcileType,
-               cast(fr.customer_id as char) as targetId,
+               cast(r.resolved_customer_id as char) as targetId,
                ifnull(mc.customer_name, '客户资料缺失') as targetName,
-               ifnull(sum(fr.amount_due), 0) as dueAmount,
-               ifnull(sum(fr.amount_paid), 0) as paidAmount,
-               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as remainAmount
-        from fin_receivable fr
-        left join md_customer mc on fr.customer_id = mc.customer_id
+               ifnull(sum(r.amount_due), 0) as dueAmount,
+               ifnull(sum(r.amount_paid), 0) as paidAmount,
+               ifnull(sum(r.remain_amount), 0) as remainAmount
+        from (
+            select coalesce(fr.customer_id, so.customer_id) as resolved_customer_id,
+                   ifnull(fr.amount_due, 0) as amount_due,
+                   ifnull(fr.amount_paid, 0) as amount_paid,
+                   ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0) as remain_amount
+            from fin_receivable fr
+            left join wms_sale_order so on fr.sale_order_id = so.sale_order_id
+        ) r
+        left join md_customer mc on r.resolved_customer_id = mc.customer_id
         <where>
-            fr.customer_id is not null
+            r.resolved_customer_id is not null
             <if test="targetName != null and targetName != ''">
                 and mc.customer_name like concat('%', #{targetName}, '%')
             </if>
         </where>
-        group by fr.customer_id, mc.customer_name
+        group by r.resolved_customer_id, mc.customer_name
         union all
         select 'payable' as reconcileType,
                cast(fp.supplier_id as char) as targetId,
@@ -196,40 +284,29 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectInvoiceTaxList" parameterType="java.util.Map" resultType="java.util.HashMap">
-        select 'sale_invoice' as invoiceType,
-               so.order_no as sourceNo,
-               ifnull(so.total_amount, 0) as invoiceAmount,
-               round(ifnull(so.total_amount, 0) / 1.13, 2) as amountWithoutTax,
-               round(ifnull(so.total_amount, 0) - ifnull(so.total_amount, 0) / 1.13, 2) as taxAmount,
-               ifnull(so.audit_time, so.create_time) as billTime
-        from wms_sale_order so
+        select fi.invoice_id as invoiceId,
+               fi.invoice_no as invoiceNo,
+               fi.invoice_code as invoiceCode,
+               case when fi.invoice_direction = 'sale' then 'sale_invoice' else 'purchase_invoice' end as invoiceType,
+               fi.invoice_type as invoiceCategory,
+               fi.tax_rate as taxRate,
+               coalesce(nullif(fi.source_order_no, ''), fi.invoice_no) as sourceNo,
+               fi.target_name as targetName,
+               ifnull(fi.total_amount, 0) as invoiceAmount,
+               ifnull(fi.amount_without_tax, 0) as amountWithoutTax,
+               ifnull(fi.tax_amount, 0) as taxAmount,
+               fi.invoice_date as billTime
+        from fin_invoice fi
         <where>
-            so.status = 'audited'
+            fi.status = 'issued'
             <if test="startDate != null and startDate != ''">
-                and ifnull(so.audit_time, so.create_time) &gt;= concat(#{startDate}, ' 00:00:00')
+                and fi.invoice_date &gt;= #{startDate}
             </if>
             <if test="endDate != null and endDate != ''">
-                and ifnull(so.audit_time, so.create_time) &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+                and fi.invoice_date &lt;= #{endDate}
             </if>
         </where>
-        union all
-        select 'purchase_invoice' as invoiceType,
-               po.order_no as sourceNo,
-               ifnull(po.total_amount, 0) as invoiceAmount,
-               round(ifnull(po.total_amount, 0) / 1.13, 2) as amountWithoutTax,
-               round(ifnull(po.total_amount, 0) - ifnull(po.total_amount, 0) / 1.13, 2) as taxAmount,
-               ifnull(po.purchase_date, po.create_time) as billTime
-        from wms_purchase_order po
-        <where>
-            po.status in ('1', '2', '3')
-            <if test="startDate != null and startDate != ''">
-                and ifnull(po.purchase_date, po.create_time) &gt;= concat(#{startDate}, ' 00:00:00')
-            </if>
-            <if test="endDate != null and endDate != ''">
-                and ifnull(po.purchase_date, po.create_time) &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
-            </if>
-        </where>
-        order by billTime desc
+        order by fi.invoice_date desc, fi.invoice_id desc
     </select>
 
     <select id="selectCashFlowForecast" parameterType="java.util.Map" resultType="java.util.HashMap">
@@ -250,185 +327,228 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectManagementPeriodSummary" parameterType="java.util.Map" resultType="java.util.HashMap">
-        select ifnull((
+        select (ifnull((
                    select sum(ifnull(so.total_amount, 0))
                    from wms_sale_order so
-                   where so.status = 'audited'
+                   where so.status in ('audited', 'closed')
                      and ifnull(so.audit_time, so.create_time) &gt;= #{startTime}
                      and ifnull(so.audit_time, so.create_time) &lt; #{endTime}
-               ), 0) as saleAmount,
+               ), 0) - ifnull((
+                   select sum(ifnull(sr.total_amount, 0))
+                   from wms_sale_return sr
+                   where sr.status = 'audited'
+                     and ifnull(sr.audit_time, sr.create_time) &gt;= #{startTime}
+                     and ifnull(sr.audit_time, sr.create_time) &lt; #{endTime}
+               ), 0)) as saleAmount,
                ifnull((
                    select sum(ifnull(fr.amount, 0))
                    from fin_receipt fr
-                   where ifnull(fr.receipt_date, fr.create_time) &gt;= #{startTime}
-                     and ifnull(fr.receipt_date, fr.create_time) &lt; #{endTime}
+                   where ifnull(fr.status, 'normal') = 'normal'
+                     and coalesce(fr.payment_time, fr.receipt_date, fr.create_time) &gt;= #{startTime}
+                     and coalesce(fr.payment_time, fr.receipt_date, fr.create_time) &lt; #{endTime}
                ), 0) as receivedAmount,
-               ifnull((
+               (ifnull((
                    select sum(ifnull(po.total_amount, 0))
                    from wms_purchase_order po
                    where po.status in ('1', '2', '3')
                      and ifnull(po.purchase_date, po.create_time) &gt;= #{startTime}
                      and ifnull(po.purchase_date, po.create_time) &lt; #{endTime}
-               ), 0) as purchaseAmount,
-               ifnull((
-                   select sum(ifnull(soi.quantity, 0) * ifnull(mp.cost_price, 0))
+               ), 0) - ifnull((
+                   select sum(ifnull(pr.total_amount, 0))
+                   from wms_purchase_return pr
+                   where pr.status = 'audited'
+                     and ifnull(pr.audit_time, pr.create_time) &gt;= #{startTime}
+                     and ifnull(pr.audit_time, pr.create_time) &lt; #{endTime}
+               ), 0)) as purchaseAmount,
+               (ifnull((
+                   select sum(ifnull(soi.quantity, 0) * coalesce(
+                       nullif((
+                           select avg(oi.cost_price_snapshot)
+                           from wms_outbound_item oi
+                           join wms_outbound o on o.outbound_id = oi.outbound_id
+                           where o.status = 'audited'
+                             and oi.product_id = soi.product_id
+                             and oi.cost_price_snapshot &gt; 0
+                             and (o.sale_order_id = so.sale_order_id or (o.sale_order_id is null and o.source_order_no = so.order_no))
+                       ), 0),
+                       ifnull(mp.cost_price, 0)
+                   ))
                    from wms_sale_order_item soi
                    join wms_sale_order so on soi.sale_order_id = so.sale_order_id
                    left join md_product mp on soi.product_id = mp.product_id
-                   where so.status = 'audited'
+                   where so.status in ('audited', 'closed')
                      and ifnull(so.audit_time, so.create_time) &gt;= #{startTime}
                      and ifnull(so.audit_time, so.create_time) &lt; #{endTime}
-               ), 0) as saleCostAmount
+               ), 0) - ifnull((
+                   select sum(ifnull(sri.quantity, 0) * coalesce(nullif(sri.cost_price_snapshot, 0), ifnull(mp.cost_price, 0)))
+                   from wms_sale_return_item sri
+                   join wms_sale_return sr on sri.sale_return_id = sr.sale_return_id
+                   left join md_product mp on sri.product_id = mp.product_id
+                   where sr.status = 'audited'
+                     and ifnull(sr.audit_time, sr.create_time) &gt;= #{startTime}
+                     and ifnull(sr.audit_time, sr.create_time) &lt; #{endTime}
+               ), 0)) as saleCostAmount
     </select>
 
     <select id="selectManagementRiskOverview" parameterType="java.util.Map" resultType="java.util.HashMap">
-        select ifnull((
-                   select sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0))
-                   from fin_receivable fr
-                   where fr.status in ('unpaid', 'partial')
-                     and fr.due_date is not null
-                     and fr.due_date &lt; curdate()
-               ), 0) as overdueReceivableAmount,
-               ifnull((
-                   select sum(ifnull(fp.remain_amount, 0))
-                   from fin_payable fp
-                   where fp.status in ('0', '1')
-                     and fp.due_date is not null
-                     and fp.due_date &lt;= date_add(curdate(), interval #{payableRiskDays} day)
-               ), 0) as dueSoonPayableAmount,
-               ifnull((
-                   select count(1)
-                   from fin_receivable fr
-                   where fr.status in ('unpaid', 'partial')
-                     and fr.due_date is not null
-                     and datediff(curdate(), date(fr.due_date)) &gt; 60
-               ), 0) as longOverdueReceivableCount,
-               ifnull((
-                   select count(1)
-                   from wms_sale_order so
-                   where so.status = 'submitted'
-                     and so.create_time is not null
-                     and so.create_time &lt; date_sub(now(), interval 3 day)
-               ), 0)
-               + ifnull((
-                   select count(1)
-                   from wms_inbound wi
-                   where wi.status = 'submitted'
-                     and wi.create_time is not null
-                     and wi.create_time &lt; date_sub(now(), interval 3 day)
-               ), 0)
-               + ifnull((
-                   select count(1)
-                   from wms_outbound wo
-                   where wo.status = 'submitted'
-                     and wo.create_time is not null
-                     and wo.create_time &lt; date_sub(now(), interval 3 day)
-               ), 0)
-               + ifnull((
-                   select count(1)
-                   from wms_purchase_order po
-                   where po.status = '0'
-                     and po.create_time is not null
-                     and po.create_time &lt; date_sub(now(), interval 3 day)
-               ), 0) as pendingApprovalTimeoutCount
+        select ifnull(receivable_risk_summary.overdue_receivable_amount, 0) as overdueReceivableAmount,
+               ifnull(payable_risk_summary.due_soon_payable_amount, 0) as dueSoonPayableAmount,
+               ifnull(receivable_risk_summary.long_overdue_receivable_count, 0) as longOverdueReceivableCount,
+               ifnull(pending_approval_summary.pending_approval_timeout_count, 0) as pendingApprovalTimeoutCount
+        from (select 1 as summary_key) summary_base
+        left join (
+            select 1 as summary_key,
+                   ifnull(sum(case
+                                  when fr.due_date is not null
+                                   and fr.due_date &lt; curdate()
+                                  then ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)
+                                  else 0
+                              end), 0) as overdue_receivable_amount,
+                   ifnull(sum(case
+                                  when fr.due_date is not null
+                                   and fr.due_date &lt; date_sub(curdate(), interval 60 day)
+                                  then 1
+                                  else 0
+                              end), 0) as long_overdue_receivable_count
+            from fin_receivable fr
+            where fr.status in ('unpaid', 'partial')
+        ) receivable_risk_summary on receivable_risk_summary.summary_key = summary_base.summary_key
+        left join (
+            select 1 as summary_key,
+                   ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as due_soon_payable_amount
+            from fin_payable fp
+            where fp.status in ('0', '1')
+              and fp.due_date is not null
+              and fp.due_date &lt;= date_add(curdate(), interval #{payableRiskDays} day)
+        ) payable_risk_summary on payable_risk_summary.summary_key = summary_base.summary_key
+        left join (
+            select 1 as summary_key,
+                   ifnull(sum(timeout_count), 0) as pending_approval_timeout_count
+            from (
+                select count(1) as timeout_count
+                from wms_sale_order so
+                where so.status = 'submitted'
+                  and so.create_time is not null
+                  and so.create_time &lt; date_sub(now(), interval 3 day)
+                union all
+                select count(1) as timeout_count
+                from wms_inbound wi
+                where wi.status = 'submitted'
+                  and wi.create_time is not null
+                  and wi.create_time &lt; date_sub(now(), interval 3 day)
+                union all
+                select count(1) as timeout_count
+                from wms_outbound wo
+                where wo.status = 'submitted'
+                  and wo.create_time is not null
+                  and wo.create_time &lt; date_sub(now(), interval 3 day)
+                union all
+                select count(1) as timeout_count
+                from wms_purchase_order po
+                where po.status = '0'
+                  and po.create_time is not null
+                  and po.create_time &lt; date_sub(now(), interval 3 day)
+            ) pending_approval_timeout_union
+        ) pending_approval_summary on pending_approval_summary.summary_key = summary_base.summary_key
     </select>
 
     <select id="selectReceivableAgingList" resultType="java.util.HashMap">
-        select '未设置到期日' as bucketName, 0 as sortOrder,
-               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_receivable fr
-        where fr.status in ('unpaid', 'partial')
-          and fr.due_date is null
-        union all
-        select '未到期' as bucketName, 1 as sortOrder,
-               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_receivable fr
-        where fr.status in ('unpaid', 'partial')
-          and fr.due_date is not null
-          and date(fr.due_date) &gt;= curdate()
-        union all
-        select '逾期1-30天' as bucketName, 2 as sortOrder,
-               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_receivable fr
-        where fr.status in ('unpaid', 'partial')
-          and fr.due_date is not null
-          and datediff(curdate(), date(fr.due_date)) between 1 and 30
-        union all
-        select '逾期31-60天' as bucketName, 3 as sortOrder,
-               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_receivable fr
-        where fr.status in ('unpaid', 'partial')
-          and fr.due_date is not null
-          and datediff(curdate(), date(fr.due_date)) between 31 and 60
-        union all
-        select '逾期61天以上' as bucketName, 4 as sortOrder,
-               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_receivable fr
-        where fr.status in ('unpaid', 'partial')
-          and fr.due_date is not null
-          and datediff(curdate(), date(fr.due_date)) &gt;= 61
-        order by sortOrder asc
+        select receivable_aging_bucket.bucket_name as bucketName,
+               receivable_aging_bucket.sort_order as sortOrder,
+               ifnull(receivable_aging_summary.amount, 0) as amount,
+               ifnull(receivable_aging_summary.record_count, 0) as recordCount
+        from (
+            select '未设置到期日' as bucket_name, 0 as sort_order
+            union all
+            select '未到期' as bucket_name, 1 as sort_order
+            union all
+            select '逾期1-30天' as bucket_name, 2 as sort_order
+            union all
+            select '逾期31-60天' as bucket_name, 3 as sort_order
+            union all
+            select '逾期61天以上' as bucket_name, 4 as sort_order
+        ) receivable_aging_bucket
+        left join (
+            select case
+                       when fr.due_date is null then 0
+                       when fr.due_date &gt;= curdate() then 1
+                       when datediff(curdate(), fr.due_date) between 1 and 30 then 2
+                       when datediff(curdate(), fr.due_date) between 31 and 60 then 3
+                       else 4
+                   end as sort_order,
+                   ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as amount,
+                   count(1) as record_count
+            from fin_receivable fr
+            where fr.status in ('unpaid', 'partial')
+            group by case
+                         when fr.due_date is null then 0
+                         when fr.due_date &gt;= curdate() then 1
+                         when datediff(curdate(), fr.due_date) between 1 and 30 then 2
+                         when datediff(curdate(), fr.due_date) between 31 and 60 then 3
+                         else 4
+                     end
+        ) receivable_aging_summary on receivable_aging_summary.sort_order = receivable_aging_bucket.sort_order
+        order by receivable_aging_bucket.sort_order asc
     </select>
 
     <select id="selectPayableAgingList" resultType="java.util.HashMap">
-        select '未设置到期日' as bucketName, 0 as sortOrder,
-               ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_payable fp
-        where fp.status in ('0', '1')
-          and fp.due_date is null
-        union all
-        select '未到期' as bucketName, 1 as sortOrder,
-               ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_payable fp
-        where fp.status in ('0', '1')
-          and fp.due_date is not null
-          and date(fp.due_date) &gt;= curdate()
-        union all
-        select '逾期1-30天' as bucketName, 2 as sortOrder,
-               ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_payable fp
-        where fp.status in ('0', '1')
-          and fp.due_date is not null
-          and datediff(curdate(), date(fp.due_date)) between 1 and 30
-        union all
-        select '逾期31-60天' as bucketName, 3 as sortOrder,
-               ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_payable fp
-        where fp.status in ('0', '1')
-          and fp.due_date is not null
-          and datediff(curdate(), date(fp.due_date)) between 31 and 60
-        union all
-        select '逾期61天以上' as bucketName, 4 as sortOrder,
-               ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as amount,
-               count(1) as recordCount
-        from fin_payable fp
-        where fp.status in ('0', '1')
-          and fp.due_date is not null
-          and datediff(curdate(), date(fp.due_date)) &gt;= 61
-        order by sortOrder asc
+        select payable_aging_bucket.bucket_name as bucketName,
+               payable_aging_bucket.sort_order as sortOrder,
+               ifnull(payable_aging_summary.amount, 0) as amount,
+               ifnull(payable_aging_summary.record_count, 0) as recordCount
+        from (
+            select '未设置到期日' as bucket_name, 0 as sort_order
+            union all
+            select '未到期' as bucket_name, 1 as sort_order
+            union all
+            select '逾期1-30天' as bucket_name, 2 as sort_order
+            union all
+            select '逾期31-60天' as bucket_name, 3 as sort_order
+            union all
+            select '逾期61天以上' as bucket_name, 4 as sort_order
+        ) payable_aging_bucket
+        left join (
+            select case
+                       when fp.due_date is null then 0
+                       when fp.due_date &gt;= curdate() then 1
+                       when datediff(curdate(), fp.due_date) between 1 and 30 then 2
+                       when datediff(curdate(), fp.due_date) between 31 and 60 then 3
+                       else 4
+                   end as sort_order,
+                   ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as amount,
+                   count(1) as record_count
+            from fin_payable fp
+            where fp.status in ('0', '1')
+            group by case
+                         when fp.due_date is null then 0
+                         when fp.due_date &gt;= curdate() then 1
+                         when datediff(curdate(), fp.due_date) between 1 and 30 then 2
+                         when datediff(curdate(), fp.due_date) between 31 and 60 then 3
+                         else 4
+                     end
+        ) payable_aging_summary on payable_aging_summary.sort_order = payable_aging_bucket.sort_order
+        order by payable_aging_bucket.sort_order asc
     </select>
 
     <select id="selectTopOverdueCustomerList" resultType="java.util.HashMap">
-        select cast(fr.customer_id as char) as targetId,
+        select cast(r.resolved_customer_id as char) as targetId,
                ifnull(mc.customer_name, '客户资料缺失') as targetName,
-               ifnull(sum(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)), 0) as remainAmount,
-               max(datediff(curdate(), date(fr.due_date))) as overdueDays,
+               ifnull(sum(r.remain_amount), 0) as remainAmount,
+               max(r.overdue_days) as overdueDays,
                count(1) as recordCount
-        from fin_receivable fr
-        left join md_customer mc on fr.customer_id = mc.customer_id
-        where fr.status in ('unpaid', 'partial')
-          and fr.due_date is not null
-          and fr.due_date &lt; curdate()
-        group by fr.customer_id, mc.customer_name
+        from (
+            select coalesce(fr.customer_id, so.customer_id) as resolved_customer_id,
+                   ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0) as remain_amount,
+                   datediff(curdate(), fr.due_date) as overdue_days
+            from fin_receivable fr
+            left join wms_sale_order so on fr.sale_order_id = so.sale_order_id
+            where fr.status in ('unpaid', 'partial')
+              and fr.due_date is not null
+              and fr.due_date &lt; curdate()
+        ) r
+        left join md_customer mc on r.resolved_customer_id = mc.customer_id
+        where r.resolved_customer_id is not null
+        group by r.resolved_customer_id, mc.customer_name
         order by remainAmount desc, overdueDays desc
         limit 5
     </select>
@@ -437,7 +557,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select cast(fp.supplier_id as char) as targetId,
                ifnull(ms.supplier_name, '供应商资料缺失') as targetName,
                ifnull(sum(ifnull(fp.remain_amount, 0)), 0) as remainAmount,
-               min(datediff(date(fp.due_date), curdate())) as dueInDays,
+               min(datediff(fp.due_date, curdate())) as dueInDays,
                count(1) as recordCount
         from fin_payable fp
         left join md_supplier ms on fp.supplier_id = ms.supplier_id
@@ -447,5 +567,751 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         group by fp.supplier_id, ms.supplier_name
         order by dueInDays asc, remainAmount desc
         limit 5
+    </select>
+
+    <select id="selectTodoCenterList" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select todo_union.todo_id as todoId,
+               todo_union.todo_type as todoType,
+               todo_union.todo_category as todoCategory,
+               todo_union.todo_title as todoTitle,
+               todo_union.source_no as sourceNo,
+               todo_union.target_name as targetName,
+               todo_union.todo_amount as todoAmount,
+               todo_union.remain_amount as remainAmount,
+               todo_union.priority_level as priorityLevel,
+               todo_union.todo_status as todoStatus,
+               todo_union.due_time as dueTime,
+               todo_union.create_time as createTime,
+               todo_union.overdue_days as overdueDays,
+               todo_union.route_path as routePath,
+               todo_union.route_query_key as routeQueryKey,
+               todo_union.route_query_value as routeQueryValue,
+               todo_union.action_name as actionName
+        from (
+            select concat('sale_manager_', so.sale_order_id) as todo_id,
+                   'sale_manager_audit' as todo_type,
+                   'approval' as todo_category,
+                   concat('销售订单待经理审核：', so.order_no) as todo_title,
+                   so.order_no as source_no,
+                   ifnull(mc.customer_name, '客户资料缺失') as target_name,
+                   ifnull(so.total_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when so.create_time is not null and so.create_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   so.status as todo_status,
+                   null as due_time,
+                   so.create_time as create_time,
+                   case
+                       when so.create_time is null then 0
+                       else greatest(datediff(curdate(), date(so.create_time)), 0)
+                   end as overdue_days,
+                   '/sales/saleOrder' as route_path,
+                   'saleOrderId' as route_query_key,
+                   cast(so.sale_order_id as char) as route_query_value,
+                   '去审核' as action_name
+            from wms_sale_order so
+            left join md_customer mc on so.customer_id = mc.customer_id
+            where so.status = 'submitted'
+            union all
+            select concat('sale_finance_', so.sale_order_id) as todo_id,
+                   'sale_finance_audit' as todo_type,
+                   'approval' as todo_category,
+                   concat('销售订单待财务审核：', so.order_no) as todo_title,
+                   so.order_no as source_no,
+                   ifnull(mc.customer_name, '客户资料缺失') as target_name,
+                   ifnull(so.total_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when so.manager_audit_time is not null and so.manager_audit_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   so.status as todo_status,
+                   null as due_time,
+                   ifnull(so.manager_audit_time, so.create_time) as create_time,
+                   case
+                       when ifnull(so.manager_audit_time, so.create_time) is null then 0
+                       else greatest(datediff(curdate(), date(ifnull(so.manager_audit_time, so.create_time))), 0)
+                   end as overdue_days,
+                   '/sales/saleOrder' as route_path,
+                   'saleOrderId' as route_query_key,
+                   cast(so.sale_order_id as char) as route_query_value,
+                   '去审核' as action_name
+            from wms_sale_order so
+            left join md_customer mc on so.customer_id = mc.customer_id
+            where so.status = 'manager_approved'
+            union all
+            select concat('purchase_audit_', po.purchase_order_id) as todo_id,
+                   'purchase_audit' as todo_type,
+                   'approval' as todo_category,
+                   concat('采购订单待审核：', po.order_no) as todo_title,
+                   po.order_no as source_no,
+                   ifnull(ms.supplier_name, '供应商资料缺失') as target_name,
+                   ifnull(po.total_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when po.create_time is not null and po.create_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   po.status as todo_status,
+                   null as due_time,
+                   po.create_time as create_time,
+                   case
+                       when po.create_time is null then 0
+                       else greatest(datediff(curdate(), date(po.create_time)), 0)
+                   end as overdue_days,
+                   '/purchase/purchaseOrder' as route_path,
+                   'purchaseOrderId' as route_query_key,
+                   cast(po.purchase_order_id as char) as route_query_value,
+                   '去审核' as action_name
+            from wms_purchase_order po
+            left join md_supplier ms on po.supplier_id = ms.supplier_id
+            where po.status = '0'
+            union all
+            select concat('inbound_audit_', wi.inbound_id) as todo_id,
+                   'inbound_audit' as todo_type,
+                   'warehouse' as todo_category,
+                   concat('入库单待审核：', wi.inbound_no) as todo_title,
+                   wi.inbound_no as source_no,
+                   ifnull(ms.supplier_name, '供应商资料缺失') as target_name,
+                   ifnull(wi.total_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when wi.create_time is not null and wi.create_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   wi.status as todo_status,
+                   null as due_time,
+                   wi.create_time as create_time,
+                   case
+                       when wi.create_time is null then 0
+                       else greatest(datediff(curdate(), date(wi.create_time)), 0)
+                   end as overdue_days,
+                   '/purchase/inbound' as route_path,
+                   'status' as route_query_key,
+                   'submitted' as route_query_value,
+                   '去审核' as action_name
+            from wms_inbound wi
+            left join md_supplier ms on wi.supplier_id = ms.supplier_id
+            where wi.status = 'submitted'
+            union all
+            select concat('outbound_audit_', wo.outbound_id) as todo_id,
+                   'outbound_audit' as todo_type,
+                   'warehouse' as todo_category,
+                   concat('出库单待审核：', wo.outbound_no) as todo_title,
+                   wo.outbound_no as source_no,
+                   ifnull(mc.customer_name, '客户资料缺失') as target_name,
+                   ifnull(wo.total_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when wo.create_time is not null and wo.create_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   wo.status as todo_status,
+                   null as due_time,
+                   wo.create_time as create_time,
+                   case
+                       when wo.create_time is null then 0
+                       else greatest(datediff(curdate(), date(wo.create_time)), 0)
+                   end as overdue_days,
+                   '/sales/outbound' as route_path,
+                   'status' as route_query_key,
+                   'submitted' as route_query_value,
+                   '去审核' as action_name
+            from wms_outbound wo
+            left join md_customer mc on wo.customer_id = mc.customer_id
+            where wo.status = 'submitted'
+            union all
+            select * from (
+                select concat('stock_warning_', ws.stock_id) as todo_id,
+                       'stock_warning' as todo_type,
+                       'warehouse' as todo_category,
+                       concat('库存预警：', ifnull(mp.product_name, '商品资料缺失')) as todo_title,
+                       ifnull(mp.product_code, cast(ws.stock_id as char)) as source_no,
+                       ifnull(mw.warehouse_name, '仓库资料缺失') as target_name,
+                       ifnull(ws.quantity, 0) as todo_amount,
+                       0 as remain_amount,
+                       'high' as priority_level,
+                       case
+                           when ws.warning_min_qty is not null and ws.quantity &lt; ws.warning_min_qty then 'below_min'
+                           when ws.warning_max_qty is not null and ws.quantity &gt; ws.warning_max_qty then 'above_max'
+                           else 'warning'
+                       end as todo_status,
+                       null as due_time,
+                       ws.create_time as create_time,
+                       0 as overdue_days,
+                       '/inventory/stock' as route_path,
+                       'warningQuery' as route_query_key,
+                       '1' as route_query_value,
+                       '去处理' as action_name
+                from wms_stock ws
+                left join md_product mp on ws.product_id = mp.product_id
+                left join md_warehouse mw on ws.warehouse_id = mw.warehouse_id
+                where (ws.warning_min_qty is not null and ws.quantity &lt; ws.warning_min_qty)
+                   or (ws.warning_max_qty is not null and ws.quantity &gt; ws.warning_max_qty)
+                order by ws.quantity asc
+                limit 50
+            ) stock_warn_sub
+            union all
+            select concat('purchase_return_audit_', wpr.purchase_return_id) as todo_id,
+                   'purchase_return_audit' as todo_type,
+                   'approval' as todo_category,
+                   concat('采购退货待审核：', wpr.return_no) as todo_title,
+                   wpr.return_no as source_no,
+                   ifnull(ms.supplier_name, '供应商资料缺失') as target_name,
+                   ifnull(wpr.total_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when wpr.create_time is not null and wpr.create_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   wpr.status as todo_status,
+                   null as due_time,
+                   wpr.create_time as create_time,
+                   case
+                       when wpr.create_time is null then 0
+                       else greatest(datediff(curdate(), date(wpr.create_time)), 0)
+                   end as overdue_days,
+                   '/purchase/purchaseReturn' as route_path,
+                   'status' as route_query_key,
+                   'submitted' as route_query_value,
+                   '去审核' as action_name
+            from wms_purchase_return wpr
+            left join md_supplier ms on wpr.supplier_id = ms.supplier_id
+            where wpr.status = 'submitted'
+            union all
+            select concat('sale_return_audit_', wsr.sale_return_id) as todo_id,
+                   'sale_return_audit' as todo_type,
+                   'approval' as todo_category,
+                   concat('销售退货待审核：', wsr.return_no) as todo_title,
+                   wsr.return_no as source_no,
+                   ifnull(mc.customer_name, '客户资料缺失') as target_name,
+                   ifnull(wsr.total_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when wsr.create_time is not null and wsr.create_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   wsr.status as todo_status,
+                   null as due_time,
+                   wsr.create_time as create_time,
+                   case
+                       when wsr.create_time is null then 0
+                       else greatest(datediff(curdate(), date(wsr.create_time)), 0)
+                   end as overdue_days,
+                   '/sales/saleReturn' as route_path,
+                   'status' as route_query_key,
+                   'submitted' as route_query_value,
+                   '去审核' as action_name
+            from wms_sale_return wsr
+            left join md_customer mc on wsr.customer_id = mc.customer_id
+            where wsr.status = 'submitted'
+            union all
+            select concat('inventory_check_audit_', wic.check_id) as todo_id,
+                   'inventory_check_audit' as todo_type,
+                   'warehouse' as todo_category,
+                   concat('库存盘点待审核：', wic.check_no) as todo_title,
+                   wic.check_no as source_no,
+                   ifnull(mw.warehouse_name, '仓库资料缺失') as target_name,
+                   ifnull(wic.total_diff_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when wic.create_time is not null and wic.create_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   wic.status as todo_status,
+                   null as due_time,
+                   wic.create_time as create_time,
+                   case
+                       when wic.create_time is null then 0
+                       else greatest(datediff(curdate(), date(wic.create_time)), 0)
+                   end as overdue_days,
+                   '/inventory/inventoryCheck' as route_path,
+                   'status' as route_query_key,
+                   'submitted' as route_query_value,
+                   '去审核' as action_name
+            from wms_inventory_check wic
+            left join md_warehouse mw on wic.warehouse_id = mw.warehouse_id
+            where wic.status = 'submitted'
+            union all
+            select concat('transfer_audit_', wt.transfer_id) as todo_id,
+                   'transfer_audit' as todo_type,
+                   'warehouse' as todo_category,
+                   concat('库存调拨待审核：', wt.transfer_no) as todo_title,
+                   wt.transfer_no as source_no,
+                   concat(ifnull(fw.warehouse_name, '-'), ' -> ', ifnull(tw.warehouse_name, '-')) as target_name,
+                   ifnull(wt.total_quantity, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when wt.create_time is not null and wt.create_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   wt.status as todo_status,
+                   null as due_time,
+                   wt.create_time as create_time,
+                   case
+                       when wt.create_time is null then 0
+                       else greatest(datediff(curdate(), date(wt.create_time)), 0)
+                   end as overdue_days,
+                   '/inventory/transfer' as route_path,
+                   'status' as route_query_key,
+                   '0' as route_query_value,
+                   '去审核' as action_name
+            from wms_transfer wt
+            left join md_warehouse fw on wt.out_warehouse_id = fw.warehouse_id
+            left join md_warehouse tw on wt.in_warehouse_id = tw.warehouse_id
+            where wt.status = '0'
+            union all
+            select concat('transfer_receive_', wt.transfer_id) as todo_id,
+                   'transfer_receive' as todo_type,
+                   'warehouse' as todo_category,
+                   concat('调拨在途待签收：', wt.transfer_no) as todo_title,
+                   wt.transfer_no as source_no,
+                   concat(ifnull(fw.warehouse_name, '-'), ' -> ', ifnull(tw.warehouse_name, '-')) as target_name,
+                   ifnull(wt.total_quantity, 0) as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when wt.update_time is not null and wt.update_time &lt; date_sub(now(), interval 3 day) then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   wt.status as todo_status,
+                   null as due_time,
+                   ifnull(wt.update_time, wt.create_time) as create_time,
+                   case
+                       when ifnull(wt.update_time, wt.create_time) is null then 0
+                       else greatest(datediff(curdate(), date(ifnull(wt.update_time, wt.create_time))), 0)
+                   end as overdue_days,
+                   '/inventory/transfer' as route_path,
+                   'status' as route_query_key,
+                   'in_transit' as route_query_value,
+                   '去签收' as action_name
+            from wms_transfer wt
+            left join md_warehouse fw on wt.out_warehouse_id = fw.warehouse_id
+            left join md_warehouse tw on wt.in_warehouse_id = tw.warehouse_id
+            where wt.status = 'in_transit'
+            union all
+            select concat('red_receivable_refund_', fr.receivable_id) as todo_id,
+                   'red_refund_pending' as todo_type,
+                   'finance' as todo_category,
+                   concat('红字应收待退款：', ifnull(so.order_no, concat('AR-', fr.receivable_id))) as todo_title,
+                   ifnull(so.order_no, concat('AR-', fr.receivable_id)) as source_no,
+                   ifnull(mc.customer_name, '客户资料缺失') as target_name,
+                   abs(ifnull(fr.amount_due, 0)) as todo_amount,
+                   abs(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)) as remain_amount,
+                   'urgent' as priority_level,
+                   fr.status as todo_status,
+                   fr.due_date as due_time,
+                   fr.create_time as create_time,
+                   0 as overdue_days,
+                   '/finance/receivable' as route_path,
+                   'saleOrderId' as route_query_key,
+                   cast(fr.sale_order_id as char) as route_query_value,
+                   '去退款' as action_name
+            from fin_receivable fr
+            left join wms_sale_order so on fr.sale_order_id = so.sale_order_id
+            left join md_customer mc on coalesce(fr.customer_id, so.customer_id) = mc.customer_id
+            where fr.amount_due &lt; 0
+              and (ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0)) &lt; 0
+            union all
+            select concat('red_payable_refund_', fp.payable_id) as todo_id,
+                   'red_refund_pending' as todo_type,
+                   'finance' as todo_category,
+                   concat('红字应付待收退：', ifnull(po.order_no, concat('AP-', fp.payable_id))) as todo_title,
+                   ifnull(po.order_no, concat('AP-', fp.payable_id)) as source_no,
+                   ifnull(ms.supplier_name, '供应商资料缺失') as target_name,
+                   abs(ifnull(fp.amount_due, 0)) as todo_amount,
+                   abs(ifnull(fp.remain_amount, 0)) as remain_amount,
+                   'urgent' as priority_level,
+                   fp.status as todo_status,
+                   fp.due_date as due_time,
+                   fp.create_time as create_time,
+                   0 as overdue_days,
+                   '/finance/payable' as route_path,
+                   'purchaseOrderId' as route_query_key,
+                   cast(fp.purchase_order_id as char) as route_query_value,
+                   '收回退款' as action_name
+            from fin_payable fp
+            left join wms_purchase_order po on fp.purchase_order_id = po.purchase_order_id
+            left join md_supplier ms on fp.supplier_id = ms.supplier_id
+            where fp.amount_due &lt; 0
+              and ifnull(fp.remain_amount, 0) &lt; 0
+            union all
+            select * from (
+                select concat('order_invoice_pending_', so.sale_order_id) as todo_id,
+                       'order_invoice_pending' as todo_type,
+                       'finance' as todo_category,
+                       concat('已审订单待开票：', so.order_no) as todo_title,
+                       so.order_no as source_no,
+                       ifnull(mc.customer_name, '客户资料缺失') as target_name,
+                       ifnull(so.total_amount, 0) as todo_amount,
+                       greatest(ifnull(so.total_amount, 0) - ifnull(so.invoiced_amount, 0), 0) as remain_amount,
+                       'normal' as priority_level,
+                       ifnull(so.invoice_status, 'uninvoiced') as todo_status,
+                       null as due_time,
+                       ifnull(so.audit_time, so.create_time) as create_time,
+                       0 as overdue_days,
+                       '/finance/invoice' as route_path,
+                       'invoiceDirection' as route_query_key,
+                       'sale' as route_query_value,
+                       '去开票' as action_name
+                from wms_sale_order so
+                left join md_customer mc on so.customer_id = mc.customer_id
+                where so.status in ('audited', 'closed')
+                  and ifnull(so.invoice_status, 'uninvoiced') != 'invoiced'
+                  and ifnull(so.total_amount, 0) &gt; ifnull(so.invoiced_amount, 0)
+                order by so.sale_order_id desc
+                limit 30
+            ) invoice_pending_sub
+            union all
+            select concat('receivable_overdue_', fr.receivable_id) as todo_id,
+                   'receivable_overdue' as todo_type,
+                   'finance' as todo_category,
+                   concat('应收逾期：', ifnull(so.order_no, concat('销售单id：', cast(fr.sale_order_id as char)))) as todo_title,
+                   ifnull(so.order_no, cast(fr.sale_order_id as char)) as source_no,
+                   ifnull(mc.customer_name, '客户资料缺失') as target_name,
+                   ifnull(fr.amount_due, 0) as todo_amount,
+                   ifnull(ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0), 0) as remain_amount,
+                   'urgent' as priority_level,
+                   fr.status as todo_status,
+                   fr.due_date as due_time,
+                   fr.create_time as create_time,
+                   greatest(datediff(curdate(), date(fr.due_date)), 0) as overdue_days,
+                   '/finance/receivable' as route_path,
+                   'overdueQuery' as route_query_key,
+                   '1' as route_query_value,
+                   '去收款' as action_name
+            from fin_receivable fr
+            left join wms_sale_order so on fr.sale_order_id = so.sale_order_id
+            left join md_customer mc on coalesce(fr.customer_id, so.customer_id) = mc.customer_id
+            where fr.status in ('unpaid', 'partial')
+              and fr.due_date is not null
+              and fr.due_date &lt; curdate()
+            union all
+            select concat('payable_due_', fp.payable_id) as todo_id,
+                   'payable_due' as todo_type,
+                   'finance' as todo_category,
+                   concat('应付到期：', ifnull(po.order_no, concat('采购单id：', cast(fp.purchase_order_id as char)))) as todo_title,
+                   ifnull(po.order_no, cast(fp.purchase_order_id as char)) as source_no,
+                   ifnull(ms.supplier_name, '供应商资料缺失') as target_name,
+                   ifnull(fp.amount_due, 0) as todo_amount,
+                   ifnull(fp.remain_amount, 0) as remain_amount,
+                   case
+                       when fp.due_date &lt; curdate() then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   fp.status as todo_status,
+                   fp.due_date as due_time,
+                   fp.create_time as create_time,
+                   case
+                       when fp.due_date &lt; curdate() then datediff(curdate(), date(fp.due_date))
+                       else 0
+                   end as overdue_days,
+                   '/finance/payable' as route_path,
+                   'purchaseOrderId' as route_query_key,
+                   cast(fp.purchase_order_id as char) as route_query_value,
+                   '去付款' as action_name
+            from fin_payable fp
+            left join wms_purchase_order po on fp.purchase_order_id = po.purchase_order_id
+            left join md_supplier ms on fp.supplier_id = ms.supplier_id
+            where fp.status in ('0', '1')
+              and fp.due_date is not null
+              and fp.due_date &lt;= date_add(curdate(), interval #{dueDays} day)
+            union all
+            select concat('budget_approve_', bdbp.plan_id) as todo_id,
+                   'budget_approve' as todo_type,
+                   'approval' as todo_category,
+                   concat('年度预算待审批：', bdbp.plan_name) as todo_title,
+                   concat(cast(bdbp.budget_year as char), '-', bdbp.version_label) as source_no,
+                   ifnull(bdbp.submit_by, '提交人缺失') as target_name,
+                   ifnull(bdbp.sale_budget_amount, 0) as todo_amount,
+                   0 as remain_amount,
+                   'high' as priority_level,
+                   bdbp.plan_status as todo_status,
+                   null as due_time,
+                   ifnull(bdbp.submit_time, bdbp.create_time) as create_time,
+                   case
+                       when ifnull(bdbp.submit_time, bdbp.create_time) is null then 0
+                       else greatest(datediff(curdate(), date(ifnull(bdbp.submit_time, bdbp.create_time))), 0)
+                   end as overdue_days,
+                   '/finance/report' as route_path,
+                   'todoType' as route_query_key,
+                   'budget_approve' as route_query_value,
+                   '去审批' as action_name
+            from biz_decision_budget_plan bdbp
+            where bdbp.plan_status = 'submitted'
+            union all
+            select concat('executive_action_', beai.action_item_id) as todo_id,
+                   'executive_action' as todo_type,
+                   'operation' as todo_category,
+                   concat('经营决议待跟进：', beai.action_title) as todo_title,
+                   cast(beai.action_item_id as char) as source_no,
+                   ifnull(beai.owner_name, '负责人缺失') as target_name,
+                   0 as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when beai.due_date is not null and beai.due_date &lt; curdate() then 'urgent'
+                       when beai.priority_level = 'high' then 'high'
+                       else 'normal'
+                   end as priority_level,
+                   beai.action_status as todo_status,
+                   beai.due_date as due_time,
+                   beai.create_time as create_time,
+                   case
+                       when beai.due_date is not null and beai.due_date &lt; curdate() then datediff(curdate(), date(beai.due_date))
+                       else 0
+                   end as overdue_days,
+                   '/finance/report' as route_path,
+                   'todoType' as route_query_key,
+                   'executive_action' as route_query_value,
+                   '去跟进' as action_name
+            from biz_executive_action_item beai
+            where beai.action_status in ('todo', 'in_progress')
+            union all
+            select concat('customer_follow_due_', cf.follow_id) as todo_id,
+                   'customer_follow_due' as todo_type,
+                   'crm' as todo_category,
+                   concat('客户跟进提醒：', ifnull(mc.customer_name, '客户资料缺失')) as todo_title,
+                   concat('CF-', lpad(cf.follow_id, 5, '0')) as source_no,
+                   ifnull(mc.customer_name, '客户资料缺失') as target_name,
+                   0 as todo_amount,
+                   0 as remain_amount,
+                   case
+                       when cf.next_follow_time &lt; curdate() then 'urgent'
+                       else 'high'
+                   end as priority_level,
+                   cf.status as todo_status,
+                   cf.next_follow_time as due_time,
+                   cf.create_time as create_time,
+                   greatest(datediff(curdate(), date(cf.next_follow_time)), 0) as overdue_days,
+                   '/base/customerFollow' as route_path,
+                   'customerId' as route_query_key,
+                   cast(cf.customer_id as char) as route_query_value,
+                   '去跟进' as action_name
+            from crm_customer_follow cf
+            left join md_customer mc on mc.customer_id = cf.customer_id
+            where cf.status = '0'
+              and cf.next_follow_time is not null
+              and cf.next_follow_time &lt; date_add(curdate(), interval 1 day)
+            union all
+            select * from (
+                select concat('stock_expiring_', st.stock_id) as todo_id,
+                       'stock_expiring' as todo_type,
+                       'inventory' as todo_category,
+                       concat('批次效期预警：', ifnull(mp.product_name, '商品资料缺失'), '（', ifnull(st.batch_no, '-'), '）') as todo_title,
+                       ifnull(st.batch_no, concat('STK-', st.stock_id)) as source_no,
+                       ifnull(mw.warehouse_name, '仓库资料缺失') as target_name,
+                       ifnull(st.quantity, 0) as todo_amount,
+                       0 as remain_amount,
+                       case
+                           when st.expire_date &lt;= date_add(curdate(), interval 7 day) then 'urgent'
+                           else 'high'
+                       end as priority_level,
+                       case when st.expire_date &lt; curdate() then 'expired' else 'expiring' end as todo_status,
+                       st.expire_date as due_time,
+                       st.create_time as create_time,
+                       greatest(datediff(curdate(), st.expire_date), 0) as overdue_days,
+                       '/inventory/stock' as route_path,
+                       'expiringQuery' as route_query_key,
+                       '1' as route_query_value,
+                       '查效期' as action_name
+                from wms_stock st
+                left join md_product mp on mp.product_id = st.product_id
+                left join md_warehouse mw on mw.warehouse_id = st.warehouse_id
+                where st.quantity &gt; 0
+                  and st.expire_date is not null
+                  and st.expire_date &lt;= date_add(curdate(), interval 30 day)
+                order by st.expire_date asc
+                limit 50
+            ) stock_expiring_sub
+        ) todo_union
+        order by case todo_union.priority_level
+                     when 'urgent' then 1
+                     when 'high' then 2
+                     else 3
+                 end asc,
+                 case todo_union.todo_category
+                     when 'approval' then 1
+                     when 'finance' then 2
+                     when 'warehouse' then 3
+                     else 4
+                 end asc,
+                 todo_union.due_time asc,
+                 todo_union.create_time asc
+        limit 500
+    </select>
+
+    <select id="selectCustomerReconciliationBills" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select fr.receivable_id as billId,
+               concat('AR-', lpad(fr.receivable_id, 6, '0')) as billNo,
+               so.order_no as sourceOrderNo,
+               ifnull(fr.amount_due, 0) as amountDue,
+               ifnull(fr.amount_paid, 0) as amountPaid,
+               ifnull(fr.amount_due, 0) - ifnull(fr.amount_paid, 0) as remainAmount,
+               fr.status as status,
+               fr.due_date as dueDate,
+               case
+                   when fr.status in ('unpaid', 'partial') and fr.due_date is not null and fr.due_date &lt; curdate()
+                   then datediff(curdate(), date(fr.due_date))
+                   else 0
+               end as overdueDays,
+               fr.create_time as billTime,
+               fr.remark as remark
+        from fin_receivable fr
+        left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
+        <where>
+            coalesce(fr.customer_id, so.customer_id) = #{targetId}
+            <if test="startDate != null and startDate != ''">
+                and fr.create_time &gt;= concat(#{startDate}, ' 00:00:00')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                and fr.create_time &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+            </if>
+        </where>
+        order by fr.create_time desc, fr.receivable_id desc
+    </select>
+
+    <select id="selectCustomerReconciliationReceipts" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select rc.receipt_id as settlementId,
+               concat('RC-', lpad(rc.receipt_id, 6, '0')) as settlementNo,
+               so.order_no as sourceOrderNo,
+               ifnull(rc.amount, 0) as amount,
+               coalesce(rc.payment_time, rc.receipt_date, rc.create_time) as settlementTime,
+               rc.payment_method as paymentMethod,
+               ifnull(rc.status, 'normal') as status,
+               rc.void_reason as voidReason,
+               rc.remark as remark
+        from fin_receipt rc
+        left join wms_sale_order so on so.sale_order_id = rc.sale_order_id
+        <where>
+            coalesce(rc.customer_id, so.customer_id) = #{targetId}
+            <if test="startDate != null and startDate != ''">
+                and coalesce(rc.payment_time, rc.receipt_date, rc.create_time) &gt;= concat(#{startDate}, ' 00:00:00')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                and coalesce(rc.payment_time, rc.receipt_date, rc.create_time) &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+            </if>
+        </where>
+        order by settlementTime desc, rc.receipt_id desc
+    </select>
+
+    <select id="selectSupplierReconciliationBills" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select fp.payable_id as billId,
+               concat('AP-', lpad(fp.payable_id, 6, '0')) as billNo,
+               po.order_no as sourceOrderNo,
+               ifnull(fp.amount_due, 0) as amountDue,
+               ifnull(fp.amount_paid, 0) as amountPaid,
+               ifnull(fp.amount_due, 0) - ifnull(fp.amount_paid, 0) as remainAmount,
+               fp.status as status,
+               fp.due_date as dueDate,
+               case
+                   when fp.status in ('0', '1') and fp.due_date is not null and fp.due_date &lt; curdate()
+                   then datediff(curdate(), date(fp.due_date))
+                   else 0
+               end as overdueDays,
+               fp.create_time as billTime,
+               fp.remark as remark
+        from fin_payable fp
+        left join wms_purchase_order po on po.purchase_order_id = fp.purchase_order_id
+        <where>
+            fp.supplier_id = #{targetId}
+            <if test="startDate != null and startDate != ''">
+                and fp.create_time &gt;= concat(#{startDate}, ' 00:00:00')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                and fp.create_time &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+            </if>
+        </where>
+        order by fp.create_time desc, fp.payable_id desc
+    </select>
+
+    <select id="selectSupplierReconciliationPayments" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select pm.payment_id as settlementId,
+               concat('PM-', lpad(pm.payment_id, 6, '0')) as settlementNo,
+               po.order_no as sourceOrderNo,
+               ifnull(pm.amount, 0) as amount,
+               coalesce(pm.payment_time, pm.create_time) as settlementTime,
+               pm.payment_method as paymentMethod,
+               ifnull(pm.status, 'normal') as status,
+               pm.void_reason as voidReason,
+               pm.remark as remark
+        from fin_payment pm
+        left join wms_purchase_order po on po.purchase_order_id = pm.purchase_order_id
+        <where>
+            pm.supplier_id = #{targetId}
+            <if test="startDate != null and startDate != ''">
+                and coalesce(pm.payment_time, pm.create_time) &gt;= concat(#{startDate}, ' 00:00:00')
+            </if>
+            <if test="endDate != null and endDate != ''">
+                and coalesce(pm.payment_time, pm.create_time) &lt; date_add(concat(#{endDate}, ' 00:00:00'), interval 1 day)
+            </if>
+        </where>
+        order by settlementTime desc, pm.payment_id desc
+    </select>
+
+    <select id="selectProductRankingList" parameterType="java.util.Map" resultType="java.util.HashMap">
+        select p.product_id as productId,
+               p.product_code as productCode,
+               p.product_name as productName,
+               ifnull(p.category_name, '未分类') as categoryName,
+               ifnull(p.cost_price, 0) as costPrice,
+               ifnull(p.sale_price, 0) as salePrice,
+               ifnull(sale_agg.sale_qty, 0) as saleQty,
+               ifnull(sale_agg.sale_amount, 0) as saleAmount,
+               ifnull(sale_agg.sale_cost_amount, 0) as saleCostAmount,
+               ifnull(ret_agg.return_qty, 0) as returnQty,
+               ifnull(ret_agg.return_amount, 0) as returnAmount,
+               ifnull(ret_agg.return_cost_amount, 0) as returnCostAmount,
+               ifnull(stk_agg.stock_qty, 0) as stockQty
+        from md_product p
+        left join (
+            select soi.product_id,
+                   sum(ifnull(soi.quantity, 0)) as sale_qty,
+                   sum(ifnull(soi.amount, 0)) as sale_amount,
+                   sum(ifnull(soi.quantity, 0) * coalesce(
+                       nullif((
+                           select avg(oi.cost_price_snapshot)
+                           from wms_outbound_item oi
+                           join wms_outbound o on o.outbound_id = oi.outbound_id
+                           where o.status = 'audited'
+                             and oi.product_id = soi.product_id
+                             and oi.cost_price_snapshot &gt; 0
+                             and (o.sale_order_id = so.sale_order_id or (o.sale_order_id is null and o.source_order_no = so.order_no))
+                       ), 0),
+                       ifnull(mp2.cost_price, 0)
+                   )) as sale_cost_amount
+            from wms_sale_order_item soi
+            join wms_sale_order so on so.sale_order_id = soi.sale_order_id
+            left join md_product mp2 on mp2.product_id = soi.product_id
+            where so.status in ('audited', 'closed')
+            group by soi.product_id
+        ) sale_agg on sale_agg.product_id = p.product_id
+        left join (
+            select sri.product_id,
+                   sum(ifnull(sri.quantity, 0)) as return_qty,
+                   sum(ifnull(sri.amount, 0)) as return_amount,
+                   sum(ifnull(sri.quantity, 0) * coalesce(nullif(sri.cost_price_snapshot, 0), ifnull(mp3.cost_price, 0))) as return_cost_amount
+            from wms_sale_return_item sri
+            join wms_sale_return sr on sr.sale_return_id = sri.sale_return_id
+            left join md_product mp3 on mp3.product_id = sri.product_id
+            where sr.status = 'audited'
+            group by sri.product_id
+        ) ret_agg on ret_agg.product_id = p.product_id
+        left join (
+            select product_id,
+                   sum(ifnull(quantity, 0)) as stock_qty
+            from wms_stock
+            group by product_id
+        ) stk_agg on stk_agg.product_id = p.product_id
+        <where>
+            (p.del_flag is null or p.del_flag = '0')
+            <if test="categoryName != null and categoryName != ''">
+                and p.category_name like concat('%', #{categoryName}, '%')
+            </if>
+            <if test="keyword != null and keyword != ''">
+                and (p.product_name like concat('%', #{keyword}, '%') or p.product_code like concat('%', #{keyword}, '%'))
+            </if>
+        </where>
+        order by saleAmount desc, saleQty desc, p.product_id asc
     </select>
 </mapper>

@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.business.domain.BizExecutiveActionItem;
 import com.ruoyi.business.domain.BizExecutiveBriefRecord;
 import com.ruoyi.business.mapper.BizExecutiveActionItemMapper;
@@ -28,6 +29,9 @@ public class BizExecutiveActionItemServiceImpl implements IBizExecutiveActionIte
 
     /** 经营决议事项表名称 */
     private static final String BIZ_EXECUTIVE_ACTION_ITEM_TABLE_NAME = "biz_executive_action_item";
+
+    /** 已确认存在经营决议事项表 */
+    private volatile boolean executiveActionItemTableReady;
 
     /** 待跟进状态 */
     private static final String ACTION_STATUS_TODO = "todo";
@@ -130,6 +134,7 @@ public class BizExecutiveActionItemServiceImpl implements IBizExecutiveActionIte
      * @param bizExecutiveBriefRecord 归档简报
      * @param operatorName 操作人
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public void createBizExecutiveActionItemsFromBriefRecord(BizExecutiveBriefRecord bizExecutiveBriefRecord, String operatorName)
     {
@@ -195,10 +200,29 @@ public class BizExecutiveActionItemServiceImpl implements IBizExecutiveActionIte
      */
     private boolean hasExecutiveActionItemTable()
     {
+        if (executiveActionItemTableReady)
+        {
+            return true;
+        }
+        return refreshExecutiveActionItemTableReady();
+    }
+
+    /**
+     * 刷新经营决议事项表存在状态
+     * 
+     * @return 是否存在
+     */
+    private boolean refreshExecutiveActionItemTableReady()
+    {
         String countSql =
             "select count(1) from information_schema.tables where table_schema = (select database()) and table_name = ?";
         Integer tableCount = jdbcTemplate.queryForObject(countSql, Integer.class, BIZ_EXECUTIVE_ACTION_ITEM_TABLE_NAME);
-        return tableCount != null && tableCount.intValue() > 0;
+        boolean tableExists = tableCount != null && tableCount.intValue() > 0;
+        if (tableExists)
+        {
+            executiveActionItemTableReady = true;
+        }
+        return tableExists;
     }
 
     /**

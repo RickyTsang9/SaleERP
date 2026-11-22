@@ -15,6 +15,10 @@ public interface WmsSaleReturnMapper
 
     public int updateWmsSaleReturnStatus(Long saleReturnId, String currentStatus, String status, String auditBy, String updateBy);
 
+    public int rejectWmsSaleReturnStatus(@org.apache.ibatis.annotations.Param("saleReturnId") Long saleReturnId,
+                                         @org.apache.ibatis.annotations.Param("rejectReason") String rejectReason,
+                                         @org.apache.ibatis.annotations.Param("updateBy") String updateBy);
+
     public int deleteWmsSaleReturnById(Long saleReturnId);
 
     public int deleteWmsSaleReturnByIds(Long[] saleReturnIds);

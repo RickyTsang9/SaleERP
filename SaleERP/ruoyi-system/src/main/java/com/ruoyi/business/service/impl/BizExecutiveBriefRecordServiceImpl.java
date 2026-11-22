@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.business.domain.BizExecutiveBriefRecord;
 import com.ruoyi.business.mapper.BizExecutiveBriefRecordMapper;
 import com.ruoyi.business.service.IBizExecutiveActionItemService;
@@ -29,6 +30,9 @@ public class BizExecutiveBriefRecordServiceImpl implements IBizExecutiveBriefRec
 
     /** 经营简报归档表名称 */
     private static final String BIZ_EXECUTIVE_BRIEF_RECORD_TABLE_NAME = "biz_executive_brief_record";
+
+    /** 已确认存在经营简报归档表 */
+    private volatile boolean executiveBriefRecordTableReady;
 
     /** 已归档状态 */
     private static final String BRIEF_STATUS_ARCHIVED = "archived";
@@ -100,6 +104,7 @@ public class BizExecutiveBriefRecordServiceImpl implements IBizExecutiveBriefRec
      * @param operatorName 操作人
      * @return 结果
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int insertBizExecutiveBriefRecord(BizExecutiveBriefRecord bizExecutiveBriefRecord, String operatorName)
     {
@@ -137,10 +142,29 @@ public class BizExecutiveBriefRecordServiceImpl implements IBizExecutiveBriefRec
      */
     private boolean hasExecutiveBriefRecordTable()
     {
+        if (executiveBriefRecordTableReady)
+        {
+            return true;
+        }
+        return refreshExecutiveBriefRecordTableReady();
+    }
+
+    /**
+     * 刷新经营简报归档表存在状态
+     * 
+     * @return 是否存在
+     */
+    private boolean refreshExecutiveBriefRecordTableReady()
+    {
         String countSql =
             "select count(1) from information_schema.tables where table_schema = (select database()) and table_name = ?";
         Integer tableCount = jdbcTemplate.queryForObject(countSql, Integer.class, BIZ_EXECUTIVE_BRIEF_RECORD_TABLE_NAME);
-        return tableCount != null && tableCount.intValue() > 0;
+        boolean tableExists = tableCount != null && tableCount.intValue() > 0;
+        if (tableExists)
+        {
+            executiveBriefRecordTableReady = true;
+        }
+        return tableExists;
     }
 
     /**

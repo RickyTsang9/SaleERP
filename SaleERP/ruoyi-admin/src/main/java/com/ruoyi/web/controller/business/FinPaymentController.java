@@ -1,6 +1,10 @@
 package com.ruoyi.web.controller.business;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +23,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.business.domain.FinPayment;
 import com.ruoyi.business.service.IFinPaymentService;
+import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 
@@ -82,6 +87,32 @@ public class FinPaymentController extends BaseController
         return toAjax(finPaymentService.insertFinPayment(finPayment));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:payment:add')")
+    @Log(title = "多单合并付款核销", businessType = BusinessType.INSERT)
+    @RepeatSubmit
+    @PostMapping("/batch")
+    public AjaxResult batchAdd(@RequestBody Map<String, Object> body)
+    {
+        List<Long> payableIds = new ArrayList<>();
+        Object rawIds = body == null ? null : body.get("payableIds");
+        if (rawIds instanceof List<?>)
+        {
+            for (Object idObj : (List<?>) rawIds)
+            {
+                if (idObj != null)
+                {
+                    payableIds.add(Long.valueOf(String.valueOf(idObj)));
+                }
+            }
+        }
+        BigDecimal totalAmount = body == null || body.get("totalAmount") == null ? null : new BigDecimal(String.valueOf(body.get("totalAmount")));
+        String paymentMethod = body == null || body.get("paymentMethod") == null ? null : String.valueOf(body.get("paymentMethod"));
+        Long accountId = body == null || body.get("accountId") == null ? null : Long.valueOf(String.valueOf(body.get("accountId")));
+        Date paymentTime = body == null || body.get("paymentTime") == null ? new Date() : DateUtils.parseDate(body.get("paymentTime"));
+        String remark = body == null || body.get("remark") == null ? null : String.valueOf(body.get("remark"));
+        return toAjax(finPaymentService.batchInsertFinPayment(payableIds, totalAmount, paymentMethod, accountId, paymentTime, remark));
+    }
+
     /**
      * 修改付款记录
      */
@@ -96,6 +127,16 @@ public class FinPaymentController extends BaseController
     /**
      * 删除付款记录
      */
+    @PreAuthorize("@ss.hasPermi('business:payment:edit')")
+    @Log(title = "付款冲红作废", businessType = BusinessType.UPDATE)
+    @RepeatSubmit
+    @PutMapping("/{paymentId}/void")
+    public AjaxResult voidPayment(@PathVariable Long paymentId, @RequestBody(required = false) FinPayment body)
+    {
+        String reason = body == null ? null : body.getVoidReason();
+        return toAjax(finPaymentService.voidFinPayment(paymentId, reason));
+    }
+
     @PreAuthorize("@ss.hasPermi('business:payment:remove')")
     @Log(title = "付款记录", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{paymentIds}")

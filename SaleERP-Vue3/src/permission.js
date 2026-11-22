@@ -43,9 +43,11 @@ router.beforeEach((to, from, next) => {
             next({ ...to, replace: true }) // hack方法 确保addRoutes已完成
           })
         }).catch(err => {
-          useUserStore().logOut().then(() => {
+          isRelogin.show = false
+          useUserStore().logOut().finally(() => {
             ElMessage.error(err)
-            next({ path: '/' })
+            next({ path: '/login', replace: true })
+            NProgress.done()
           })
         })
       } else {

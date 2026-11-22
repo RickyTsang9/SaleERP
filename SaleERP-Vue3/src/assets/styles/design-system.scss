@@ -1,0 +1,540 @@
+/**
+ * Aura Enterprise SaaS Design System
+ * Unified Visual Language for SaleERP (Light & Dark Modes)
+ */
+
+/* ========== 1. Base & Typography ========== */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background-color: var(--erp-canvas);
+  color: var(--erp-text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.erp-num,
+.el-table .cell,
+.el-statistic__number {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== 2. Unified Page Layout Architecture ========== */
+.app-container {
+  padding: 20px 24px 28px;
+  min-height: 100%;
+  background: var(--erp-canvas);
+}
+
+.erp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Elevated Filter / Query Card */
+.erp-filter-card {
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius-lg);
+  padding: 18px 20px 4px;
+  box-shadow: var(--erp-shadow-xs);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: var(--erp-border-strong);
+  }
+
+  .el-form {
+    margin-bottom: 0;
+  }
+
+  .el-form--inline .el-form-item {
+    margin-right: 16px;
+    margin-bottom: 14px;
+  }
+
+  .el-form-item__label {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--erp-text-secondary);
+  }
+}
+
+/* Elevated Table / Content Card */
+.erp-table-card {
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius-lg);
+  padding: 16px 20px 20px;
+  box-shadow: var(--erp-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  .pagination-container {
+    margin-top: 6px;
+    padding: 4px 0 0;
+  }
+}
+
+.erp-section-card {
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius-lg);
+  padding: 20px;
+  box-shadow: var(--erp-shadow-sm);
+}
+
+/* Toolbar Row inside Table Card */
+.erp-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--erp-border);
+
+  .erp-toolbar-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .erp-toolbar-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+  }
+}
+
+.erp-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--erp-surface-soft);
+  border: 1px solid var(--erp-border);
+
+  .el-button {
+    margin-left: 0 !important;
+  }
+}
+
+.erp-toolbar-row {
+  margin-bottom: 0 !important;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--erp-border);
+}
+
+/* Automatic graceful polish for any standard app-container search forms */
+.app-container > .el-form.el-form--inline {
+  background: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius-lg);
+  padding: 16px 20px 2px;
+  margin-bottom: 16px;
+  box-shadow: var(--erp-shadow-xs);
+
+  .el-form-item {
+    margin-bottom: 14px;
+    margin-right: 16px;
+  }
+
+  .el-form-item__label {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--erp-text-secondary);
+  }
+}
+
+/* Sub-blocks inside table cells */
+.erp-cell-title {
+  font-weight: 600;
+  color: var(--erp-heading);
+  line-height: 1.35;
+}
+
+.erp-cell-sub {
+  font-size: 12px;
+  color: var(--erp-text-muted);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.erp-code-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--erp-surface-soft);
+  border: 1px solid var(--erp-border);
+  color: var(--erp-heading);
+  letter-spacing: 0.01em;
+}
+
+.erp-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--erp-heading);
+
+  &.is-positive {
+    color: #059669;
+  }
+
+  &.is-danger {
+    color: #e11d48;
+  }
+
+  &.is-warning {
+    color: #d97706;
+  }
+
+  &.is-primary {
+    color: var(--erp-primary);
+  }
+}
+
+html.dark .erp-amount {
+  &.is-positive {
+    color: #34d399;
+  }
+  &.is-danger {
+    color: #fb7185;
+  }
+  &.is-warning {
+    color: #fbbf24;
+  }
+  &.is-primary {
+    color: #a5b4fc;
+  }
+}
+
+/* ========== 3. Element Plus Refined Skin ========== */
+
+/* Cards */
+.el-card {
+  background: var(--erp-surface) !important;
+  border: 1px solid var(--erp-border) !important;
+  border-radius: var(--erp-radius-lg) !important;
+  box-shadow: var(--erp-shadow-sm) !important;
+  color: var(--erp-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  .el-card__header {
+    padding: 15px 20px !important;
+    border-bottom: 1px solid var(--erp-border) !important;
+    font-weight: 600;
+    color: var(--erp-heading);
+    min-height: 48px;
+  }
+
+  .el-card__body {
+    padding: 18px 20px !important;
+  }
+}
+
+/* Tables */
+.el-table {
+  --el-table-bg-color: var(--erp-surface);
+  --el-table-tr-bg-color: var(--erp-surface);
+  --el-table-header-bg-color: var(--erp-table-header-bg);
+  --el-table-header-text-color: var(--erp-table-header-text);
+  --el-table-text-color: var(--erp-text);
+  --el-table-border-color: var(--erp-border);
+  --el-table-row-hover-bg-color: var(--erp-table-row-hover);
+  border-radius: var(--erp-radius-md) !important;
+  overflow: hidden;
+  border: 1px solid var(--erp-border);
+
+  &::before,
+  .el-table__inner-wrapper::before {
+    height: 0 !important;
+  }
+
+  .el-table__header-wrapper th.el-table__cell,
+  .el-table__fixed-header-wrapper th.el-table__cell {
+    background-color: var(--erp-table-header-bg) !important;
+    color: var(--erp-table-header-text) !important;
+    font-weight: 600 !important;
+    font-size: 12.5px !important;
+    letter-spacing: 0.01em;
+    height: 44px !important;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid var(--erp-border) !important;
+  }
+
+  .el-table__body td.el-table__cell {
+    padding: 11px 0 !important;
+    border-bottom: 1px solid var(--erp-border) !important;
+    font-size: 13.5px;
+    transition: background-color 0.15s ease;
+  }
+
+  .el-table__body tr:last-child td.el-table__cell {
+    border-bottom: none !important;
+  }
+
+  .el-table__body tr.hover-row > td.el-table__cell,
+  .el-table__body tr:hover > td.el-table__cell {
+    background-color: var(--erp-table-row-hover) !important;
+  }
+
+  .el-table__empty-block {
+    padding: 28px 0;
+  }
+
+  .el-button.is-link {
+    font-weight: 500;
+    padding: 3px 6px;
+    margin: 2px 2px !important;
+    border-radius: 6px;
+
+    &:hover {
+      background: var(--erp-primary-hover);
+    }
+  }
+}
+
+/* Buttons */
+.el-button {
+  border-radius: var(--erp-radius-sm) !important;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &.el-button--primary:not(.is-plain):not(.is-link):not(.is-text) {
+    box-shadow: 0 2px 6px rgba(var(--erp-primary-rgb), 0.25);
+
+    &:hover:not(.is-disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 14px rgba(var(--erp-primary-rgb), 0.32);
+    }
+
+    &:active:not(.is-disabled) {
+      transform: translateY(0);
+    }
+  }
+
+  &.is-circle {
+    border-radius: 50% !important;
+  }
+
+  &.is-round {
+    border-radius: 999px !important;
+  }
+}
+
+/* Inputs, Selects & Pickers */
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--erp-radius-sm) !important;
+  box-shadow: 0 0 0 1px var(--erp-border-strong) inset !important;
+  transition: box-shadow 0.18s ease, background-color 0.18s ease;
+
+  &:hover {
+    box-shadow: 0 0 0 1px rgba(var(--erp-primary-rgb), 0.45) inset !important;
+  }
+
+  &.is-focus,
+  &:focus {
+    box-shadow: 0 0 0 1.5px var(--erp-primary) inset, 0 0 0 3px rgba(var(--erp-primary-rgb), 0.14) !important;
+  }
+}
+
+/* Tags & Badges */
+.el-tag {
+  border-radius: 999px !important;
+  font-weight: 500;
+  padding: 0 10px;
+  border-width: 1px;
+  letter-spacing: 0.01em;
+}
+
+/* Dialogs */
+.el-dialog {
+  border-radius: var(--erp-radius-xl) !important;
+  background: var(--erp-surface) !important;
+  border: 1px solid var(--erp-border);
+  box-shadow: var(--erp-shadow-lg) !important;
+  overflow: hidden;
+  padding: 0 !important;
+
+  .el-dialog__header {
+    padding: 18px 24px 16px !important;
+    margin-right: 0 !important;
+    border-bottom: 1px solid var(--erp-border);
+    background: var(--erp-surface);
+  }
+
+  .el-dialog__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--erp-heading);
+    letter-spacing: -0.01em;
+  }
+
+  .el-dialog__headerbtn {
+    top: 16px;
+    right: 18px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    transition: background-color 0.18s ease;
+
+    &:hover {
+      background: var(--erp-surface-soft);
+    }
+  }
+
+  .el-dialog__body {
+    padding: 20px 24px !important;
+    color: var(--erp-text);
+  }
+
+  .el-dialog__footer {
+    padding: 14px 24px !important;
+    border-top: 1px solid var(--erp-border);
+    background: var(--erp-surface-soft);
+  }
+}
+
+/* Drawers */
+.el-drawer {
+  background: var(--erp-surface) !important;
+  border-left: 1px solid var(--erp-border);
+  box-shadow: var(--erp-shadow-lg) !important;
+
+  .el-drawer__header {
+    padding: 18px 24px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--erp-border);
+    color: var(--erp-heading);
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  .el-drawer__body {
+    padding: 20px 24px;
+  }
+}
+
+/* Tabs */
+.el-tabs--border-card,
+.el-tabs--card {
+  border-radius: var(--erp-radius-lg) !important;
+  border-color: var(--erp-border) !important;
+  background: var(--erp-surface) !important;
+  box-shadow: var(--erp-shadow-sm) !important;
+}
+
+.el-tabs__nav-wrap::after {
+  background-color: var(--erp-border) !important;
+  height: 1px !important;
+}
+
+.el-tabs__item {
+  font-weight: 500;
+  color: var(--erp-text-muted);
+
+  &.is-active {
+    font-weight: 600;
+    color: var(--erp-primary);
+  }
+}
+
+/* Popover & Dropdown */
+.el-dropdown-menu,
+.el-popover.el-popper,
+.el-select-dropdown {
+  border-radius: var(--erp-radius-md) !important;
+  border: 1px solid var(--erp-border) !important;
+  box-shadow: var(--erp-shadow-md) !important;
+}
+
+.el-dropdown-menu__item {
+  border-radius: 6px;
+  margin: 2px 6px;
+  padding: 7px 12px;
+}
+
+/* Descriptions */
+.el-descriptions__table {
+  border-radius: var(--erp-radius-md);
+  overflow: hidden;
+}
+
+.el-descriptions__label.el-descriptions__cell.is-bordered-label {
+  background: var(--erp-surface-soft) !important;
+  color: var(--erp-text-secondary) !important;
+  font-weight: 600 !important;
+}
+
+/* Alert */
+.el-alert {
+  border-radius: var(--erp-radius-md) !important;
+  border: 1px solid transparent;
+}
+
+/* Pagination */
+.el-pagination {
+  gap: 4px;
+
+  .el-pager li,
+  button.btn-prev,
+  button.btn-next {
+    border-radius: 8px !important;
+    font-weight: 500;
+  }
+}
+
+/* Scrollbar (Light & Dark) */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.42);
+  border-radius: 999px;
+
+  &:hover {
+    background: rgba(100, 116, 139, 0.65);
+  }
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.42);
+
+  &:hover {
+    background: rgba(148, 163, 184, 0.6);
+  }
+}
+
+/* Responsive Spacing */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 14px 12px 20px;
+  }
+  .erp-filter-card,
+  .erp-table-card,
+  .erp-section-card {
+    padding: 14px;
+    border-radius: var(--erp-radius-md);
+  }
+}

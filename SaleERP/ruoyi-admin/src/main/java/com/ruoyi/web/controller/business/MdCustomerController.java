@@ -60,6 +60,7 @@ public class MdCustomerController extends BaseController
         return success(message);
     }
 
+    @PreAuthorize("@ss.hasAnyPermi('business:customer:import,business:customer:add,business:customer:list')")
     @PostMapping("/importTemplate")
     public void importTemplate(javax.servlet.http.HttpServletResponse response)
     {
@@ -72,6 +73,13 @@ public class MdCustomerController extends BaseController
     public AjaxResult getInfo(@PathVariable Long customerId)
     {
         return success(mdCustomerService.selectMdCustomerById(customerId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:customer:query')")
+    @GetMapping("/{customerId}/profile")
+    public AjaxResult getProfile(@PathVariable Long customerId)
+    {
+        return success(mdCustomerService.selectCustomerProfile(customerId));
     }
 
     @PreAuthorize("@ss.hasPermi('business:customer:add')")

@@ -90,6 +90,15 @@ public class WmsInboundController extends BaseController
         return toAjax(wmsInboundService.auditWmsInbound(inboundId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:inbound:audit')")
+    @Log(title = "入库单驳回", businessType = BusinessType.UPDATE)
+    @PostMapping("/reject/{inboundId}")
+    public AjaxResult reject(@PathVariable Long inboundId, @RequestBody(required = false) WmsInbound body)
+    {
+        String reason = body == null ? null : body.getRejectReason();
+        return toAjax(wmsInboundService.rejectWmsInbound(inboundId, reason));
+    }
+
     @PreAuthorize("@ss.hasPermi('business:inbound:edit')")
     @Log(title = "入库单", businessType = BusinessType.UPDATE)
     @PostMapping("/cancel/{inboundId}")

@@ -29,8 +29,14 @@ public class WmsInbound extends BaseEntity
     @Excel(name = "供应商编号")
     private Long supplierId;
 
+    /** 供应商名称 */
+    private String supplierName;
+
     @Excel(name = "仓库编号")
     private Long warehouseId;
+
+    /** 仓库名称 */
+    private String warehouseName;
 
     @Excel(name = "总数量")
     private BigDecimal totalQty;
@@ -45,6 +51,18 @@ public class WmsInbound extends BaseEntity
     private String auditBy;
 
     private Date auditTime;
+
+    private String rejectReason;
+
+    public String getRejectReason()
+    {
+        return rejectReason;
+    }
+
+    public void setRejectReason(String rejectReason)
+    {
+        this.rejectReason = rejectReason;
+    }
 
     public Long getInboundId()
     {
@@ -94,6 +112,26 @@ public class WmsInbound extends BaseEntity
     public void setPurchaseOrderId(Long purchaseOrderId)
     {
         this.purchaseOrderId = purchaseOrderId;
+    }
+
+    public String getSupplierName()
+    {
+        return supplierName;
+    }
+
+    public void setSupplierName(String supplierName)
+    {
+        this.supplierName = supplierName;
+    }
+
+    public String getWarehouseName()
+    {
+        return warehouseName;
+    }
+
+    public void setWarehouseName(String warehouseName)
+    {
+        this.warehouseName = warehouseName;
     }
 
     /**

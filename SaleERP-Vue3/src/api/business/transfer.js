@@ -51,6 +51,33 @@ export function auditTransfer(transferId) {
   })
 }
 
+// 调入签收确认
+export function receiveTransfer(transferId, inLocationId) {
+  return request({
+    url: '/business/transfer/receive/' + transferId,
+    method: 'post',
+    params: inLocationId ? { inLocationId } : undefined
+  })
+}
+
+// 驳回库存调拨
+export function rejectTransfer(transferId, rejectReason) {
+  return request({
+    url: '/business/transfer/reject/' + transferId,
+    method: 'post',
+    data: { rejectReason }
+  })
+}
+
+// 在途撤回库存调拨（回退源仓实物库存）
+export function recallTransfer(transferId, rejectReason) {
+  return request({
+    url: '/business/transfer/recall/' + transferId,
+    method: 'post',
+    data: { rejectReason }
+  })
+}
+
 // 作废库存调拨
 export function cancelTransfer(transferId) {
   return request({

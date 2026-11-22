@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.business.domain.BizDecisionBudgetPlan;
 import com.ruoyi.business.mapper.BizDecisionBudgetPlanMapper;
 import com.ruoyi.business.service.IBizDecisionBudgetPlanService;
@@ -33,6 +34,9 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
 
     /** 年度预算表名称 */
     private static final String BIZ_DECISION_BUDGET_PLAN_TABLE_NAME = "biz_decision_budget_plan";
+
+    /** 已确认存在年度预算表 */
+    private volatile boolean decisionBudgetPlanTableReady;
 
     /** 草稿状态 */
     private static final String PLAN_STATUS_DRAFT = "draft";
@@ -147,6 +151,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      * @param operatorName 操作人
      * @return 结果
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int insertBizDecisionBudgetPlan(BizDecisionBudgetPlan bizDecisionBudgetPlan, String operatorName)
     {
@@ -170,6 +175,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      * @param operatorName 操作人
      * @return 结果
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int updateBizDecisionBudgetPlan(BizDecisionBudgetPlan bizDecisionBudgetPlan, String operatorName)
     {
@@ -213,6 +219,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      * @param operatorName 操作人
      * @return 新版本预算计划
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public BizDecisionBudgetPlan createVersionBizDecisionBudgetPlan(Long sourcePlanId,
         BizDecisionBudgetPlan bizDecisionBudgetPlan, String operatorName)
@@ -254,6 +261,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      * @param operatorName 操作人
      * @return 结果
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int submitBizDecisionBudgetPlan(Long planId, String operatorName)
     {
@@ -275,6 +283,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      * @param approveRemark 审批意见
      * @return 结果
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int approveBizDecisionBudgetPlan(Long planId, String operatorName, String approveRemark)
     {
@@ -302,6 +311,7 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      * @param approveRemark 审批意见
      * @return 结果
      */
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int rejectBizDecisionBudgetPlan(Long planId, String operatorName, String approveRemark)
     {
@@ -352,10 +362,29 @@ public class BizDecisionBudgetPlanServiceImpl implements IBizDecisionBudgetPlanS
      */
     private boolean hasDecisionBudgetPlanTable()
     {
+        if (decisionBudgetPlanTableReady)
+        {
+            return true;
+        }
+        return refreshDecisionBudgetPlanTableReady();
+    }
+
+    /**
+     * 刷新年度预算表存在状态
+     * 
+     * @return 是否存在
+     */
+    private boolean refreshDecisionBudgetPlanTableReady()
+    {
         String countSql =
             "select count(1) from information_schema.tables where table_schema = (select database()) and table_name = ?";
         Integer tableCount = jdbcTemplate.queryForObject(countSql, Integer.class, BIZ_DECISION_BUDGET_PLAN_TABLE_NAME);
-        return tableCount != null && tableCount.intValue() > 0;
+        boolean tableExists = tableCount != null && tableCount.intValue() > 0;
+        if (tableExists)
+        {
+            decisionBudgetPlanTableReady = true;
+        }
+        return tableExists;
     }
 
     /**

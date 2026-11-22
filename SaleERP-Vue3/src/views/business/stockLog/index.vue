@@ -1,124 +1,126 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-      <el-form-item label="仓库" prop="warehouseId">
-        <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 220px">
-          <el-option
-            v-for="warehouse in warehouseSelectOptionList"
-            :key="warehouse.warehouseId"
-            :label="warehouse.warehouseName"
-            :value="warehouse.warehouseId"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="商品" prop="productId">
-        <el-select v-model="queryParams.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 220px">
-          <el-option
-            v-for="product in productSelectOptionList"
-            :key="product.productId"
-            :label="product.productName"
-            :value="product.productId"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="库位" prop="locationId">
-        <el-select v-model="queryParams.locationId" placeholder="请选择库位" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadLocationOptionList" :loading="locationListLoading" style="width: 220px">
-          <el-option
-            v-for="location in locationSelectOptionList"
-            :key="location.locationId"
-            :label="location.locationName"
-            :value="location.locationId"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="批次号" prop="batchNo">
-        <el-input v-model="queryParams.batchNo" placeholder="请输入批次号" clearable style="width: 200px" @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="单据类型" prop="billType">
-        <el-select v-model="queryParams.billType" placeholder="请选择单据类型" clearable style="width: 180px">
-          <el-option
-            v-for="billTypeOption in billTypeOptionList"
-            :key="billTypeOption.value"
-            :label="billTypeOption.label"
-            :value="billTypeOption.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="单据号" prop="billNo">
-        <el-input v-model="queryParams.billNo" placeholder="请输入单据号" clearable style="width: 200px" @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="出入库方向" prop="inOut">
-        <el-select v-model="queryParams.inOut" placeholder="请选择出入库方向" clearable style="width: 180px">
-          <el-option
-            v-for="directionOption in inOutOptionList"
-            :key="directionOption.value"
-            :label="directionOption.label"
-            :value="directionOption.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="仓储实时监控 · 审计溯源"
+      title="库存变动流水"
+      subtitle="全量记录采购入库、销售出库、退货、盘点及调拨触发的每一笔批次数量与金额变动。"
+      icon="Document"
+      tone="indigo"
+      :badge="`共 ${total} 条流水`"
+    >
+      <template #actions>
+        <el-button type="primary" icon="Download" @click="handleExport" v-hasPermi="['business:stockLog:export']">导出流水</el-button>
+      </template>
+    </erp-page-header>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:stockLog:export']">导出</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+    <erp-stat-strip :items="stockLogStatItems" :columns="4" />
 
-    <el-table v-loading="loading" :data="stockLogList">
-      <el-table-column label="流水编号" align="center" prop="stockLogId" />
-      <el-table-column label="仓库" align="center" prop="warehouseId" min-width="180">
-        <template #default="scope">
-          <span>{{ getWarehouseName(scope.row.warehouseId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="商品" align="center" prop="productId" min-width="180">
-        <template #default="scope">
-          <span>{{ getProductName(scope.row.productId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="库位" align="center" prop="locationId" min-width="180">
-        <template #default="scope">
-          <span>{{ getLocationName(scope.row.locationId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="批次号" align="center" prop="batchNo" />
-      <el-table-column label="单据类型" align="center" prop="billType">
-        <template #default="scope">
-          <span>{{ getBillTypeLabel(scope.row.billType) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="单据号" align="center" prop="billNo" min-width="180" show-overflow-tooltip />
-      <el-table-column label="单据编号" align="center" prop="billId" />
-      <el-table-column label="出入库方向" align="center" prop="inOut">
-        <template #default="scope">
-          <el-tag :type="getInOutTagType(scope.row.inOut)">{{ getInOutLabel(scope.row.inOut) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="变动数量" align="center" prop="quantity" />
-      <el-table-column label="单价" align="center" prop="price" />
-      <el-table-column label="金额" align="center" prop="amount" />
-      <el-table-column label="变动前数量" align="center" prop="beforeQty" />
-      <el-table-column label="变动后数量" align="center" prop="afterQty" />
-      <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-    </el-table>
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true">
+        <el-form-item label="仓库" prop="warehouseId">
+          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 185px">
+            <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="商品" prop="productId">
+          <el-select v-model="queryParams.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 185px">
+            <el-option v-for="product in productSelectOptionList" :key="product.productId" :label="product.productName" :value="product.productId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="单据类型" prop="billType">
+          <el-select v-model="queryParams.billType" placeholder="全部类型" clearable style="width: 150px">
+            <el-option v-for="billTypeOption in billTypeOptionList" :key="billTypeOption.value" :label="billTypeOption.label" :value="billTypeOption.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="单据号" prop="billNo">
+          <el-input v-model="queryParams.billNo" placeholder="请输入单据号" clearable style="width: 180px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="批次号" prop="batchNo">
+          <el-input v-model="queryParams.batchNo" placeholder="请输入批次号" clearable style="width: 155px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
 
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs :model-value="queryParams.inOut ?? ''" :items="inOutTabItems" @change="handleQuickInOut" />
+        </div>
+        <div class="erp-toolbar-right">
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        </div>
+      </div>
+
+      <el-table v-loading="loading" :data="stockLogList">
+        <el-table-column label="来源单据" align="left" min-width="185" show-overflow-tooltip>
+          <template #default="scope">
+            <el-button
+              v-if="canJumpSourceBill(scope.row)"
+              link
+              type="primary"
+              style="padding: 0; height: auto"
+              @click="handleJumpSourceBill(scope.row)"
+            >
+              <span class="erp-code-chip">{{ scope.row.billNo || ('#' + scope.row.billId) }}</span>
+            </el-button>
+            <span v-else class="erp-code-chip">{{ scope.row.billNo || ('#' + scope.row.stockLogId) }}</span>
+            <div class="erp-cell-sub">{{ getBillTypeLabel(scope.row.billType) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="商品 / 批次" align="left" min-width="185" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.productName || getProductName(scope.row.productId) }}</div>
+            <div class="erp-cell-sub">批次：{{ scope.row.batchNo || '-' }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="仓库 / 库位" align="left" min-width="165" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.warehouseName || getWarehouseName(scope.row.warehouseId) }}</div>
+            <div class="erp-cell-sub">{{ scope.row.locationName || getLocationName(scope.row.locationId) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="方向" align="center" prop="inOut" width="88">
+          <template #default="scope">
+            <el-tag :type="getInOutTagType(scope.row.inOut)" effect="light">{{ getInOutLabel(scope.row.inOut) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="变动数量" align="right" prop="quantity" width="96">
+          <template #default="scope">
+            <span class="erp-amount" :class="scope.row.inOut === 'in' ? 'is-positive' : 'is-danger'">
+              {{ scope.row.inOut === 'in' ? '+' : '-' }}{{ scope.row.quantity }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="结存变化" align="center" width="125">
+          <template #default="scope">
+            <span class="erp-num">{{ scope.row.beforeQty }} → <strong>{{ scope.row.afterQty }}</strong></span>
+          </template>
+        </el-table-column>
+        <el-table-column label="单价 / 金额" align="right" width="125">
+          <template #default="scope">
+            <div class="erp-amount">¥{{ Number(scope.row.amount || 0).toFixed(2) }}</div>
+            <div class="erp-cell-sub">单价 ¥{{ Number(scope.row.price || 0).toFixed(2) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="发生时间" align="center" prop="createTime" width="165">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime) }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
   </div>
 </template>
 
@@ -132,6 +134,7 @@ import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
+const router = useRouter()
 
 const stockLogList = ref([])
 const warehouseList = ref([])
@@ -155,7 +158,9 @@ const billTypeOptionList = [
   { label: "销售订单回退", value: "sale_order_rollback" },
   { label: "销售退货", value: "sale_return" },
   { label: "库存盘点", value: "inventory_check" },
-  { label: "库存调拨", value: "transfer" }
+  { label: "库存调拨", value: "transfer" },
+  { label: "库存冻结", value: "stock_freeze" },
+  { label: "库存解冻", value: "stock_unfreeze" }
 ]
 
 const inOutOptionList = [
@@ -178,6 +183,30 @@ const data = reactive({
 })
 
 const { queryParams } = toRefs(data)
+
+const inOutTabItems = [
+  { label: "全部流水", value: "" },
+  { label: "入库增加", value: "in", dot: "emerald" },
+  { label: "出库扣减", value: "out", dot: "rose" }
+]
+
+const stockLogStatItems = computed(() => {
+  const rows = stockLogList.value || []
+  const inQty = rows.filter(r => r.inOut === "in").reduce((s, r) => s + Number(r.quantity || 0), 0)
+  const outQty = rows.filter(r => r.inOut === "out").reduce((s, r) => s + Number(r.quantity || 0), 0)
+  const totalAmt = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
+  return [
+    { label: "变动流水总数", value: total.value, suffix: "笔", hint: "完整留痕可审计追溯", icon: "Document", tone: "indigo" },
+    { label: "本页入库总量", value: inQty, suffix: "件", hint: "入库/退货/盘盈类增加", icon: "TopRight", tone: "emerald" },
+    { label: "本页出库总量", value: outQty, suffix: "件", hint: "出库/退供/盘亏类扣减", icon: "BottomRight", tone: "rose" },
+    { label: "本页涉及货值", prefix: "¥", value: totalAmt.toFixed(2), hint: "本页变动金额绝对值合计", icon: "Money", tone: "blue" }
+  ]
+})
+
+function handleQuickInOut(val) {
+  queryParams.value.inOut = val === "" ? undefined : val
+  handleQuery()
+}
 
 // 根据其他业务页传入的参数初始化库存流水筛选条件，保证落地页即开即用。
 function initializeQueryParamsFromRoute() {
@@ -305,15 +334,38 @@ function ensureLocationOptionLoaded(locationId) {
   })
 }
 
-// 批量补充库存流水列表依赖的名称数据，保证远程下拉模式下列表展示仍然可读。
+// 批量补充库存流水列表依赖的名称数据，优先复用后端关联字段，消除冗余 N+1 查询。
 function ensureStockLogReferenceOptionsLoaded(stockLogRowList) {
-  const warehouseIdList = [...new Set((stockLogRowList || []).map(stockLogRow => stockLogRow.warehouseId).filter(warehouseId => warehouseId !== undefined && warehouseId !== null && warehouseId !== ""))]
-  const productIdList = [...new Set((stockLogRowList || []).map(stockLogRow => stockLogRow.productId).filter(productId => productId !== undefined && productId !== null && productId !== ""))]
-  const locationIdList = [...new Set((stockLogRowList || []).map(stockLogRow => stockLogRow.locationId).filter(locationId => locationId !== undefined && locationId !== null && locationId !== ""))]
+  const warehouseIdList = []
+  const productIdList = []
+  const locationIdList = []
+  ;(stockLogRowList || []).forEach(stockLogRow => {
+    if (stockLogRow.warehouseId != null && stockLogRow.warehouseId !== "") {
+      if (stockLogRow.warehouseName) {
+        appendUniqueSelectOption(warehouseList.value, { warehouseId: stockLogRow.warehouseId, warehouseName: stockLogRow.warehouseName }, "warehouseId")
+      } else {
+        warehouseIdList.push(stockLogRow.warehouseId)
+      }
+    }
+    if (stockLogRow.productId != null && stockLogRow.productId !== "") {
+      if (stockLogRow.productName) {
+        appendUniqueSelectOption(productList.value, { productId: stockLogRow.productId, productName: stockLogRow.productName }, "productId")
+      } else {
+        productIdList.push(stockLogRow.productId)
+      }
+    }
+    if (stockLogRow.locationId != null && stockLogRow.locationId !== "") {
+      if (stockLogRow.locationName) {
+        appendUniqueSelectOption(locationList.value, { locationId: stockLogRow.locationId, locationName: stockLogRow.locationName }, "locationId")
+      } else {
+        locationIdList.push(stockLogRow.locationId)
+      }
+    }
+  })
   Promise.all([
-    ...warehouseIdList.map(warehouseId => ensureWarehouseOptionLoaded(warehouseId)),
-    ...productIdList.map(productId => ensureProductOptionLoaded(productId)),
-    ...locationIdList.map(locationId => ensureLocationOptionLoaded(locationId))
+    ...[...new Set(warehouseIdList)].map(warehouseId => ensureWarehouseOptionLoaded(warehouseId)),
+    ...[...new Set(productIdList)].map(productId => ensureProductOptionLoaded(productId)),
+    ...[...new Set(locationIdList)].map(locationId => ensureLocationOptionLoaded(locationId))
   ]).catch(() => {})
 }
 
@@ -367,6 +419,33 @@ function getInOutTagType(inOutValue) {
   return inOutValue === "in" ? "success" : "warning"
 }
 
+const billTypeRouteMap = {
+  inbound: { path: "/purchase/inbound" },
+  outbound: { path: "/sales/outbound" },
+  sale_order: { path: "/sales/saleOrder", queryKey: "saleOrderId" },
+  sale_order_rollback: { path: "/sales/saleOrder", queryKey: "saleOrderId" },
+  sale_return: { path: "/sales/saleReturn" },
+  purchase_return: { path: "/purchase/purchaseReturn" },
+  inventory_check: { path: "/inventory/inventoryCheck" },
+  transfer: { path: "/inventory/transfer" },
+  stock_freeze: { path: "/inventory/stock" },
+  stock_unfreeze: { path: "/inventory/stock" }
+}
+
+function canJumpSourceBill(row) {
+  return !!(row && billTypeRouteMap[row.billType])
+}
+
+function handleJumpSourceBill(row) {
+  const target = billTypeRouteMap[row?.billType]
+  if (!target) return
+  const query = {}
+  if (target.queryKey && row.billId) {
+    query[target.queryKey] = String(row.billId)
+  }
+  router.push({ path: target.path, query })
+}
+
 // 查询库存流水列表，并补充当前页需要展示的名称数据。
 function getList() {
   loading.value = true
@@ -401,8 +480,10 @@ function handleExport() {
 // 初始化页面筛选条件和基础资料，保证从库存台账重复跳转到流水页时查询条件会立即刷新。
 async function initializePage() {
   initializeQueryParamsFromRoute()
-  await initBasicData()
-  await getList()
+  await Promise.all([
+    Promise.resolve(initBasicData()),
+    Promise.resolve(getList())
+  ])
 }
 
 // 监听同一路由下的查询参数变化，避免库存流水仍然停留在旧的商品或库位筛选。

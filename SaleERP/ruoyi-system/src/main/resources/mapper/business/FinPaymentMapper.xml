@@ -5,51 +5,74 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="com.ruoyi.business.mapper.FinPaymentMapper">
     
     <resultMap type="FinPayment" id="FinPaymentResult">
-        <result property="paymentId"    column="payment_id"    />
-        <result property="payableId"    column="payable_id"    />
-        <result property="purchaseOrderId"    column="purchase_order_id"    />
-        <result property="purchaseOrderNo"    column="purchase_order_no"    />
-        <result property="supplierId"    column="supplier_id"    />
-        <result property="amount"    column="amount"    />
-        <result property="paymentTime"    column="payment_time"    />
-        <result property="paymentMethod"    column="payment_method"    />
-        <result property="remark"    column="remark"    />
-        <result property="createBy"    column="create_by"    />
-        <result property="createTime"    column="create_time"    />
-        <result property="updateBy"    column="update_by"    />
-        <result property="updateTime"    column="update_time"    />
+        <result property="paymentId"       column="payment_id"        />
+        <result property="payableId"       column="payable_id"        />
+        <result property="purchaseOrderId" column="purchase_order_id" />
+        <result property="purchaseOrderNo" column="purchase_order_no" />
+        <result property="supplierId"      column="supplier_id"       />
+        <result property="supplierName"    column="supplier_name"     />
+        <result property="amount"          column="amount"            />
+        <result property="paymentTime"     column="payment_time"      />
+        <result property="paymentMethod"   column="payment_method"    />
+        <result property="accountId"       column="account_id"        />
+        <result property="accountName"     column="account_name"      />
+        <result property="status"          column="status"            />
+        <result property="voidReason"      column="void_reason"       />
+        <result property="voidBy"          column="void_by"           />
+        <result property="voidTime"        column="void_time"         />
+        <result property="remark"          column="remark"            />
+        <result property="createBy"        column="create_by"         />
+        <result property="createTime"      column="create_time"       />
+        <result property="updateBy"        column="update_by"         />
+        <result property="updateTime"      column="update_time"       />
     </resultMap>
 
     <sql id="selectFinPaymentVo">
-        select payment_id, payable_id, purchase_order_id,
-               (select order_no from wms_purchase_order where purchase_order_id = fin_payment.purchase_order_id) as purchase_order_no,
-               supplier_id, amount, payment_time, payment_method, remark, create_by, create_time, update_by, update_time
+        select fin_payment.payment_id, fin_payment.payable_id, fin_payment.purchase_order_id,
+               purchase_order.order_no as purchase_order_no,
+               fin_payment.supplier_id, ms.supplier_name, fin_payment.amount, fin_payment.payment_time, fin_payment.payment_method,
+               fin_payment.account_id, fa.account_name, ifnull(fin_payment.status, 'normal') as status,
+               fin_payment.void_reason, fin_payment.void_by, fin_payment.void_time,
+               fin_payment.remark, fin_payment.create_by, fin_payment.create_time, fin_payment.update_by, fin_payment.update_time
         from fin_payment
+        left join wms_purchase_order purchase_order on purchase_order.purchase_order_id = fin_payment.purchase_order_id
+        left join md_supplier ms on ms.supplier_id = fin_payment.supplier_id
+        left join fin_account fa on fa.account_id = fin_payment.account_id
+        left join sys_user su on su.user_name = fin_payment.create_by
     </sql>
 
     <select id="selectFinPaymentList" parameterType="FinPayment" resultMap="FinPaymentResult">
         <include refid="selectFinPaymentVo"/>
         <where>  
-            <if test="payableId != null "> and payable_id = #{payableId}</if>
-            <if test="purchaseOrderId != null "> and purchase_order_id = #{purchaseOrderId}</if>
+            <if test="payableId != null"> and fin_payment.payable_id = #{payableId}</if>
+            <if test="purchaseOrderId != null"> and fin_payment.purchase_order_id = #{purchaseOrderId}</if>
             <if test="purchaseOrderNo != null and purchaseOrderNo != ''">
-                and purchase_order_id in (select purchase_order_id from wms_purchase_order where order_no like concat('%', #{purchaseOrderNo}, '%'))
+                and purchase_order.order_no like concat('%', #{purchaseOrderNo}, '%')
             </if>
-            <if test="supplierId != null "> and supplier_id = #{supplierId}</if>
-            <if test="paymentMethod != null and paymentMethod != ''"> and payment_method = #{paymentMethod}</if>
+            <if test="supplierId != null"> and fin_payment.supplier_id = #{supplierId}</if>
+            <if test="paymentMethod != null and paymentMethod != ''"> and fin_payment.payment_method = #{paymentMethod}</if>
+            <if test="status != null and status != ''"> and ifnull(fin_payment.status, 'normal') = #{status}</if>
             <if test="params.beginPaymentTime != null and params.beginPaymentTime != ''">
-                and payment_time &gt;= #{params.beginPaymentTime}
+                and fin_payment.payment_time &gt;= #{params.beginPaymentTime}
             </if>
             <if test="params.endPaymentTime != null and params.endPaymentTime != ''">
-                and payment_time &lt;= #{params.endPaymentTime}
+                and fin_payment.payment_time &lt;= #{params.endPaymentTime}
             </if>
+            ${params.dataScope}
         </where>
         order by payment_id desc
+    </select>
+
+    <select id="selectPaymentAmountSumByPayableId" parameterType="Long" resultType="java.math.BigDecimal">
+        select ifnull(sum(amount), 0)
+        from fin_payment
+        where payable_id = #{payableId}
+          and ifnull(status, 'normal') = 'normal'
     </select>
     
     <select id="selectFinPaymentByPaymentId" parameterType="Long" resultMap="FinPaymentResult">
         <include refid="selectFinPaymentVo"/>
-        where payment_id = #{paymentId}
+        where fin_payment.payment_id = #{paymentId}
     </select>
         
     <insert id="insertFinPayment" parameterType="FinPayment" useGeneratedKeys="true" keyProperty="paymentId">
@@ -61,6 +84,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="amount != null">amount,</if>
             <if test="paymentTime != null">payment_time,</if>
             <if test="paymentMethod != null">payment_method,</if>
+            <if test="accountId != null">account_id,</if>
+            status,
             <if test="remark != null">remark,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
@@ -74,6 +99,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="amount != null">#{amount},</if>
             <if test="paymentTime != null">#{paymentTime},</if>
             <if test="paymentMethod != null">#{paymentMethod},</if>
+            <if test="accountId != null">#{accountId},</if>
+            'normal',
             <if test="remark != null">#{remark},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
@@ -92,12 +119,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="paymentTime != null">payment_time = #{paymentTime},</if>
             <if test="paymentMethod != null">payment_method = #{paymentMethod},</if>
             <if test="remark != null">remark = #{remark},</if>
-            <if test="createBy != null">create_by = #{createBy},</if>
-            <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
         where payment_id = #{paymentId}
+    </update>
+
+    <update id="voidFinPaymentStatus">
+        update fin_payment
+        set status = 'voided',
+            void_reason = #{voidReason},
+            void_by = #{voidBy},
+            void_time = sysdate(),
+            update_by = #{voidBy},
+            update_time = sysdate()
+        where payment_id = #{paymentId}
+          and ifnull(status, 'normal') = 'normal'
     </update>
 
     <delete id="deleteFinPaymentByPaymentId" parameterType="Long">

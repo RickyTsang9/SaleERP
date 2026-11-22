@@ -1,5 +1,6 @@
 package com.ruoyi.business.mapper;
 
+import java.math.BigDecimal;
 import java.util.List;
 import com.ruoyi.business.domain.FinPayment;
 
@@ -26,6 +27,14 @@ public interface FinPaymentMapper
      * @return 付款记录集合
      */
     public List<FinPayment> selectFinPaymentList(FinPayment finPayment);
+
+    /**
+     * 根据应付账款查询付款总金额
+     * 
+     * @param payableId 应付账款主键
+     * @return 付款总金额
+     */
+    public BigDecimal selectPaymentAmountSumByPayableId(Long payableId);
 
     /**
      * 新增付款记录
@@ -58,4 +67,8 @@ public interface FinPaymentMapper
      * @return 结果
      */
     public int deleteFinPaymentByPaymentIds(Long[] paymentIds);
+
+    public int voidFinPaymentStatus(@org.apache.ibatis.annotations.Param("paymentId") Long paymentId,
+                                    @org.apache.ibatis.annotations.Param("voidReason") String voidReason,
+                                    @org.apache.ibatis.annotations.Param("voidBy") String voidBy);
 }

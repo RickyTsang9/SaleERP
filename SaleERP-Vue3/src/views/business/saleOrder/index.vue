@@ -1,159 +1,144 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-      <el-form-item label="销售单号" prop="orderNo">
-        <el-input v-model="queryParams.orderNo" placeholder="请输入销售单号" clearable style="width: 220px" @keyup.enter="handleQuery" />
-      </el-form-item>
-      <el-form-item label="客户" prop="customerId">
-        <el-select v-model="queryParams.customerId" placeholder="请选择客户" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadCustomerOptionList" :loading="customerListLoading" style="width: 220px">
-          <el-option
-            v-for="customer in customerSelectOptionList"
-            :key="customer.customerId"
-            :label="customer.customerName"
-            :value="customer.customerId"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="单据状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="请选择单据状态" clearable style="width: 180px">
-          <el-option
-            v-for="statusOption in saleOrderStatusOptionList"
-            :key="statusOption.value"
-            :label="statusOption.label"
-            :value="statusOption.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="付款状态" prop="paymentStatus">
-        <el-select v-model="queryParams.paymentStatus" placeholder="请选择付款状态" clearable style="width: 180px">
-          <el-option
-            v-for="paymentStatusOption in saleOrderPaymentStatusOptionList"
-            :key="paymentStatusOption.value"
-            :label="paymentStatusOption.label"
-            :value="paymentStatusOption.value"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+  <div class="app-container erp-page">
+    <erp-page-header
+      eyebrow="销售履约中心"
+      title="销售订单管理"
+      subtitle="支持 FEFO 智能选批、历史价与毛利防线提醒、两级审批自动锁库防超卖及全链路业财追踪。"
+      icon="ShoppingCart"
+      tone="indigo"
+      :badge="`共 ${total} 笔订单`"
+    >
+      <template #actions>
+        <el-button icon="Upload" plain @click="handleImport" v-hasPermi="['business:saleOrder:import']">导入</el-button>
+        <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:saleOrder:export']">导出</el-button>
+        <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:saleOrder:add']">开销售单</el-button>
+      </template>
+    </erp-page-header>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['business:saleOrder:add']">新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="success" plain icon="Edit" :disabled="single || !canEditSelectedSaleOrder" @click="handleUpdate" v-hasPermi="['business:saleOrder:edit']">修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain :disabled="single || selectedStatus !== 'draft'" @click="handleSubmit" v-hasPermi="['business:saleOrder:submit']">提交</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain :disabled="single || selectedStatus !== 'submitted'" @click="handleManagerAudit" v-hasPermi="['business:saleOrder:managerAudit']">经理审核</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="danger" plain :disabled="single || selectedStatus !== 'manager_approved'" @click="handleManagerRollback" v-hasPermi="['business:saleOrder:managerAudit']">经理回退</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain :disabled="single || selectedStatus !== 'manager_approved'" @click="handleFinanceAudit" v-hasPermi="['business:saleOrder:financeAudit']">财务审核</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="danger" plain :disabled="single || selectedStatus !== 'audited'" @click="handleFinanceRollback" v-hasPermi="['business:saleOrder:financeAudit']">财务回退</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="info" plain :disabled="single || !canCancelSelectedSaleOrder" @click="handleCancel" v-hasPermi="['business:saleOrder:edit']">作废</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="danger" plain icon="Delete" :disabled="multiple || !canDeleteSelectedSaleOrder" @click="handleDelete" v-hasPermi="['business:saleOrder:remove']">删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="info" plain icon="Upload" @click="handleImport" v-hasPermi="['business:saleOrder:import']">导入</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="warning" plain icon="Download" @click="handleExport" v-hasPermi="['business:saleOrder:export']">导出</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="primary" plain :disabled="single" @click="handlePrintTemplate" v-hasPermi="['business:saleOrder:print']">打印模板</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="primary" plain :disabled="single" @click="handleStatusHistory" v-hasPermi="['business:saleOrder:query']">状态历史</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+    <erp-stat-strip :items="saleOrderStatItems" :columns="4" />
 
-    <el-table v-loading="loading" :data="saleOrderList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="销售单编号" align="center" prop="saleOrderId" />
-      <el-table-column label="销售单号" align="center" prop="orderNo" min-width="180" />
-      <el-table-column label="客户" align="center" prop="customerId" min-width="180">
-        <template #default="scope">
-          <span>{{ getCustomerName(scope.row.customerId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="仓库" align="center" prop="warehouseId" min-width="180">
-        <template #default="scope">
-          <span>{{ getWarehouseName(scope.row.warehouseId) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="总数量" align="center" prop="totalQty" />
-      <el-table-column label="总金额" align="center" prop="totalAmount" />
-      <el-table-column label="应收金额" align="center" prop="receivableAmount" min-width="110">
-        <template #default="scope">
-          <span>{{ formatSaleOrderAmount(scope.row.receivableAmount) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="已收金额" align="center" prop="receivedAmount" min-width="110">
-        <template #default="scope">
-          <span>{{ formatSaleOrderAmount(scope.row.receivedAmount) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="未收金额" align="center" prop="remainReceivableAmount" min-width="110">
-        <template #default="scope">
-          <span>{{ formatSaleOrderAmount(scope.row.remainReceivableAmount) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="待出库" align="center" prop="remainQuantity" min-width="110">
-        <template #default="scope">
-          <span>{{ formatSaleOrderQuantity(scope.row.remainQuantity) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="单据状态" align="center" prop="status">
-        <template #default="scope">
-          <el-tag :type="getSaleOrderStatusType(scope.row.status)">{{ getSaleOrderStatusLabel(scope.row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="付款状态" align="center" prop="paymentStatus">
-        <template #default="scope">
-          <el-tag :type="getSaleOrderPaymentStatusType(scope.row.paymentStatus)">{{ getSaleOrderPaymentStatusLabel(scope.row.paymentStatus) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="560" align="center" class-name="small-padding fixed-width">
-        <template #default="scope">
-          <el-button link type="primary" icon="List" @click="handleOpenSaleOrderItem(scope.row)" v-hasPermi="['business:saleOrder:query']">明细</el-button>
-          <el-button link type="success" @click="handleViewOutbound(scope.row)" v-hasPermi="['business:outbound:list']" v-if="canViewOutbound(scope.row)">{{ getOutboundActionLabel(scope.row) }}</el-button>
-          <el-button link type="primary" icon="Money" @click="handleViewReceivable(scope.row)" v-hasPermi="['business:receivable:list']" v-if="canViewReceivable(scope.row)">应收</el-button>
-          <el-button link type="warning" icon="Money" @click="handleCreateReceipt(scope.row)" v-hasPermi="['business:receipt:add']" v-if="canCreateReceipt(scope.row)">登记回款</el-button>
-          <el-button link type="primary" icon="Tickets" @click="handleViewReceipt(scope.row)" v-hasPermi="['business:receipt:list']" v-if="canViewReceipt(scope.row)">查看回款</el-button>
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:saleOrder:edit']" v-if="canEditSaleOrder(scope.row)">修改</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:saleOrder:remove']" v-if="canDeleteSaleOrder(scope.row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <section class="erp-filter-card" v-show="showSearch">
+      <el-form :model="queryParams" ref="queryRef" :inline="true">
+        <el-form-item label="销售单号" prop="orderNo">
+          <el-input v-model="queryParams.orderNo" placeholder="请输入销售单号" clearable style="width: 195px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="客户" prop="customerId">
+          <el-select v-model="queryParams.customerId" placeholder="请选择客户" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadCustomerOptionList" :loading="customerListLoading" style="width: 200px">
+            <el-option v-for="customer in customerSelectOptionList" :key="customer.customerId" :label="customer.customerName" :value="customer.customerId" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="付款状态" prop="paymentStatus">
+          <el-select v-model="queryParams.paymentStatus" placeholder="全部付款状态" clearable style="width: 150px">
+            <el-option v-for="paymentStatusOption in saleOrderPaymentStatusOptionList" :key="paymentStatusOption.value" :label="paymentStatusOption.label" :value="paymentStatusOption.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </section>
 
-    <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
-    />
+    <section class="erp-table-card">
+      <div class="erp-toolbar">
+        <div class="erp-toolbar-left">
+          <erp-status-tabs :model-value="queryParams.status ?? ''" :items="saleStatusTabItems" @change="handleQuickStatus" />
+        </div>
+        <div class="erp-toolbar-right">
+          <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
+        </div>
+      </div>
+
+      <div class="erp-toolbar-actions">
+        <el-button size="small" type="success" plain icon="Edit" :disabled="single || !canEditSelectedSaleOrder" @click="handleUpdate" v-hasPermi="['business:saleOrder:edit']">修改</el-button>
+        <el-button size="small" type="warning" plain :disabled="single || selectedStatus !== 'draft'" @click="handleSubmit" v-hasPermi="['business:saleOrder:submit']">提交</el-button>
+        <el-button size="small" type="primary" plain :disabled="single || selectedStatus !== 'submitted'" @click="handleManagerAudit" v-hasPermi="['business:saleOrder:managerAudit']">经理审核</el-button>
+        <el-button size="small" type="danger" plain :disabled="single || selectedStatus !== 'manager_approved'" @click="handleManagerRollback" v-hasPermi="['business:saleOrder:managerAudit']">经理回退</el-button>
+        <el-button size="small" type="success" plain :disabled="single || selectedStatus !== 'manager_approved'" @click="handleFinanceAudit" v-hasPermi="['business:saleOrder:financeAudit']">财务审核</el-button>
+        <el-button size="small" type="danger" plain :disabled="single || selectedStatus !== 'audited'" @click="handleFinanceRollback" v-hasPermi="['business:saleOrder:financeAudit']">财务回退</el-button>
+        <el-button size="small" type="info" plain :disabled="single || !canCancelSelectedSaleOrder" @click="handleCancel" v-hasPermi="['business:saleOrder:edit']">作废</el-button>
+        <el-button size="small" type="danger" plain icon="Delete" :disabled="multiple || !canDeleteSelectedSaleOrder" @click="handleDelete" v-hasPermi="['business:saleOrder:remove']">删除</el-button>
+        <el-button size="small" plain :disabled="single" @click="handlePrintTemplate" v-hasPermi="['business:saleOrder:print']">打印模板</el-button>
+        <el-button size="small" plain :disabled="single" @click="handleStatusHistory" v-hasPermi="['business:saleOrder:query']">状态历史</el-button>
+        <el-button size="small" type="primary" plain icon="Connection" :disabled="single" @click="handleSaleOrderChain" v-hasPermi="['business:saleOrder:query']">链路追踪</el-button>
+      </div>
+
+      <el-table v-loading="loading" :data="saleOrderList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" align="center" />
+        <el-table-column label="销售单号" align="center" prop="orderNo" min-width="165">
+          <template #default="scope">
+            <span class="erp-code-chip">{{ scope.row.orderNo }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="客户 / 发货仓" align="left" prop="customerId" min-width="185" show-overflow-tooltip>
+          <template #default="scope">
+            <div class="erp-cell-title">{{ scope.row.customerName || getCustomerName(scope.row.customerId) }}</div>
+            <div class="erp-cell-sub">仓库：{{ scope.row.warehouseName || getWarehouseName(scope.row.warehouseId) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="数量 / 待出" align="right" width="102">
+          <template #default="scope">
+            <div class="erp-num">{{ scope.row.totalQty }}</div>
+            <div class="erp-cell-sub">待出 {{ formatSaleOrderQuantity(scope.row.remainQuantity) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="订单金额" align="right" prop="totalAmount" min-width="112">
+          <template #default="scope">
+            <span class="erp-amount is-primary">¥{{ formatSaleOrderAmount(scope.row.totalAmount) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="已收 / 未收" align="right" min-width="125">
+          <template #default="scope">
+            <div class="erp-amount is-positive">¥{{ formatSaleOrderAmount(scope.row.receivedAmount) }}</div>
+            <div class="erp-cell-sub">未收 ¥{{ formatSaleOrderAmount(scope.row.remainReceivableAmount) }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="单据状态" align="center" prop="status" width="115">
+          <template #default="scope">
+            <el-tag :type="getSaleOrderStatusType(scope.row.status)" effect="light">{{ getSaleOrderStatusLabel(scope.row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="付款状态" align="center" prop="paymentStatus" width="102">
+          <template #default="scope">
+            <el-tag :type="getSaleOrderPaymentStatusType(scope.row.paymentStatus)" effect="light">{{ getSaleOrderPaymentStatusLabel(scope.row.paymentStatus) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="开票进度" align="center" width="102">
+          <template #default="scope">
+            <el-tag :type="getSaleInvoiceStatusType(scope.row.invoiceStatus)" effect="plain" size="small">
+              {{ getSaleInvoiceStatusLabel(scope.row.invoiceStatus) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" align="center" prop="createTime" width="160">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="310" fixed="right" align="center">
+          <template #default="scope">
+            <el-button link type="primary" icon="List" @click="handleOpenSaleOrderItem(scope.row)" v-hasPermi="['business:saleOrder:query']">明细</el-button>
+            <el-button link type="primary" icon="Printer" @click="handlePrintRow(scope.row)">打印</el-button>
+            <el-button link type="primary" icon="Connection" @click="handleSaleOrderChain(scope.row)" v-hasPermi="['business:saleOrder:query']">链路</el-button>
+            <el-button link type="success" @click="handleViewOutbound(scope.row)" v-hasPermi="['business:outbound:list']" v-if="canViewOutbound(scope.row)">{{ getOutboundActionLabel(scope.row) }}</el-button>
+            <el-button link type="warning" icon="Finished" @click="handleForceClose(scope.row)" v-hasPermi="['business:saleOrder:financeAudit', 'business:saleOrder:edit']" v-if="canForceCloseSaleOrder(scope.row)">短装结案</el-button>
+            <el-button link type="primary" icon="Money" @click="handleViewReceivable(scope.row)" v-hasPermi="['business:receivable:list']" v-if="canViewReceivable(scope.row)">应收</el-button>
+            <el-button link type="warning" icon="Money" @click="handleCreateReceipt(scope.row)" v-hasPermi="['business:receipt:add']" v-if="canCreateReceipt(scope.row)">登记回款</el-button>
+            <el-button link type="primary" icon="Tickets" @click="handleViewReceipt(scope.row)" v-hasPermi="['business:receipt:list']" v-if="canViewReceipt(scope.row)">查看回款</el-button>
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:saleOrder:edit']" v-if="canEditSaleOrder(scope.row)">修改</el-button>
+            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:saleOrder:remove']" v-if="canDeleteSaleOrder(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+    </section>
 
     <el-dialog :title="title" v-model="open" width="860px" append-to-body>
       <el-form ref="saleOrderRef" :model="form" :rules="rules" label-width="110px">
@@ -228,6 +213,42 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <template v-if="!form.saleOrderId">
+          <el-divider content-position="left">订单商品明细（可选，支持表头与明细一体化建单）</el-divider>
+          <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center">
+            <el-button type="primary" plain size="small" icon="Plus" @click="handleAddInlineOrderItem">添加商品行</el-button>
+            <span class="erp-cell-sub">合计 {{ draftInlineSummary.qty.toFixed(2) }} 件 · ¥{{ draftInlineSummary.amount.toFixed(2) }}</span>
+          </div>
+          <el-table :data="inlineOrderItems" size="small" border>
+            <el-table-column label="商品" min-width="220">
+              <template #default="scope">
+                <el-select v-model="scope.row.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 100%" @change="val => handleInlineOrderProductChange(scope.row, val)">
+                  <el-option v-for="product in productSelectOptionList" :key="product.productId" :label="`${product.productName}（¥${product.salePrice || 0}）`" :value="product.productId" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="数量" width="130" align="center">
+              <template #default="scope">
+                <el-input-number v-model="scope.row.quantity" :min="0.01" :precision="2" size="small" controls-position="right" style="width: 112px" @change="recalcInlineOrderTotals" />
+              </template>
+            </el-table-column>
+            <el-table-column label="单价(元)" width="135" align="center">
+              <template #default="scope">
+                <el-input-number v-model="scope.row.price" :min="0" :precision="2" size="small" controls-position="right" style="width: 118px" @change="recalcInlineOrderTotals" />
+              </template>
+            </el-table-column>
+            <el-table-column label="小计(元)" width="115" align="right">
+              <template #default="scope">
+                <span>¥{{ (Number(scope.row.quantity || 0) * Number(scope.row.price || 0)).toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="70" align="center">
+              <template #default="scope">
+                <el-button link type="danger" icon="Delete" @click="handleRemoveInlineOrderItem(scope.$index)" />
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -309,7 +330,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="商品" prop="productId">
-              <el-select v-model="saleOrderItemForm.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 100%">
+              <el-select v-model="saleOrderItemForm.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 100%" @change="handleSaleOrderProductSelect">
                 <el-option
                   v-for="product in productSelectOptionList"
                   :key="product.productId"
@@ -332,6 +353,20 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-row v-if="fefoBatchOptions.length > 0">
+          <el-col :span="24">
+            <el-form-item label="FEFO推荐批次">
+              <el-select v-model="selectedFefoKey" placeholder="点击切换在库可用批次（已按近效期优先排序）" style="width: 100%" @change="handlePickFefoBatch">
+                <el-option
+                  v-for="b in fefoBatchOptions"
+                  :key="b.stockId"
+                  :label="`批次: ${b.batchNo || '-'} | 库位: ${b.locationName || b.locationId || '-'} | 可用: ${Number(b.quantity || 0) - Number(b.lockedQuantity || 0)} | 效期: ${b.expireDate ? parseTime(b.expireDate, '{y}-{m}-{d}') : '长期'}`"
+                  :value="b.stockId"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-row>
           <el-col :span="12">
             <el-form-item label="批次号" prop="batchNo">
@@ -340,19 +375,23 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="数量" prop="quantity">
-              <el-input-number v-model="saleOrderItemForm.quantity" :min="0" :precision="2" controls-position="right" style="width: 100%" />
+              <el-input-number v-model="saleOrderItemForm.quantity" :min="0.01" :precision="2" controls-position="right" style="width: 100%" @change="calculateSaleOrderItemAmount" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row>
           <el-col :span="12">
             <el-form-item label="单价" prop="price">
-              <el-input-number v-model="saleOrderItemForm.price" :min="0" :precision="2" controls-position="right" style="width: 100%" />
+              <el-input-number v-model="saleOrderItemForm.price" :min="0" :precision="2" controls-position="right" style="width: 100%" @change="calculateSaleOrderItemAmount" />
+              <div v-if="priceSuggestionHint.sourceLabel || isBelowCostWarning" style="margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap;">
+                <el-tag v-if="priceSuggestionHint.sourceLabel" size="small" type="success">{{ priceSuggestionHint.sourceLabel }}</el-tag>
+                <el-tag v-if="isBelowCostWarning" size="small" type="danger">负毛利预警：低于参考成本 ¥{{ priceSuggestionHint.costPrice }}</el-tag>
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="金额" prop="amount">
-              <el-input-number v-model="saleOrderItemForm.amount" :min="0" :precision="2" controls-position="right" style="width: 100%" />
+              <el-input-number v-model="saleOrderItemForm.amount" :min="0" :precision="2" controls-position="right" style="width: 100%" :disabled="true" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -433,6 +472,179 @@
       </el-table>
     </el-dialog>
 
+    <el-dialog title="销售订单链路追踪" v-model="saleOrderChainOpen" width="1040px" append-to-body>
+      <el-descriptions v-if="saleOrderChainData.saleOrder" :column="4" border class="mb8">
+        <el-descriptions-item label="销售单号">{{ saleOrderChainData.saleOrder.orderNo }}</el-descriptions-item>
+        <el-descriptions-item label="客户">{{ getCustomerName(saleOrderChainData.saleOrder.customerId) }}</el-descriptions-item>
+        <el-descriptions-item label="单据状态">{{ getSaleOrderStatusLabel(saleOrderChainData.saleOrder.status) }}</el-descriptions-item>
+        <el-descriptions-item label="付款状态">{{ getSaleOrderPaymentStatusLabel(saleOrderChainData.saleOrder.paymentStatus) }}</el-descriptions-item>
+        <el-descriptions-item label="总数量">{{ formatSaleOrderQuantity(saleOrderChainData.saleOrder.totalQty) }}</el-descriptions-item>
+        <el-descriptions-item label="总金额">{{ formatSaleOrderAmount(saleOrderChainData.saleOrder.totalAmount) }}</el-descriptions-item>
+        <el-descriptions-item label="已出库">{{ formatSaleOrderQuantity(saleOrderChainData.saleOrder.outboundQuantity) }}</el-descriptions-item>
+        <el-descriptions-item label="待出库">{{ formatSaleOrderQuantity(saleOrderChainData.saleOrder.remainQuantity) }}</el-descriptions-item>
+      </el-descriptions>
+      <el-steps :active="getActiveSaleOrderChainStep()" finish-status="success" process-status="process" align-center class="mb8">
+        <el-step v-for="chainNode in saleOrderChainData.chainNodeList" :key="chainNode.nodeKey" :title="chainNode.nodeName" :description="chainNode.nodeSummary || chainNode.nodeStatus" />
+      </el-steps>
+      <el-tabs v-model="saleOrderChainActiveTab">
+        <el-tab-pane label="出库单" name="outbound">
+          <el-table v-loading="saleOrderChainLoading" :data="saleOrderChainData.outboundList">
+            <el-table-column label="出库单号" align="center" prop="outboundNo" min-width="160" />
+            <el-table-column label="出库类型" align="center" prop="outboundType" width="120">
+              <template #default="scope">
+                <span>{{ getChainOutboundTypeLabel(scope.row.outboundType) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="总数量" align="center" prop="totalQty" width="110" />
+            <el-table-column label="总金额" align="center" prop="totalAmount" width="120" />
+            <el-table-column label="状态" align="center" prop="status" width="120">
+              <template #default="scope">
+                <el-tag :type="getChainDocumentStatusType(scope.row.status)">{{ getChainDocumentStatusLabel(scope.row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="100">
+              <template #default>
+                <el-button link type="primary" @click="handleViewOutbound(saleOrderChainData.saleOrder)" v-hasPermi="['business:outbound:list']">去查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="应收台账" name="receivable">
+          <el-table v-loading="saleOrderChainLoading" :data="saleOrderChainData.receivableList">
+            <el-table-column label="应收单号" align="center" prop="receivableId" width="120">
+              <template #default="scope">
+                <span>{{ 'AR' + String(scope.row.receivableId || '').padStart(5, '0') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="应收金额" align="center" prop="amountDue" width="120" />
+            <el-table-column label="已收金额" align="center" prop="amountPaid" width="120" />
+            <el-table-column label="未收金额" align="center" prop="remainAmount" width="120" />
+            <el-table-column label="状态" align="center" prop="status" width="120">
+              <template #default="scope">
+                <el-tag :type="getSaleOrderPaymentStatusType(scope.row.status)">{{ getSaleOrderPaymentStatusLabel(scope.row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="到期日" align="center" prop="dueDate" width="140">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.dueDate, '{y}-{m}-{d}') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="100">
+              <template #default>
+                <el-button link type="primary" @click="handleViewReceivable(saleOrderChainData.saleOrder)" v-hasPermi="['business:receivable:list']">去查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="回款流水" name="receipt">
+          <el-table v-loading="saleOrderChainLoading" :data="saleOrderChainData.receiptList">
+            <el-table-column label="回款单号" align="center" prop="receiptId" width="120">
+              <template #default="scope">
+                <span>{{ 'RC' + String(scope.row.receiptId || '').padStart(5, '0') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="应收单号" align="center" prop="receivableId" width="120">
+              <template #default="scope">
+                <span>{{ scope.row.receivableId ? ('AR' + String(scope.row.receivableId).padStart(5, '0')) : '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="回款金额" align="center" prop="amount" width="120" />
+            <el-table-column label="回款方式" align="center" prop="paymentMethod" width="120">
+              <template #default="scope">
+                <span>{{ getChainPaymentMethodLabel(scope.row.paymentMethod) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="回款时间" align="center" prop="paymentTime" width="150">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.paymentTime, '{y}-{m}-{d}') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="100">
+              <template #default>
+                <el-button link type="primary" @click="handleViewReceipt(saleOrderChainData.saleOrder)" v-hasPermi="['business:receipt:list']">去查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="销售退货" name="saleReturn">
+          <el-table v-loading="saleOrderChainLoading" :data="saleOrderChainData.saleReturnList">
+            <el-table-column label="退货单号" align="center" prop="returnNo" min-width="160" />
+            <el-table-column label="退货类型" align="center" prop="returnType" width="120">
+              <template #default>
+                <span>销售退货</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="总数量" align="center" prop="totalQty" width="110" />
+            <el-table-column label="总金额" align="center" prop="totalAmount" width="120" />
+            <el-table-column label="状态" align="center" prop="status" width="120">
+              <template #default="scope">
+                <el-tag :type="getChainDocumentStatusType(scope.row.status)">{{ getChainDocumentStatusLabel(scope.row.status) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="创建时间" align="center" prop="createTime" width="160">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="销项发票" name="invoice">
+          <el-table v-loading="saleOrderChainLoading" :data="saleOrderChainData.invoiceList || []">
+            <el-table-column label="发票号码" align="center" prop="invoiceNo" min-width="170" />
+            <el-table-column label="票种" align="center" prop="invoiceType" width="110">
+              <template #default="scope">
+                <span>{{ scope.row.invoiceType === 'special' ? '增值税专票' : (scope.row.invoiceType === 'normal' ? '增值税普票' : '全电数电票') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="价税合计" align="right" prop="totalAmount" width="115" />
+            <el-table-column label="税额" align="right" prop="taxAmount" width="100" />
+            <el-table-column label="开票日期" align="center" prop="invoiceDate" width="120">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.invoiceDate, '{y}-{m}-{d}') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" align="center" prop="status" width="100">
+              <template #default="scope">
+                <el-tag size="small" :type="scope.row.status === 'red_void' ? 'danger' : (scope.row.status === 'draft' ? 'info' : 'success')">
+                  {{ scope.row.status === 'red_void' ? '已红冲' : (scope.row.status === 'draft' ? '草稿' : '正常有效') }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="90">
+              <template #default>
+                <el-button link type="primary" @click="proxy.$router.push({ path: '/finance/invoice', query: { invoiceDirection: 'sale' } })">去查看</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="状态历史" name="history">
+          <el-table v-loading="saleOrderChainLoading" :data="saleOrderChainData.statusHistoryList">
+            <el-table-column label="原状态" align="center" prop="fromStatus" min-width="120">
+              <template #default="scope">
+                <span>{{ getSaleOrderStatusLabel(scope.row.fromStatus) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="新状态" align="center" prop="toStatus" min-width="120">
+              <template #default="scope">
+                <span>{{ getSaleOrderStatusLabel(scope.row.toStatus) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作类型" align="center" prop="operationType" min-width="140">
+              <template #default="scope">
+                <span>{{ getSaleOrderOperationTypeLabel(scope.row.operationType) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作人" align="center" prop="auditBy" min-width="120" />
+            <el-table-column label="操作时间" align="center" prop="operateTime" width="180">
+              <template #default="scope">
+                <span>{{ parseTime(scope.row.operateTime) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+    </el-dialog>
+
     <!-- 打印预览对话框 -->
     <el-dialog title="打印预览" v-model="printOpen" width="800px" append-to-body>
       <div id="printBox" class="print-container" style="padding: 20px; font-family: 'SimSun', '宋体', serif;">
@@ -445,7 +657,7 @@
           <el-col :span="12"><strong>客户：</strong>{{ getCustomerName(printData.saleOrder.customerId) }}</el-col>
           <el-col :span="12"><strong>仓库：</strong>{{ getWarehouseName(printData.saleOrder.warehouseId) }}</el-col>
         </el-row>
-        
+
         <table border="1" cellspacing="0" cellpadding="8" style="width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; border-color: #333;">
           <thead>
             <tr style="background-color: #f5f5f5;">
@@ -468,7 +680,7 @@
             </tr>
           </tbody>
         </table>
-        
+
         <el-row style="margin-top: 15px; font-size: 14px;">
           <el-col :span="24" style="text-align: right; padding-right: 10px;">
             <strong>总数量：{{ printData.saleOrder.totalQty || '0' }} &nbsp;&nbsp;&nbsp; 总金额：<span style="font-size: 18px;">¥ {{ printData.saleOrder.totalAmount || '0.00' }}</span></strong>
@@ -486,18 +698,23 @@
         </div>
       </template>
     </el-dialog>
+
+    <document-print-dialog ref="printDialogRef" />
   </div>
 </template>
 
 <script setup name="BusinessSaleOrder">
+import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { getToken } from "@/utils/auth"
-import { listSaleOrder, getSaleOrder, addSaleOrder, updateSaleOrder, delSaleOrder, submitSaleOrder, managerAuditSaleOrder, managerRollbackSaleOrder, financeAuditSaleOrder, financeRollbackSaleOrder, cancelSaleOrder, getSaleOrderPrintTemplate, listSaleOrderStatusHistory } from "@/api/business/saleOrder"
+import { listSaleOrder, getSaleOrder, addSaleOrder, updateSaleOrder, delSaleOrder, submitSaleOrder, managerAuditSaleOrder, managerRollbackSaleOrder, financeAuditSaleOrder, financeRollbackSaleOrder, cancelSaleOrder, forceCloseSaleOrder, getSaleOrderPrintTemplate, listSaleOrderStatusHistory, getSaleOrderChain, suggestSalePrice } from "@/api/business/saleOrder"
 import { listSaleOrderItem, getSaleOrderItem, addSaleOrderItem, updateSaleOrderItem, delSaleOrderItem } from "@/api/business/saleOrderItem"
+import { recommendStockBatch } from "@/api/business/stock"
 import { listCustomer, getCustomer } from "@/api/business/customer"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { buildDocumentSelectionState, getSingleSelectedDocumentId } from "@/utils/documentPage"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -518,6 +735,17 @@ const saleOrderItemTitle = ref("")
 const saleOrderItemList = ref([])
 const currentSaleOrderId = ref(undefined)
 const currentSaleOrderStatus = ref("")
+const currentSaleOrderCustomerId = ref(undefined)
+const currentSaleOrderWarehouseId = ref(undefined)
+const printDialogRef = ref(null)
+const fefoBatchOptions = ref([])
+const selectedFefoKey = ref(undefined)
+const priceSuggestionHint = ref({ sourceLabel: "", costPrice: null })
+const isBelowCostWarning = computed(() => {
+  const cost = priceSuggestionHint.value.costPrice
+  const price = saleOrderItemForm.value?.price
+  return cost !== null && cost !== undefined && Number(cost) > 0 && Number(price || 0) < Number(cost)
+})
 const selectedSaleOrderItemIds = ref([])
 const saleOrderItemMultiple = ref(true)
 const saleOrderItemFormOpen = ref(false)
@@ -525,6 +753,17 @@ const saleOrderItemFormTitle = ref("")
 const statusHistoryOpen = ref(false)
 const statusHistoryLoading = ref(false)
 const statusHistoryList = ref([])
+const saleOrderChainOpen = ref(false)
+const saleOrderChainLoading = ref(false)
+const saleOrderChainActiveTab = ref("outbound")
+const saleOrderChainData = ref({
+  saleOrder: undefined,
+  chainNodeList: [],
+  outboundList: [],
+  receivableList: [],
+  receiptList: [],
+  statusHistoryList: []
+})
 const printOpen = ref(false)
 const printData = ref({
   saleOrder: {},
@@ -554,6 +793,7 @@ const saleOrderStatusOptionList = [
   { label: "已提交", value: "submitted", type: "warning" },
   { label: "经理已审核", value: "manager_approved", type: "primary" },
   { label: "财务已审核", value: "audited", type: "success" },
+  { label: "已短装结案", value: "closed", type: "info" },
   { label: "已作废", value: "cancelled", type: "danger" }
 ]
 
@@ -590,6 +830,33 @@ const data = reactive({
 
 const { queryParams, form, rules, saleOrderItemForm, saleOrderItemRules } = toRefs(data)
 
+const saleStatusTabItems = [
+  { label: "全部", value: "" },
+  { label: "草稿", value: "draft", dot: "slate" },
+  { label: "待经理审", value: "submitted", dot: "amber" },
+  { label: "待财务审", value: "manager_approved", dot: "blue" },
+  { label: "已终审", value: "audited", dot: "emerald" },
+  { label: "已作废", value: "cancelled", dot: "rose" }
+]
+
+const saleOrderStatItems = computed(() => {
+  const rows = saleOrderList.value || []
+  const pendingApproval = rows.filter(r => r.status === "submitted" || r.status === "manager_approved").length
+  const pageTotalAmount = rows.reduce((s, r) => s + Number(r.totalAmount || 0), 0)
+  const pageRemain = rows.reduce((s, r) => s + Number(r.remainReceivableAmount || 0), 0)
+  return [
+    { label: "销售订单总数", value: total.value, suffix: "单", hint: "匹配当前筛选的全部订单", icon: "ShoppingCart", tone: "indigo" },
+    { label: "本页待审批", value: pendingApproval, suffix: "单", hint: "待经理 / 财务两级审批", icon: "Stamp", tone: "amber" },
+    { label: "本页销售总额", prefix: "¥", value: pageTotalAmount.toFixed(2), hint: "本页成交订单总金额", icon: "Money", tone: "emerald" },
+    { label: "本页待收尾款", prefix: "¥", value: pageRemain.toFixed(2), hint: "可快捷登记客户回款", icon: "Wallet", tone: "rose" }
+  ]
+})
+
+function handleQuickStatus(val) {
+  queryParams.value.status = val === "" ? undefined : val
+  handleQuery()
+}
+
 const canEditSelectedSaleOrder = computed(() => isDraftSaleOrderStatus(selectedStatus.value))
 const canDeleteSelectedSaleOrder = computed(() => isDraftSaleOrderStatus(selectedStatus.value))
 const canCancelSelectedSaleOrder = computed(() => canCancelSaleOrderByStatus(selectedStatus.value))
@@ -602,6 +869,11 @@ const locationSelectOptionList = computed(() => buildLocationSelectOptionList())
 function initializeQueryParamsFromRoute() {
   queryParams.value.saleOrderId = route.query.saleOrderId || undefined
   queryParams.value.status = route.query.status || undefined
+}
+
+// 判断当前是否来自首页一键开销售单入口。
+function shouldAutoOpenSaleOrderFromRoute() {
+  return route.query.mode === "create"
 }
 
 // 初始化客户和仓库远程下拉数据，避免页面初始阶段一次性加载过多基础资料。
@@ -752,13 +1024,29 @@ function ensureLocationOptionLoaded(locationId) {
   })
 }
 
-// 批量补充销售订单列表依赖的客户与仓库名称，保证远程下拉模式下列表展示仍然可读。
+// 批量补充销售订单列表依赖的客户与仓库名称，优先复用后端关联字段，消除冗余 N+1 查询。
 function ensureSaleOrderReferenceOptionsLoaded(saleOrderRowList) {
-  const customerIdList = [...new Set((saleOrderRowList || []).map(saleOrderRow => saleOrderRow.customerId).filter(customerId => customerId !== undefined && customerId !== null && customerId !== ""))]
-  const warehouseIdList = [...new Set((saleOrderRowList || []).map(saleOrderRow => saleOrderRow.warehouseId).filter(warehouseId => warehouseId !== undefined && warehouseId !== null && warehouseId !== ""))]
+  const customerIdList = []
+  const warehouseIdList = []
+  ;(saleOrderRowList || []).forEach(saleOrderRow => {
+    if (saleOrderRow.customerId != null && saleOrderRow.customerId !== "") {
+      if (saleOrderRow.customerName) {
+        appendUniqueSelectOption(customerList.value, { customerId: saleOrderRow.customerId, customerName: saleOrderRow.customerName }, "customerId")
+      } else {
+        customerIdList.push(saleOrderRow.customerId)
+      }
+    }
+    if (saleOrderRow.warehouseId != null && saleOrderRow.warehouseId !== "") {
+      if (saleOrderRow.warehouseName) {
+        appendUniqueSelectOption(warehouseList.value, { warehouseId: saleOrderRow.warehouseId, warehouseName: saleOrderRow.warehouseName }, "warehouseId")
+      } else {
+        warehouseIdList.push(saleOrderRow.warehouseId)
+      }
+    }
+  })
   return Promise.all([
-    ...customerIdList.map(customerId => ensureCustomerOptionLoaded(customerId)),
-    ...warehouseIdList.map(warehouseId => ensureWarehouseOptionLoaded(warehouseId))
+    ...[...new Set(customerIdList)].map(customerId => ensureCustomerOptionLoaded(customerId)),
+    ...[...new Set(warehouseIdList)].map(warehouseId => ensureWarehouseOptionLoaded(warehouseId))
   ]).catch(() => {})
 }
 
@@ -843,11 +1131,13 @@ function getSaleOrderPaymentStatusType(paymentStatusValue) {
 // 返回销售状态历史中的操作类型中文名称。
 function getSaleOrderOperationTypeLabel(operationTypeValue) {
   const operationTypeMap = {
+    create: "新建草稿",
     submit: "提交",
     manager_audit: "经理审核",
     manager_rollback: "经理回退",
     finance_audit: "财务审核",
     finance_rollback: "财务回退",
+    force_close: "短装结案",
     cancel: "作废"
   }
   return operationTypeMap[operationTypeValue] || (operationTypeValue || "未知操作")
@@ -863,14 +1153,52 @@ function getSaleOrderAuditRoleLabel(auditRoleValue) {
   return auditRoleMap[auditRoleValue] || (auditRoleValue || "未知角色")
 }
 
+// 返回销售订单链路当前完成到第几个节点，便于流程条按真实数据展示进度。
+function getActiveSaleOrderChainStep() {
+  const chainNodeList = saleOrderChainData.value.chainNodeList || []
+  let activeStepValue = 0
+  chainNodeList.forEach((chainNode, chainNodeIndex) => {
+    if (chainNode.nodeStatus && chainNode.nodeStatus !== "未生成") {
+      activeStepValue = chainNodeIndex + 1
+    }
+  })
+  return activeStepValue
+}
+
 // 判断当前销售单是否仍处于草稿状态。
 function isDraftSaleOrderStatus(statusValue) {
   return statusValue === "draft"
 }
 
+function getSaleInvoiceStatusLabel(statusVal) {
+  if (statusVal === "invoiced") return "已开票"
+  if (statusVal === "partial") return "部分开票"
+  return "未开票"
+}
+
+function getSaleInvoiceStatusType(statusVal) {
+  if (statusVal === "invoiced") return "success"
+  if (statusVal === "partial") return "warning"
+  return "info"
+}
+
 // 判断当前销售单是否允许作废。
 function canCancelSaleOrderByStatus(statusValue) {
-  return !!statusValue && statusValue !== "audited" && statusValue !== "cancelled"
+  return !!statusValue && statusValue !== "audited" && statusValue !== "closed" && statusValue !== "cancelled"
+}
+
+// 判断销售单是否可短装结案（已审核且已部分发货但仍有未发余额）。
+function canForceCloseSaleOrder(saleOrderRow) {
+  return !!saleOrderRow && saleOrderRow.status === "audited" && Number(saleOrderRow.outboundQuantity || 0) > 0 && Number(saleOrderRow.remainQuantity || 0) > 0
+}
+
+function handleForceClose(row) {
+  proxy.$modal.prompt(`确认对销售订单"${row.orderNo}"执行短装结案？系统将自动释放剩余 ${formatSaleOrderQuantity(row.remainQuantity)} 件锁定库存并按实发金额重算应收。请输入结案原因：`).then(({ value }) => {
+    return forceCloseSaleOrder(row.saleOrderId, value || "部分发货短装结案")
+  }).then(() => {
+    proxy.$modal.msgSuccess("短装结案成功，未发锁库已释放")
+    getList()
+  }).catch(() => {})
 }
 
 // 判断行内是否允许修改销售单，避免已审核单据继续显示可编辑入口。
@@ -895,7 +1223,7 @@ function hasCreatedOutboundRecord(saleOrderRow) {
 
 // 判断当前销售单是否已经进入应收台账阶段，方便销售和财务快速查看对应应收记录。
 function canViewReceivable(saleOrderRow) {
-  return !!saleOrderRow && (saleOrderRow.status === "audited" || Number(saleOrderRow.receivableAmount || 0) > 0 || Number(saleOrderRow.receivedAmount || 0) > 0)
+  return !!saleOrderRow && (saleOrderRow.status === "audited" || saleOrderRow.status === "closed" || Number(saleOrderRow.receivableAmount || 0) > 0 || Number(saleOrderRow.receivedAmount || 0) > 0)
 }
 
 // 判断当前销售单是否已经发生回款，避免在没有回款流水时展示误导性的查看入口。
@@ -910,12 +1238,12 @@ function canCreateReceipt(saleOrderRow) {
 
 // 判断当前销售单是否允许进入销售出库，未出库完成时允许继续出库，已出库完成时保留查看入口。
 function canViewOutbound(saleOrderRow) {
-  return !!saleOrderRow && saleOrderRow.status === "audited" && (hasPendingOutboundQuantity(saleOrderRow) || hasCreatedOutboundRecord(saleOrderRow))
+  return !!saleOrderRow && ((saleOrderRow.status === "audited" && (hasPendingOutboundQuantity(saleOrderRow) || hasCreatedOutboundRecord(saleOrderRow))) || (saleOrderRow.status === "closed" && hasCreatedOutboundRecord(saleOrderRow)))
 }
 
 // 返回销售出库入口文案，避免已出库完成的订单继续显示“出库”造成误导。
 function getOutboundActionLabel(saleOrderRow) {
-  return hasPendingOutboundQuantity(saleOrderRow) ? "出库" : "查看出库"
+  return saleOrderRow.status === "audited" && hasPendingOutboundQuantity(saleOrderRow) ? "出库" : "查看出库"
 }
 
 // 格式化销售数量、已出库和待出库字段，避免未出库场景直接显示空白或 undefined。
@@ -966,6 +1294,7 @@ function reset() {
     managerAuditTime: undefined,
     remark: undefined
   }
+  inlineOrderItems.value = []
   proxy.resetForm("saleOrderRef")
 }
 
@@ -983,6 +1312,13 @@ function resetSaleOrderItemForm() {
   proxy.resetForm("saleOrderItemRef")
 }
 
+// 根据数量和单价自动重算销售订单明细金额，避免用户手工录入的金额与后台计算结果不一致。
+function calculateSaleOrderItemAmount() {
+  const quantityValue = Number(saleOrderItemForm.value.quantity || 0)
+  const priceValue = Number(saleOrderItemForm.value.price || 0)
+  saleOrderItemForm.value.amount = Math.round(quantityValue * priceValue * 100) / 100
+}
+
 function handleQuery() {
   queryParams.value.pageNum = 1
   getList()
@@ -995,10 +1331,11 @@ function resetQuery() {
 }
 
 function handleSelectionChange(selection) {
-  ids.value = selection.map(item => item.saleOrderId)
-  single.value = selection.length !== 1
-  multiple.value = !selection.length
-  selectedStatus.value = selection.length === 1 ? selection[0].status : ""
+  const selectionState = buildDocumentSelectionState(selection, "saleOrderId")
+  ids.value = selectionState.idList
+  single.value = selectionState.single
+  multiple.value = selectionState.multiple
+  selectedStatus.value = selectionState.selectedStatus
 }
 
 function handleAdd() {
@@ -1023,6 +1360,8 @@ function handleUpdate(row) {
 function handleOpenSaleOrderItem(row) {
   currentSaleOrderId.value = row.saleOrderId
   currentSaleOrderStatus.value = row.status
+  currentSaleOrderCustomerId.value = row.customerId
+  currentSaleOrderWarehouseId.value = row.warehouseId
   saleOrderItemTitle.value = "销售订单明细 - " + row.orderNo + "（" + getSaleOrderStatusLabel(row.status) + "）"
   saleOrderItemOpen.value = true
   selectedSaleOrderItemIds.value = []
@@ -1160,6 +1499,7 @@ function submitSaleOrderItemForm() {
   if (!ensureSaleOrderItemEditable("保存")) {
     return
   }
+  calculateSaleOrderItemAmount()
   proxy.$refs["saleOrderItemRef"].validate(valid => {
     if (valid) {
       saleOrderItemForm.value.saleOrderId = currentSaleOrderId.value
@@ -1197,6 +1537,38 @@ function handleDeleteSaleOrderItem(row) {
   }).catch(() => {})
 }
 
+const inlineOrderItems = ref([])
+const draftInlineSummary = computed(() => {
+  const rows = inlineOrderItems.value || []
+  const qty = rows.reduce((s, r) => s + Number(r.quantity || 0), 0)
+  const amount = rows.reduce((s, r) => s + Number(r.quantity || 0) * Number(r.price || 0), 0)
+  return { qty, amount }
+})
+
+function handleAddInlineOrderItem() {
+  inlineOrderItems.value.push({ productId: undefined, quantity: 1, price: 0 })
+}
+
+function handleRemoveInlineOrderItem(idx) {
+  inlineOrderItems.value.splice(idx, 1)
+  recalcInlineOrderTotals()
+}
+
+function handleInlineOrderProductChange(row, productId) {
+  const prod = productList.value.find(p => p.productId === productId)
+  if (prod) {
+    row.price = Number(prod.salePrice || 0)
+  }
+  recalcInlineOrderTotals()
+}
+
+function recalcInlineOrderTotals() {
+  if (!form.value.saleOrderId) {
+    form.value.totalQty = Number(draftInlineSummary.value.qty.toFixed(2))
+    form.value.totalAmount = Number(draftInlineSummary.value.amount.toFixed(2))
+  }
+}
+
 function submitForm() {
   proxy.$refs["saleOrderRef"].validate(valid => {
     if (valid) {
@@ -1207,8 +1579,16 @@ function submitForm() {
           getList()
         })
       } else {
-        addSaleOrder(form.value).then(() => {
+        const validItems = (inlineOrderItems.value || [])
+          .filter(it => it.productId && Number(it.quantity || 0) > 0)
+          .map(it => ({
+            productId: it.productId,
+            quantity: Number(it.quantity),
+            price: Number(it.price || 0)
+          }))
+        addSaleOrder({ ...form.value, items: validItems }).then(() => {
           proxy.$modal.msgSuccess("新增成功")
+          inlineOrderItems.value = []
           open.value = false
           getList()
         })
@@ -1217,8 +1597,16 @@ function submitForm() {
   })
 }
 
+// 返回当前工具栏操作选中的销售订单编号，未选中时先提示用户补齐操作对象。
+function getSelectedSaleOrderId(actionText) {
+  return getSingleSelectedDocumentId(ids.value, actionText, "销售订单", warningMessage => proxy.$modal.msgWarning(warningMessage))
+}
+
 function handleSubmit() {
-  const saleOrderId = ids.value[0]
+  const saleOrderId = getSelectedSaleOrderId("提交")
+  if (!saleOrderId) {
+    return
+  }
   submitSaleOrder(saleOrderId).then(() => {
     proxy.$modal.msgSuccess("提交成功")
     getList()
@@ -1227,7 +1615,10 @@ function handleSubmit() {
 
 // 经理审核按钮操作
 function handleManagerAudit() {
-  const saleOrderId = ids.value[0]
+  const saleOrderId = getSelectedSaleOrderId("经理审核")
+  if (!saleOrderId) {
+    return
+  }
   proxy.$modal.prompt("请输入经理审核意见", "系统提示", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
@@ -1243,7 +1634,10 @@ function handleManagerAudit() {
 
 // 经理回退按钮操作
 function handleManagerRollback() {
-  const saleOrderId = ids.value[0]
+  const saleOrderId = getSelectedSaleOrderId("经理回退")
+  if (!saleOrderId) {
+    return
+  }
   proxy.$modal.prompt("请输入经理回退意见", "系统提示", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
@@ -1259,7 +1653,10 @@ function handleManagerRollback() {
 
 // 财务审核按钮操作
 function handleFinanceAudit() {
-  const saleOrderId = ids.value[0]
+  const saleOrderId = getSelectedSaleOrderId("财务审核")
+  if (!saleOrderId) {
+    return
+  }
   proxy.$modal.prompt("请输入财务审核意见", "系统提示", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
@@ -1275,7 +1672,10 @@ function handleFinanceAudit() {
 
 // 财务回退按钮操作
 function handleFinanceRollback() {
-  const saleOrderId = ids.value[0]
+  const saleOrderId = getSelectedSaleOrderId("财务回退")
+  if (!saleOrderId) {
+    return
+  }
   proxy.$modal.prompt("请输入财务回退意见", "系统提示", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
@@ -1290,17 +1690,26 @@ function handleFinanceRollback() {
 }
 
 function handleCancel() {
-  const saleOrderId = ids.value[0]
+  const saleOrderId = getSelectedSaleOrderId("作废")
+  if (!saleOrderId) {
+    return
+  }
   cancelSaleOrder(saleOrderId).then(() => {
     proxy.$modal.msgSuccess("作废成功")
     getList()
   })
 }
 
+// 删除销售订单，统一兼容单条删除和批量删除入口，并在执行前再次确认删除目标。
 function handleDelete(row) {
-  const saleOrderIds = row.saleOrderId || ids.value
-  proxy.$modal.confirm('是否确认删除销售订单编号为"' + saleOrderIds + '"的数据项？').then(function () {
-    return delSaleOrder(saleOrderIds)
+  const saleOrderIdList = row?.saleOrderId ? [row.saleOrderId] : ids.value
+  if (!saleOrderIdList.length) {
+    proxy.$modal.msgWarning("请选择要删除的销售订单")
+    return
+  }
+  const saleOrderDisplayText = saleOrderIdList.join(",")
+  proxy.$modal.confirm('是否确认删除销售订单编号为"' + saleOrderDisplayText + '"的数据项？').then(function () {
+    return delSaleOrder(saleOrderIdList)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")
@@ -1363,22 +1772,112 @@ function submitFileForm() {
 // 打印模板操作前补齐客户、仓库、商品和库位名称，避免预览时先闪出历史编号。
 function handlePrintTemplate() {
   const saleOrderId = ids.value[0]
-  getSaleOrderPrintTemplate(saleOrderId).then(response => {
+  if (!saleOrderId) return
+  handlePrintRow({ saleOrderId })
+}
+
+function handlePrintRow(row) {
+  const saleOrderId = row?.saleOrderId
+  if (!saleOrderId) return
+  getSaleOrderPrintTemplate(saleOrderId).then(async response => {
     const printTemplateData = response.data || { saleOrder: {}, itemList: [] }
-    printData.value = printTemplateData
-    return Promise.all([
-      ensureCustomerOptionLoaded(printTemplateData.saleOrder.customerId),
-      ensureWarehouseOptionLoaded(printTemplateData.saleOrder.warehouseId),
-      ensureSaleOrderItemReferenceOptionsLoaded(printTemplateData.itemList)
+    const so = printTemplateData.saleOrder || row
+    const itemList = printTemplateData.itemList || []
+    await Promise.all([
+      ensureCustomerOptionLoaded(so.customerId),
+      ensureWarehouseOptionLoaded(so.warehouseId),
+      ensureSaleOrderItemReferenceOptionsLoaded(itemList)
     ])
-  }).then(() => {
-    printOpen.value = true
+    printDialogRef.value?.openPrint({
+      docType: "sale_order",
+      title: "销售订单合同单",
+      docNo: so.orderNo,
+      metaFields: [
+        { label: "销售单号", value: so.orderNo },
+        { label: "客户名称", value: so.customerName || getCustomerName(so.customerId) },
+        { label: "发货仓库", value: so.warehouseName || getWarehouseName(so.warehouseId) },
+        { label: "单据状态", value: getSaleOrderStatusLabel(so.status) },
+        { label: "付款状态", value: getSaleOrderPaymentStatusLabel(so.paymentStatus) },
+        { label: "下单时间", value: parseTime(so.createTime, "{y}-{m}-{d}") }
+      ],
+      columns: [
+        { label: "商品名称", prop: "productName" },
+        { label: "库位", prop: "locationName", width: "120px" },
+        { label: "批次号", prop: "batchNo", width: "110px" },
+        { label: "订购数量", prop: "quantity", width: "90px", align: "right" },
+        { label: "销售单价", prop: "price", width: "105px", align: "right", type: "money", isPrice: true },
+        { label: "金额小计", prop: "amount", width: "115px", align: "right", type: "money", isPrice: true }
+      ],
+      items: itemList.map(it => ({
+        productName: getProductName(it.productId),
+        locationName: getLocationName(it.locationId),
+        batchNo: it.batchNo || "-",
+        quantity: it.quantity,
+        price: it.price,
+        amount: it.amount
+      })),
+      totalQty: so.totalQty,
+      totalAmount: so.totalAmount,
+      remark: so.remark
+    })
   })
+}
+
+async function handleSaleOrderProductSelect(productId) {
+  fefoBatchOptions.value = []
+  selectedFefoKey.value = undefined
+  priceSuggestionHint.value = { sourceLabel: "", costPrice: null }
+  if (!productId) return
+  try {
+    const [priceRes, batchRes] = await Promise.all([
+      suggestSalePrice(currentSaleOrderCustomerId.value, productId).catch(() => null),
+      currentSaleOrderWarehouseId.value ? recommendStockBatch(currentSaleOrderWarehouseId.value, productId).catch(() => null) : Promise.resolve(null)
+    ])
+    if (priceRes?.data) {
+      const pData = priceRes.data
+      if (pData.suggestedPrice !== undefined && pData.suggestedPrice !== null) {
+        saleOrderItemForm.value.price = Number(pData.suggestedPrice)
+        calculateSaleOrderItemAmount()
+      }
+      const labelMap = {
+        agreed_price: "客户协议价",
+        last_audited_price: "历史成交价",
+        customer_level_discount: "客户等级折扣价",
+        standard_sale_price: "商品标准售价"
+      }
+      priceSuggestionHint.value = {
+        sourceLabel: labelMap[pData.priceSource] || pData.priceSourceLabel || "智能推荐价",
+        costPrice: pData.costPrice ?? null
+      }
+    }
+    const batches = batchRes?.data || []
+    fefoBatchOptions.value = batches
+    if (batches.length > 0) {
+      selectedFefoKey.value = batches[0].stockId
+      saleOrderItemForm.value.locationId = batches[0].locationId
+      saleOrderItemForm.value.batchNo = batches[0].batchNo
+      ensureLocationOptionLoaded(batches[0].locationId)
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function handlePickFefoBatch(stockId) {
+  const picked = fefoBatchOptions.value.find(b => b.stockId === stockId)
+  if (picked) {
+    saleOrderItemForm.value.locationId = picked.locationId
+    saleOrderItemForm.value.batchNo = picked.batchNo
+    ensureLocationOptionLoaded(picked.locationId)
+  }
 }
 
 // 状态历史按钮操作
 function handleStatusHistory() {
-  const saleOrderId = ids.value[0]
+  const saleOrderId = getSelectedSaleOrderId("查看状态历史")
+  if (!saleOrderId) {
+    return
+  }
   statusHistoryOpen.value = true
   statusHistoryLoading.value = true
   listSaleOrderStatusHistory(saleOrderId).then(response => {
@@ -1389,11 +1888,70 @@ function handleStatusHistory() {
   })
 }
 
+// 打开销售订单链路追踪弹窗，统一查看订单、出库、应收和回款环节。
+function handleSaleOrderChain(row) {
+  const saleOrderId = row?.saleOrderId || getSelectedSaleOrderId("查看链路追踪")
+  if (!saleOrderId) {
+    return
+  }
+  saleOrderChainOpen.value = true
+  saleOrderChainLoading.value = true
+  saleOrderChainActiveTab.value = "outbound"
+  getSaleOrderChain(saleOrderId).then(response => {
+    saleOrderChainData.value = {
+      saleOrder: response.data?.saleOrder || {},
+      chainNodeList: response.data?.chainNodeList || [],
+      outboundList: response.data?.outboundList || [],
+      receivableList: response.data?.receivableList || [],
+      receiptList: response.data?.receiptList || [],
+      saleReturnList: response.data?.saleReturnList || [],
+      statusHistoryList: response.data?.statusHistoryList || []
+    }
+    ensureCustomerOptionLoaded(saleOrderChainData.value.saleOrder.customerId)
+  }).finally(() => {
+    saleOrderChainLoading.value = false
+  })
+}
+
+function getChainOutboundTypeLabel(outboundType) {
+  if (outboundType === "sale") return "销售出库"
+  if (outboundType === "other") return "其他出库"
+  return outboundType || "销售出库"
+}
+
+function getChainDocumentStatusLabel(statusValue) {
+  if (statusValue === "draft") return "草稿"
+  if (statusValue === "submitted") return "已提交"
+  if (statusValue === "audited") return "已审核"
+  if (statusValue === "cancelled") return "已作废"
+  return statusValue || "-"
+}
+
+function getChainDocumentStatusType(statusValue) {
+  if (statusValue === "audited") return "success"
+  if (statusValue === "submitted") return "warning"
+  if (statusValue === "cancelled") return "danger"
+  return "info"
+}
+
+function getChainPaymentMethodLabel(paymentMethod) {
+  if (paymentMethod === "bank_transfer" || paymentMethod === "bank") return "银行转账"
+  if (paymentMethod === "cash") return "现金"
+  if (paymentMethod === "wechat") return "微信"
+  if (paymentMethod === "alipay") return "支付宝"
+  return paymentMethod || "-"
+}
+
 // 初始化页面筛选条件和基础资料，保证首页、看板重复跳转到销售单页时数据会按最新地址刷新。
 async function initializePage() {
   initializeQueryParamsFromRoute()
-  await initBasicData()
-  await getList()
+  await Promise.all([
+    Promise.resolve(initBasicData()),
+    Promise.resolve(getList())
+  ])
+  if (shouldAutoOpenSaleOrderFromRoute()) {
+    handleAdd()
+  }
 }
 
 // 监听同一路由下的查询参数变化，避免销售订单页沿用旧的状态或单据筛选。
@@ -1403,6 +1961,14 @@ watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {
   }
   initializePage()
 })
+
+// 监听销售订单明细数量和单价变化，实时回填金额，减少销售手工试算。
+watch(
+  () => [saleOrderItemForm.value.quantity, saleOrderItemForm.value.price],
+  () => {
+    calculateSaleOrderItemAmount()
+  }
+)
 
 initializePage()
 </script>

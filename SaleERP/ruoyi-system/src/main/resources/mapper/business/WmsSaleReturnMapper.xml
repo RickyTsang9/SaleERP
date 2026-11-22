@@ -9,12 +9,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="returnNo"     column="return_no" />
         <result property="returnType"   column="return_type" />
         <result property="customerId"   column="customer_id" />
+        <result property="saleOrderId"  column="sale_order_id" />
+        <result property="saleOrderNo"  column="sale_order_no" />
+        <result property="customerName" column="customer_name" />
         <result property="warehouseId"  column="warehouse_id" />
+        <result property="warehouseName" column="warehouse_name" />
         <result property="totalQty"     column="total_qty" />
         <result property="totalAmount"  column="total_amount" />
         <result property="status"       column="status" />
         <result property="auditBy"      column="audit_by" />
         <result property="auditTime"    column="audit_time" />
+        <result property="rejectReason" column="reject_reason" />
         <result property="createBy"     column="create_by" />
         <result property="createTime"   column="create_time" />
         <result property="updateBy"     column="update_by" />
@@ -23,9 +28,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsSaleReturnVo">
-        select s.sale_return_id, s.return_no, s.return_type, s.customer_id, s.warehouse_id, s.total_qty, s.total_amount,
-               s.status, s.audit_by, s.audit_time, s.create_by, s.create_time, s.update_by, s.update_time, s.remark
+        select s.sale_return_id, s.return_no, s.return_type, s.customer_id, s.sale_order_id, so.order_no as sale_order_no,
+               mc.customer_name, s.warehouse_id, mw.warehouse_name,
+               s.total_qty, s.total_amount, s.status, s.audit_by, s.audit_time, s.reject_reason, s.create_by, s.create_time, s.update_by, s.update_time, s.remark
         from wms_sale_return s
+        left join wms_sale_order so on so.sale_order_id = s.sale_order_id
+        left join md_customer mc on mc.customer_id = s.customer_id
+        left join md_warehouse mw on mw.warehouse_id = s.warehouse_id
         left join sys_user su on su.user_name = s.create_by
     </sql>
 
@@ -46,6 +55,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="customerId != null">
                 and s.customer_id = #{customerId}
             </if>
+            <if test="saleOrderId != null">
+                and s.sale_order_id = #{saleOrderId}
+            </if>
             <if test="warehouseId != null">
                 and s.warehouse_id = #{warehouseId}
             </if>
@@ -63,6 +75,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="returnNo != null and returnNo != ''">return_no,</if>
             <if test="returnType != null">return_type,</if>
             <if test="customerId != null">customer_id,</if>
+            <if test="saleOrderId != null">sale_order_id,</if>
             <if test="warehouseId != null">warehouse_id,</if>
             <if test="totalQty != null">total_qty,</if>
             <if test="totalAmount != null">total_amount,</if>
@@ -78,6 +91,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="returnNo != null and returnNo != ''">#{returnNo},</if>
             <if test="returnType != null">#{returnType},</if>
             <if test="customerId != null">#{customerId},</if>
+            <if test="saleOrderId != null">#{saleOrderId},</if>
             <if test="warehouseId != null">#{warehouseId},</if>
             <if test="totalQty != null">#{totalQty},</if>
             <if test="totalAmount != null">#{totalAmount},</if>
@@ -97,6 +111,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="returnNo != null and returnNo != ''">return_no = #{returnNo},</if>
             <if test="returnType != null">return_type = #{returnType},</if>
             <if test="customerId != null">customer_id = #{customerId},</if>
+            <if test="saleOrderId != null">sale_order_id = #{saleOrderId},</if>
             <if test="warehouseId != null">warehouse_id = #{warehouseId},</if>
             <if test="totalQty != null">total_qty = #{totalQty},</if>
             <if test="totalAmount != null">total_amount = #{totalAmount},</if>
@@ -114,10 +129,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 audit_by = #{auditBy},
                 audit_time = sysdate(),
             </if>
+            reject_reason = case when #{status} = 'submitted' or #{status} = 'audited' then null else reject_reason end,
             update_by = #{updateBy},
             update_time = sysdate()
         where sale_return_id = #{saleReturnId}
           and status = #{currentStatus}
+    </update>
+
+    <update id="rejectWmsSaleReturnStatus">
+        update wms_sale_return
+        set status = 'draft',
+            reject_reason = #{rejectReason},
+            audit_by = null,
+            audit_time = null,
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where sale_return_id = #{saleReturnId}
+          and status = 'submitted'
     </update>
 
     <delete id="deleteWmsSaleReturnById" parameterType="Long">
