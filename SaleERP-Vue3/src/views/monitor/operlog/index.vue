@@ -17,27 +17,27 @@
             <el-form-item label="操作地址" prop="operIp">
                <el-input
                   v-model="queryParams.operIp"
-                  placeholder="请输入操作地址"
+                  placeholder="操作地址"
                   clearable
-                  style="width: 210px;"
+                  style="width: 150px;"
                   @keyup.enter="handleQuery"
                />
             </el-form-item>
             <el-form-item label="系统模块" prop="title">
                <el-input
                   v-model="queryParams.title"
-                  placeholder="请输入系统模块"
+                  placeholder="系统模块"
                   clearable
-                  style="width: 210px;"
+                  style="width: 150px;"
                   @keyup.enter="handleQuery"
                />
             </el-form-item>
             <el-form-item label="操作人员" prop="operName">
                <el-input
                   v-model="queryParams.operName"
-                  placeholder="请输入操作人员"
+                  placeholder="操作人员"
                   clearable
-                  style="width: 190px;"
+                  style="width: 135px;"
                   @keyup.enter="handleQuery"
                />
             </el-form-item>
@@ -46,7 +46,7 @@
                   v-model="queryParams.businessType"
                   placeholder="操作类型"
                   clearable
-                  style="width: 160px"
+                  style="width: 120px"
                >
                   <el-option
                      v-for="dict in sys_oper_type"
@@ -59,9 +59,9 @@
             <el-form-item label="状态" prop="status">
                <el-select
                   v-model="queryParams.status"
-                  placeholder="操作状态"
+                  placeholder="状态"
                   clearable
-                  style="width: 160px"
+                  style="width: 110px"
                >
                   <el-option
                      v-for="dict in sys_common_status"
@@ -71,7 +71,7 @@
                   />
                </el-select>
             </el-form-item>
-            <el-form-item label="操作时间" style="width: 308px">
+            <el-form-item label="操作时间" style="width: 280px">
                <el-date-picker
                   v-model="dateRange"
                   value-format="YYYY-MM-DD HH:mm:ss"
@@ -123,38 +123,40 @@
          </el-row>
 
          <el-table ref="operlogRef" v-loading="loading" :data="operlogList" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
-            <el-table-column type="selection" width="50" align="center" />
-            <el-table-column label="日志编号" align="center" prop="operId" width="100" />
-            <el-table-column label="系统模块" align="center" prop="title" :show-overflow-tooltip="true">
+            <el-table-column type="selection" width="44" align="center" />
+            <el-table-column label="编号" align="center" prop="operId" width="70" />
+            <el-table-column label="系统模块" align="left" prop="title" min-width="125" :show-overflow-tooltip="true">
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.title }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="操作类型" align="center" prop="businessType" width="100">
+            <el-table-column label="操作类型" align="center" prop="businessType" width="84">
                <template #default="scope">
                   <dict-tag :options="sys_oper_type" :value="scope.row.businessType" />
                </template>
             </el-table-column>
-            <el-table-column label="操作人员" align="center" width="110" prop="operName" :show-overflow-tooltip="true" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column label="操作地址" align="center" prop="operIp" width="130" :show-overflow-tooltip="true" />
-            <el-table-column label="操作状态" align="center" prop="status" width="100">
+            <el-table-column label="操作人员" align="center" width="96" prop="operName" :show-overflow-tooltip="true" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column label="操作地址" align="center" prop="operIp" width="112" :show-overflow-tooltip="true" />
+            <el-table-column label="状态" align="center" prop="status" width="76">
                <template #default="scope">
                   <dict-tag :options="sys_common_status" :value="scope.row.status" />
                </template>
             </el-table-column>
-            <el-table-column label="操作日期" align="center" prop="operTime" width="180" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <el-table-column label="操作日期" align="center" prop="operTime" width="140" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
-                  <span>{{ parseTime(scope.row.operTime) }}</span>
+                  <span>{{ parseTime(scope.row.operTime, '{y}-{m}-{d} {h}:{i}') }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="消耗时间" align="center" prop="costTime" width="110" :show-overflow-tooltip="true" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <el-table-column label="耗时" align="center" prop="costTime" width="90" :show-overflow-tooltip="true" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
                   <span class="erp-code-chip">{{ scope.row.costTime }} ms</span>
                </template>
             </el-table-column>
-            <el-table-column label="操作" align="center" width="90" fixed="right" class-name="small-padding fixed-width">
+            <el-table-column label="操作" align="center" width="84" fixed="right" class-name="small-padding fixed-width">
                <template #default="scope">
-                  <el-button link type="primary" icon="View" @click="handleView(scope.row, scope.index)" v-hasPermi="['monitor:operlog:query']">详细</el-button>
+                  <div class="erp-row-actions">
+                     <el-button link type="primary" icon="View" @click="handleView(scope.row, scope.index)" v-hasPermi="['monitor:operlog:query']">详细</el-button>
+                  </div>
                </template>
             </el-table-column>
          </el-table>

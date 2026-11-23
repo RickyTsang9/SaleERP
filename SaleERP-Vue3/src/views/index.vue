@@ -12,19 +12,19 @@
         <p class="home-hero__desc">聚合销售营收、应收回款、库存健康度与审批流转状态，一键直达高频核心业务。</p>
 
         <div class="home-hero__quick">
-          <el-button type="primary" @click="navigateTo(businessRoutePathMap.saleOrder, { mode: 'create' })">
+          <el-button type="primary" size="small" @click="navigateTo(businessRoutePathMap.saleOrder, { mode: 'create' })">
             <el-icon><ShoppingCart /></el-icon> 开销售单
           </el-button>
-          <el-button plain @click="navigateTo(businessRoutePathMap.inbound, { mode: 'create' })">
+          <el-button plain size="small" @click="navigateTo(businessRoutePathMap.inbound, { mode: 'create' })">
             <el-icon><Goods /></el-icon> 采购入库
           </el-button>
-          <el-button plain @click="navigateTo(businessRoutePathMap.inventoryCheck, { mode: 'create' })">
+          <el-button plain size="small" @click="navigateTo(businessRoutePathMap.inventoryCheck, { mode: 'create' })">
             <el-icon><Box /></el-icon> 盘点库存
           </el-button>
-          <el-button plain @click="navigateTo('/inventory/mobileWms')">
-            <el-icon><Iphone /></el-icon> 移动仓配 PDA
+          <el-button plain size="small" @click="navigateTo('/inventory/mobileWms')">
+            <el-icon><Iphone /></el-icon> 移动PDA
           </el-button>
-          <el-button plain @click="navigateTo(businessRoutePathMap.customer, { mode: 'create' })">
+          <el-button plain size="small" @click="navigateTo(businessRoutePathMap.customer, { mode: 'create' })">
             <el-icon><User /></el-icon> 新增客户
           </el-button>
         </div>
@@ -696,18 +696,20 @@ onBeforeUnmount(() => {
 .home-hero__quick {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
+  gap: 6px;
+  margin-top: 16px;
 
   :deep(.el-button) {
     margin-left: 0;
+    padding: 6px 10px;
+    font-size: 12.5px;
   }
 }
 
 .home-hero__summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(126px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(106px, 1fr));
+  gap: 10px;
   min-width: 400px;
   align-self: center;
 }

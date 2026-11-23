@@ -10,7 +10,7 @@
     >
       <template #actions>
         <el-switch v-model="narrowPreview" active-text="PDA 手持窄屏预览" />
-        <el-button type="primary" plain icon="Refresh" @click="loadAllDraftTasks">刷新待办单据</el-button>
+        <el-button type="primary" icon="Refresh" @click="loadAllDraftTasks">刷新待办单据</el-button>
       </template>
     </erp-page-header>
 

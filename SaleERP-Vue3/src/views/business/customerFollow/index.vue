@@ -81,43 +81,43 @@
         :row-class-name="getCustomerFollowRowClassName"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="客户" align="left" prop="customerId" min-width="175" show-overflow-tooltip>
+        <el-table-column type="selection" width="46" align="center" />
+        <el-table-column label="客户" align="left" prop="customerId" min-width="155" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.customerName || getCustomerName(scope.row.customerId) }}</div>
             <div class="erp-cell-sub">跟进人：{{ scope.row.createBy || '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="跟进状态" align="center" prop="status" width="105">
+        <el-table-column label="状态 / 提醒" align="center" width="115">
           <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)" effect="light">{{ getStatusName(scope.row.status) }}</el-tag>
+            <el-tag :type="getStatusType(scope.row.status)" effect="light" size="small">{{ getStatusName(scope.row.status) }}</el-tag>
+            <div class="erp-cell-sub">
+              <el-tag :type="getTodoReminderType(scope.row)" effect="plain" size="small" style="margin-top: 3px">{{ getTodoReminderLabel(scope.row) }}</el-tag>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="待办提醒" align="center" width="110">
-          <template #default="scope">
-            <el-tag :type="getTodoReminderType(scope.row)" effect="light">{{ getTodoReminderLabel(scope.row) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="下次跟进时间" align="center" prop="nextFollowTime" width="170">
+        <el-table-column label="下次跟进" align="center" prop="nextFollowTime" width="136">
           <template #default="scope">
             <span :class="getNextFollowTimeClassName(scope.row)">{{ formatNextFollowTime(scope.row.nextFollowTime) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="最近跟进时间" align="center" prop="followTime" width="170">
+        <el-table-column label="最近跟进" align="center" prop="followTime" width="136">
           <template #default="scope">
-            <span>{{ parseTime(scope.row.followTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+            <span>{{ parseTime(scope.row.followTime, '{y}-{m}-{d} {h}:{i}') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="方式" align="center" prop="followType" width="88">
+        <el-table-column label="方式" align="center" prop="followType" width="76">
           <template #default="scope">
             <el-tag size="small" type="info" effect="plain">{{ getFollowTypeLabel(scope.row.followType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="跟进内容" align="left" prop="followContent" min-width="240" show-overflow-tooltip />
-        <el-table-column label="操作" align="center" fixed="right" width="150">
+        <el-table-column label="跟进内容" align="left" prop="followContent" min-width="200" show-overflow-tooltip />
+        <el-table-column label="操作" align="center" fixed="right" width="132">
           <template #default="scope">
-            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:customerFollow:edit']">修改</el-button>
-            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:customerFollow:remove']">删除</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:customerFollow:edit']">修改</el-button>
+              <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:customerFollow:remove']">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>

@@ -81,41 +81,36 @@
             </el-form-item>
           </el-form>
           <el-table :data="invoiceTaxList" border v-loading="invoiceTaxLoading">
-            <el-table-column label="类型" align="center" prop="invoiceType" width="108">
+            <el-table-column label="类型" align="center" prop="invoiceType" width="90">
               <template #default="scope">
                 <el-tag size="small" :type="scope.row.invoiceType === 'sale_invoice' ? 'success' : 'warning'">
-                  {{ scope.row.invoiceType === "sale_invoice" ? "销项发票" : "进项发票" }}
+                  {{ scope.row.invoiceType === "sale_invoice" ? "销项" : "进项" }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="发票号码" align="center" prop="invoiceNo" min-width="155" show-overflow-tooltip>
+            <el-table-column label="发票号码" align="left" prop="invoiceNo" min-width="186" show-overflow-tooltip>
               <template #default="scope">
                 <span class="erp-code-chip">{{ scope.row.invoiceNo || '-' }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="往来单位" align="left" prop="targetName" min-width="150" show-overflow-tooltip />
-            <el-table-column label="来源单号" align="center" prop="sourceNo" min-width="135" show-overflow-tooltip />
-            <el-table-column label="税率" align="center" prop="taxRate" width="76">
+            <el-table-column label="往来单位 / 来源单" align="left" prop="targetName" min-width="165" show-overflow-tooltip>
               <template #default="scope">
-                <span>{{ Number(scope.row.taxRate ?? 13) }}%</span>
+                <div class="erp-cell-title">{{ scope.row.targetName || '-' }}</div>
+                <div class="erp-cell-sub">{{ scope.row.sourceNo || '-' }}</div>
               </template>
             </el-table-column>
-            <el-table-column label="含税金额" align="right" min-width="110">
+            <el-table-column label="含税金额" align="right" min-width="105">
               <template #default="scope">
-                <span>￥{{ formatAmountValue(scope.row.invoiceAmount) }}</span>
+                <span class="erp-amount is-primary">¥{{ formatAmountValue(scope.row.invoiceAmount) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="不含税金额" align="right" min-width="110">
+            <el-table-column label="不含税 / 税额" align="right" min-width="138">
               <template #default="scope">
-                <span>￥{{ formatAmountValue(scope.row.amountWithoutTax) }}</span>
+                <div class="erp-num">¥{{ formatAmountValue(scope.row.amountWithoutTax) }}</div>
+                <div class="erp-cell-sub">税 ¥{{ formatAmountValue(scope.row.taxAmount) }} ({{ Number(scope.row.taxRate ?? 13) }}%)</div>
               </template>
             </el-table-column>
-            <el-table-column label="税额" align="right" min-width="102">
-              <template #default="scope">
-                <span>￥{{ formatAmountValue(scope.row.taxAmount) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="开票日期" align="center" prop="billTime" width="112">
+            <el-table-column label="开票日期" align="center" prop="billTime" width="104">
               <template #default="scope">
                 <span>{{ parseTime(scope.row.billTime, '{y}-{m}-{d}') }}</span>
               </template>

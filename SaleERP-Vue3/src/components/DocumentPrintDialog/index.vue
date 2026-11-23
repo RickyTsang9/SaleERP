@@ -14,7 +14,7 @@
       </el-radio-group>
       <div class="print-switches">
         <el-switch
-          v-if="docData.docType !== 'inventory_check'"
+          v-if="canToggleHidePrice"
           v-model="hidePrice"
           active-text="无价送货单（隐藏单价金额）"
         />
@@ -31,10 +31,10 @@
         <div class="sheet-header">
           <div class="company-sub">{{ companyName }}</div>
           <h2 class="sheet-title">{{ docData.title || '业务单据' }}</h2>
-          <div v-if="paperMode === 'triplicate'" class="copy-badge">第一联：白联存根 / 第二联：红联客户签收 / 第三联：黄联财务记账</div>
+          <div v-if="paperMode === 'triplicate' && copyBadgeText" class="copy-badge">{{ copyBadgeText }}</div>
         </div>
 
-        <div class="meta-grid">
+        <div class="meta-grid" :class="{ 'is-two-col': useTwoColMeta }">
           <div v-for="(meta, idx) in docData.metaFields || []" :key="idx" class="meta-cell">
             <span class="meta-label">{{ meta.label }}：</span>
             <span class="meta-val">{{ meta.value || '-' }}</span>
@@ -133,29 +133,73 @@ const docData = ref({
 
 const dialogTitle = computed(() => `单据打印预览 — ${docData.value.title || ''}`)
 
+const canToggleHidePrice = computed(() => {
+  const noPriceSwitchTypes = ['inventory_check', 'transfer', 'receipt', 'payment', 'invoice']
+  return !noPriceSwitchTypes.includes(docData.value.docType) && (docData.value.columns || []).some(c => c.isPrice)
+})
+
+const useTwoColMeta = computed(() => {
+  const fields = docData.value.metaFields || []
+  return fields.length >= 7 || fields.some(m => String(m.value || '').length > 13)
+})
+
+const copyBadgeText = computed(() => {
+  if (docData.value.copyBadge) return docData.value.copyBadge
+  const map = {
+    outbound: '第一联：白联仓库存根 / 第二联：红联客户签收 / 第三联：黄联财务记账',
+    sale_order: '第一联：白联业务存根 / 第二联：红联客户确认 / 第三联：黄联财务留存',
+    saleReturn: '第一联：白联仓库存根 / 第二联：红联客户确认 / 第三联：黄联财务冲账',
+    sale_return: '第一联：白联仓库存根 / 第二联：红联客户确认 / 第三联：黄联财务冲账',
+    purchase_order: '第一联：白联采购存根 / 第二联：红联供应商确认 / 第三联：黄联财务留存',
+    inbound: '第一联：白联仓库验收 / 第二联：红联采购核对 / 第三联：黄联财务入账',
+    purchaseReturn: '第一联：白联仓库存根 / 第二联：红联供应商签收 / 第三联：黄联财务冲账',
+    purchase_return: '第一联：白联仓库存根 / 第二联：红联供应商签收 / 第三联：黄联财务冲账',
+    transfer: '第一联：白联调出仓存根 / 第二联：红联调入仓签收 / 第三联：黄联仓储复核',
+    inventory_check: '第一联：白联仓库初盘 / 第二联：红联财务监盘 / 第三联：黄联归档留存',
+    receipt: '第一联：白联财务记账 / 第二联：红联客户收据 / 第三联：黄联出纳留存',
+    payment: '第一联：白联财务记账 / 第二联：红联出纳留存 / 第三联：黄联供应商核对',
+    invoice: '第一联：白联税务记账 / 第二联：红联财务归档'
+  }
+  return map[docData.value.docType] || '第一联：白联存根 / 第二联：红联业务联 / 第三联：黄联财务记账'
+})
+
 const visibleColumns = computed(() => {
   const cols = docData.value.columns || []
-  if (hidePrice.value && docData.value.docType !== 'inventory_check') {
+  if (hidePrice.value && canToggleHidePrice.value) {
     return cols.filter(c => !c.isPrice)
   }
   return cols
 })
 
 const showAmountSummary = computed(() => {
-  return docData.value.docType !== 'inventory_check' && !hidePrice.value && docData.value.totalAmount !== undefined
+  const noAmountTypes = ['inventory_check', 'transfer']
+  return (
+    !noAmountTypes.includes(docData.value.docType) &&
+    docData.value.showAmount !== false &&
+    !hidePrice.value &&
+    docData.value.totalAmount !== undefined &&
+    docData.value.totalAmount !== null
+  )
 })
 
 const signatureLabels = computed(() => {
   if (docData.value.signatures && docData.value.signatures.length) {
     return docData.value.signatures
   }
-  if (docData.value.docType === 'inventory_check') {
-    return ['初盘人', '复盘监盘人', '仓库主管签字']
+  const map = {
+    inventory_check: ['初盘人', '复盘监盘人', '仓库主管签字'],
+    outbound: ['制单人', '拣货验货人', '送货司机', '客户收货签章'],
+    transfer: ['制单人', '调出仓经办', '调入仓签收'],
+    purchaseReturn: ['制单人', '仓库发货', '供应商签收'],
+    purchase_return: ['制单人', '仓库发货', '供应商签收'],
+    saleReturn: ['制单人', '仓库质检入库', '客户确认'],
+    sale_return: ['制单人', '仓库质检入库', '客户确认'],
+    inbound: ['制单人', '仓库验收', '采购复核'],
+    receipt: ['财务审核', '出纳收款', '客户确认签章'],
+    payment: ['财务审核', '出纳复核', '经办/收款人签章'],
+    invoice: ['制单人', '财务审核', '税务复核']
   }
-  if (docData.value.docType === 'outbound') {
-    return ['制单人', '拣货验货人', '送货司机', '客户收货签章']
-  }
-  return ['制单人', '部门审核', '对方单位签章']
+  return map[docData.value.docType] || ['制单人', '部门审核', '对方单位签章']
 })
 
 const amountUppercase = computed(() => digitUppercase(docData.value.totalAmount || 0))
@@ -204,6 +248,8 @@ function openPrint(payload = {}) {
     items: payload.items || [],
     totalQty: payload.totalQty ?? 0,
     totalAmount: payload.totalAmount,
+    showAmount: payload.showAmount,
+    copyBadge: payload.copyBadge || '',
     remark: payload.remark || '',
     signatures: payload.signatures || []
   }
@@ -238,8 +284,11 @@ function executeBrowserPrint() {
     .company-sub { font-size: 12px; color: #555; }
     .sheet-title { margin: 4px 0; font-size: 20px; letter-spacing: 2px; }
     .copy-badge { font-size: 11px; color: #666; margin-top: 2px; }
-    .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 12px; margin-bottom: 10px; font-size: 12.5px; }
-    .meta-label { font-weight: 600; }
+    .meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 14px; margin-bottom: 10px; font-size: 12.5px; }
+    .meta-grid.is-two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .meta-cell { display: flex; align-items: baseline; min-width: 0; }
+    .meta-label { font-weight: 600; flex-shrink: 0; }
+    .meta-val { word-break: keep-all; overflow-wrap: anywhere; }
     .sheet-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12.5px; }
     .sheet-table th, .sheet-table td { border: 1px solid #222; padding: 5px 7px; }
     .sheet-table th { background: #f3f4f6; font-weight: 700; }
@@ -327,13 +376,29 @@ defineExpose({
 .meta-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px 14px;
+  gap: 6px 16px;
   margin-bottom: 12px;
   font-size: 13px;
+
+  &.is-two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meta-cell {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+  }
 
   .meta-label {
     font-weight: 600;
     color: #374151;
+    flex-shrink: 0;
+  }
+
+  .meta-val {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
   }
 }
 

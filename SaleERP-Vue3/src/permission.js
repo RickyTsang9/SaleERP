@@ -45,7 +45,10 @@ router.beforeEach((to, from, next) => {
         }).catch(err => {
           isRelogin.show = false
           useUserStore().logOut().finally(() => {
-            ElMessage.error(err)
+            const errMsg = typeof err === 'string' ? err : (err?.message || '')
+            if (errMsg && !errMsg.includes('无效的会话') && !errMsg.includes('会话已过期')) {
+              ElMessage.error(errMsg)
+            }
             next({ path: '/login', replace: true })
             NProgress.done()
           })

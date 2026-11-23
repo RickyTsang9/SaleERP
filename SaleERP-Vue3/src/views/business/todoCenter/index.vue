@@ -59,58 +59,47 @@
       </div>
 
       <el-table v-loading="loading" :data="filteredTodoList">
-        <el-table-column label="优先级" align="center" prop="priorityLevel" width="90">
+        <el-table-column label="级别" align="center" prop="priorityLevel" width="72">
           <template #default="scope">
-            <el-tag :type="getPriorityTagType(scope.row.priorityLevel)" effect="light">
+            <el-tag :type="getPriorityTagType(scope.row.priorityLevel)" effect="light" size="small">
               {{ getPriorityLabel(scope.row.priorityLevel) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="待办事项" align="left" prop="todoTitle" min-width="220" show-overflow-tooltip>
+        <el-table-column label="待办事项 / 业务类型" align="left" prop="todoTitle" min-width="205" show-overflow-tooltip>
           <template #default="scope">
-            <div class="erp-cell-title">{{ scope.row.todoTitle }}</div>
+            <div class="erp-cell-title" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ scope.row.todoTitle }}</div>
+            <div class="erp-cell-sub">{{ getTodoTypeLabel(scope.row.todoType) }} · {{ scope.row.targetName || '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="业务类型" align="center" prop="todoType" width="124">
-          <template #default="scope">
-            <el-tag size="small" type="info" effect="plain">{{ getTodoTypeLabel(scope.row.todoType) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="单号/编号" align="center" prop="sourceNo" min-width="135" show-overflow-tooltip>
+        <el-table-column label="单号/编号" align="center" prop="sourceNo" min-width="136" show-overflow-tooltip>
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.sourceNo || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="关联对象" align="center" prop="targetName" min-width="130" show-overflow-tooltip />
-        <el-table-column label="金额/数量" align="right" prop="todoAmount" width="115">
+        <el-table-column label="金额 / 未结" align="right" width="118">
           <template #default="scope">
-            <span class="erp-amount">{{ formatTodoAmount(scope.row) }}</span>
+            <div class="erp-amount">{{ formatTodoAmount(scope.row) }}</div>
+            <div v-if="Number(scope.row.remainAmount || 0) > 0" class="erp-cell-sub" style="color: var(--el-color-danger)">
+              未结 {{ formatAmount(scope.row.remainAmount) }}
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="未结金额" align="right" prop="remainAmount" width="110">
+        <el-table-column label="到期 / 等待" align="center" width="116">
           <template #default="scope">
-            <span class="erp-amount" :class="{ 'is-danger': Number(scope.row.remainAmount || 0) > 0 }">
-              {{ formatAmount(scope.row.remainAmount) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="到期时间" align="center" prop="dueTime" width="115">
-          <template #default="scope">
-            <span>{{ parseTime(scope.row.dueTime, '{y}-{m}-{d}') || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="等待/逾期" align="center" prop="overdueDays" width="96">
-          <template #default="scope">
-            <span :class="{ 'erp-amount is-danger': Number(scope.row.overdueDays || 0) > 0 }">
+            <div>{{ parseTime(scope.row.dueTime, '{y}-{m}-{d}') || '-' }}</div>
+            <div class="erp-cell-sub" :style="Number(scope.row.overdueDays || 0) > 0 ? 'color: var(--el-color-danger)' : ''">
               {{ formatWaitingDays(scope.row) }}
-            </span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" align="center" fixed="right" width="110">
+        <el-table-column label="操作" align="center" fixed="right" width="102">
           <template #default="scope">
-            <el-button link type="primary" icon="Position" @click="handleTodo(scope.row)">
-              {{ scope.row.actionName || "去处理" }}
-            </el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="Position" @click="handleTodo(scope.row)">
+                {{ scope.row.actionName || "去处理" }}
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>

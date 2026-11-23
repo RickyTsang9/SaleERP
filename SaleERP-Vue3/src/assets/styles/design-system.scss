@@ -296,13 +296,58 @@ html.dark .erp-amount {
 
   .el-button.is-link {
     font-weight: 500;
-    padding: 3px 6px;
-    margin: 2px 2px !important;
+    padding: 3px 5px;
+    margin: 1px 2px !important;
     border-radius: 6px;
+    white-space: nowrap;
 
     &:hover {
       background: var(--erp-primary-hover);
     }
+  }
+
+  .erp-row-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 2px;
+    white-space: nowrap;
+  }
+}
+
+/* Chain Tracking Steps - prevent order number orphan wrap */
+.erp-chain-steps {
+  .el-step__title {
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .el-step.is-center .el-step__description,
+  .el-step__description {
+    font-size: 11.5px;
+    line-height: 1.45;
+    padding-right: 2px !important;
+    padding-left: 2px !important;
+    white-space: nowrap;
+  }
+}
+
+/* Dark Mode Disabled Button Legibility */
+html.dark {
+  .el-button.is-disabled,
+  .el-button.is-disabled:hover,
+  .el-button.is-disabled:focus {
+    color: rgba(148, 163, 184, 0.78) !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+    border-color: rgba(71, 85, 105, 0.65) !important;
+  }
+
+  .el-button.is-link.is-disabled,
+  .el-button.is-text.is-disabled {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: rgba(148, 163, 184, 0.5) !important;
   }
 }
 
@@ -364,6 +409,7 @@ html.dark .erp-amount {
 
 /* Dialogs */
 .el-dialog {
+  max-width: calc(100vw - 32px) !important;
   border-radius: var(--erp-radius-xl) !important;
   background: var(--erp-surface) !important;
   border: 1px solid var(--erp-border);
@@ -401,6 +447,9 @@ html.dark .erp-amount {
   .el-dialog__body {
     padding: 20px 24px !important;
     color: var(--erp-text);
+    max-height: calc(86vh - 120px);
+    overflow-y: auto;
+    overflow-x: auto;
   }
 
   .el-dialog__footer {

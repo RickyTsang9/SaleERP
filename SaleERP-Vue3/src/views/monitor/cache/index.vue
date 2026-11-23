@@ -125,7 +125,13 @@ function getList() {
           max: 1000,
           progress: { show: true, width: 14, itemStyle: { color: '#4F46E5' } },
           axisLine: { lineStyle: { width: 14 } },
+          pointer: { length: '52%', width: 5 },
+          title: {
+            offsetCenter: [0, '52%'],
+            fontSize: 13
+          },
           detail: {
+            offsetCenter: [0, '76%'],
             formatter: cache.value.info.used_memory_human,
             fontSize: 22,
             color: '#4F46E5'

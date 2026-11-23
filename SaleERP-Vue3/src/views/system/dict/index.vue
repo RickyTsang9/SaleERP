@@ -119,35 +119,37 @@
          </el-row>
 
          <el-table v-loading="loading" :data="typeList" @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55" align="center" />
-            <el-table-column label="字典编号" align="center" prop="dictId" width="100" />
-            <el-table-column label="字典名称" align="center" prop="dictName" :show-overflow-tooltip="true">
+            <el-table-column type="selection" width="44" align="center" />
+            <el-table-column label="编号" align="center" prop="dictId" width="66" />
+            <el-table-column label="字典名称" align="left" prop="dictName" min-width="115" :show-overflow-tooltip="true">
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.dictName }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="字典类型" align="center" :show-overflow-tooltip="true">
+            <el-table-column label="字典类型" align="left" min-width="155" :show-overflow-tooltip="true">
                <template #default="scope">
                   <router-link :to="'/system/dict-data/index/' + scope.row.dictId" class="link-type">
                      <span class="erp-code-chip">{{ scope.row.dictType }}</span>
                   </router-link>
                </template>
             </el-table-column>
-            <el-table-column label="状态" align="center" prop="status" width="100">
+            <el-table-column label="状态" align="center" prop="status" width="76">
                <template #default="scope">
                   <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
                </template>
             </el-table-column>
-            <el-table-column label="备注" align="center" prop="remark" :show-overflow-tooltip="true" />
-            <el-table-column label="创建时间" align="center" prop="createTime" width="180">
+            <el-table-column label="备注" align="left" prop="remark" min-width="135" :show-overflow-tooltip="true" />
+            <el-table-column label="创建时间" align="center" prop="createTime" width="136">
                <template #default="scope">
-                  <span>{{ parseTime(scope.row.createTime) }}</span>
+                  <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+            <el-table-column label="操作" align="center" width="136" fixed="right" class-name="small-padding fixed-width">
                <template #default="scope">
-                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:dict:edit']">修改</el-button>
-                  <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:dict:remove']">删除</el-button>
+                  <div class="erp-row-actions">
+                     <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:dict:edit']">修改</el-button>
+                     <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:dict:remove']">删除</el-button>
+                  </div>
                </template>
             </el-table-column>
          </el-table>

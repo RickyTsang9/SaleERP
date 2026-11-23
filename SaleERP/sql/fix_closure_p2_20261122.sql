@@ -151,3 +151,16 @@ UPDATE `fin_account`
 SET `current_balance` = 559990.00
 WHERE `account_id` = 1
   AND EXISTS (SELECT 1 FROM `fin_account_journal` WHERE `journal_no` = 'ZJ-PM-20261121-001');
+
+-- 6. 经营看板默认月度经营目标配置（幂等写入）
+INSERT INTO `sys_config` (`config_name`, `config_key`, `config_value`, `config_type`, `create_by`, `create_time`, `remark`)
+SELECT '经营看板销售目标', 'biz.report.dashboard.saleTargetAmount', '120000', 'N', 'admin', NOW(), '用于经营看板展示月度销售目标（元）'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'biz.report.dashboard.saleTargetAmount');
+
+INSERT INTO `sys_config` (`config_name`, `config_key`, `config_value`, `config_type`, `create_by`, `create_time`, `remark`)
+SELECT '经营看板毛利目标', 'biz.report.dashboard.grossProfitTargetAmount', '60000', 'N', 'admin', NOW(), '用于经营看板展示月度毛利目标（元）'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'biz.report.dashboard.grossProfitTargetAmount');
+
+INSERT INTO `sys_config` (`config_name`, `config_key`, `config_value`, `config_type`, `create_by`, `create_time`, `remark`)
+SELECT '经营看板回款率目标', 'biz.report.dashboard.collectionRateTarget', '75', 'N', 'admin', NOW(), '用于经营看板展示月度回款率目标（百分比）'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'biz.report.dashboard.collectionRateTarget');

@@ -45,34 +45,44 @@
             :data="onlineList.slice((pageNum - 1) * pageSize, pageNum * pageSize)"
             style="width: 100%;"
          >
-            <el-table-column label="序号" width="55" type="index" align="center">
+            <el-table-column label="序号" width="52" type="index" align="center">
                <template #default="scope">
                   <span>{{ (pageNum - 1) * pageSize + scope.$index + 1 }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="会话编号" align="center" prop="tokenId" :show-overflow-tooltip="true">
+            <el-table-column label="会话编号" align="left" prop="tokenId" min-width="155" :show-overflow-tooltip="true">
                <template #default="scope">
-                  <span class="erp-code-chip">{{ scope.row.tokenId }}</span>
+                  <span class="erp-code-chip">{{ scope.row.tokenId ? String(scope.row.tokenId).slice(0, 14) + '…' : '-' }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="登录名称" align="center" prop="userName" :show-overflow-tooltip="true">
+            <el-table-column label="用户 / 部门" align="left" prop="userName" min-width="118" :show-overflow-tooltip="true">
                <template #default="scope">
-                  <span class="erp-cell-title">{{ scope.row.userName }}</span>
+                  <div class="erp-cell-title">{{ scope.row.userName }}</div>
+                  <div class="erp-cell-sub">{{ scope.row.deptName || '-' }}</div>
                </template>
             </el-table-column>
-            <el-table-column label="所属部门" align="center" prop="deptName" :show-overflow-tooltip="true" />
-            <el-table-column label="主机" align="center" prop="ipaddr" :show-overflow-tooltip="true" />
-            <el-table-column label="登录地点" align="center" prop="loginLocation" :show-overflow-tooltip="true" />
-            <el-table-column label="操作系统" align="center" prop="os" :show-overflow-tooltip="true" />
-            <el-table-column label="浏览器" align="center" prop="browser" :show-overflow-tooltip="true" />
-            <el-table-column label="登录时间" align="center" prop="loginTime" width="180">
+            <el-table-column label="主机 / 地点" align="left" min-width="120" :show-overflow-tooltip="true">
                <template #default="scope">
-                  <span>{{ parseTime(scope.row.loginTime) }}</span>
+                  <div>{{ scope.row.ipaddr }}</div>
+                  <div class="erp-cell-sub">{{ scope.row.loginLocation || '-' }}</div>
                </template>
             </el-table-column>
-            <el-table-column label="操作" align="center" width="100" class-name="small-padding fixed-width">
+            <el-table-column label="终端环境" align="left" min-width="120" :show-overflow-tooltip="true">
                <template #default="scope">
-                  <el-button link type="danger" icon="Delete" @click="handleForceLogout(scope.row)" v-hasPermi="['monitor:online:forceLogout']">强退</el-button>
+                  <div>{{ scope.row.browser || '-' }}</div>
+                  <div class="erp-cell-sub">{{ scope.row.os || '-' }}</div>
+               </template>
+            </el-table-column>
+            <el-table-column label="登录时间" align="center" prop="loginTime" width="136">
+               <template #default="scope">
+                  <span>{{ parseTime(scope.row.loginTime, '{y}-{m}-{d} {h}:{i}') }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column label="操作" align="center" width="84" fixed="right" class-name="small-padding fixed-width">
+               <template #default="scope">
+                  <div class="erp-row-actions">
+                     <el-button link type="danger" icon="Delete" @click="handleForceLogout(scope.row)" v-hasPermi="['monitor:online:forceLogout']">强退</el-button>
+                  </div>
                </template>
             </el-table-column>
          </el-table>

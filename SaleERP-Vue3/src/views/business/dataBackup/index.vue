@@ -56,45 +56,45 @@
       </div>
 
       <el-table v-loading="loading" :data="dataBackupList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="备份名称" align="left" prop="backupName" min-width="210" show-overflow-tooltip>
+        <el-table-column type="selection" width="44" align="center" />
+        <el-table-column label="备份名称" align="left" prop="backupName" min-width="185" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.backupName }}</div>
             <div class="erp-cell-sub">表 {{ scope.row.tableCount || 0 }} 张 · 记录 {{ scope.row.recordCount || 0 }} 条</div>
           </template>
         </el-table-column>
-        <el-table-column label="备份类型" align="center" prop="backupType" width="132">
+        <el-table-column label="类型 / 状态" align="center" width="115">
           <template #default="scope">
-            <el-tag :type="getBackupTypeTag(scope.row.backupType)" effect="plain">{{ getBackupTypeLabel(scope.row.backupType) }}</el-tag>
+            <el-tag :type="getBackupTypeTag(scope.row.backupType)" effect="plain" size="small">{{ getBackupTypeLabel(scope.row.backupType) }}</el-tag>
+            <div class="erp-cell-sub" style="margin-top: 3px">
+              <el-tag :type="scope.row.backupStatus === 'success' ? 'success' : 'danger'" effect="light" size="small">{{ getBackupStatusLabel(scope.row.backupStatus) }}</el-tag>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="备份状态" align="center" prop="backupStatus" width="110">
-          <template #default="scope">
-            <el-tag :type="scope.row.backupStatus === 'success' ? 'success' : 'danger'" effect="light">{{ getBackupStatusLabel(scope.row.backupStatus) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="文件大小" align="right" prop="fileSize" width="105">
+        <el-table-column label="大小" align="right" prop="fileSize" width="84">
           <template #default="scope">
             <span class="erp-num">{{ formatFileSize(scope.row.fileSize) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="恢复状态 / 执行人" align="center" prop="restoreStatus" width="140">
+        <el-table-column label="恢复状态" align="center" prop="restoreStatus" width="98">
           <template #default="scope">
-            <el-tag v-if="scope.row.restoreStatus" :type="scope.row.restoreStatus === 'success' ? 'success' : 'danger'" effect="light">{{ getRestoreStatusLabel(scope.row.restoreStatus) }}</el-tag>
+            <el-tag v-if="scope.row.restoreStatus" :type="scope.row.restoreStatus === 'success' ? 'success' : 'danger'" effect="light" size="small">{{ getRestoreStatusLabel(scope.row.restoreStatus) }}</el-tag>
             <span v-else class="erp-cell-sub">未恢复</span>
             <div v-if="scope.row.restoreBy" class="erp-cell-sub">{{ scope.row.restoreBy }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" align="center" prop="createTime" width="165">
+        <el-table-column label="创建时间" align="center" prop="createTime" width="136">
           <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime) }}</span>
+            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="210" fixed="right" align="center">
+        <el-table-column label="操作" width="204" fixed="right" align="center">
           <template #default="scope">
-            <el-button v-if="scope.row.backupStatus === 'success'" link type="primary" icon="Download" @click="handleDownloadBackup(scope.row)">下载</el-button>
-            <el-button v-if="scope.row.backupStatus === 'success'" link type="warning" icon="RefreshRight" @click="handleRestore(scope.row)" v-hasPermi="['business:dataBackup:restore']">恢复</el-button>
-            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:dataBackup:remove']">删除</el-button>
+            <div class="erp-row-actions">
+              <el-button v-if="scope.row.backupStatus === 'success'" link type="primary" icon="Download" @click="handleDownloadBackup(scope.row)">下载</el-button>
+              <el-button v-if="scope.row.backupStatus === 'success'" link type="warning" icon="RefreshRight" @click="handleRestore(scope.row)" v-hasPermi="['business:dataBackup:restore']">恢复</el-button>
+              <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:dataBackup:remove']">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>

@@ -105,25 +105,25 @@
          </el-row>
 
          <el-table v-loading="loading" :data="jobList" @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55" align="center" />
-            <el-table-column label="任务编号" width="90" align="center" prop="jobId" />
-            <el-table-column label="任务名称" align="center" prop="jobName" :show-overflow-tooltip="true">
+            <el-table-column type="selection" width="44" align="center" />
+            <el-table-column label="编号" width="64" align="center" prop="jobId" />
+            <el-table-column label="任务名称" align="left" prop="jobName" min-width="155" :show-overflow-tooltip="true">
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.jobName }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="任务组名" align="center" prop="jobGroup" width="110">
+            <el-table-column label="任务组" align="center" prop="jobGroup" width="84">
                <template #default="scope">
                   <dict-tag :options="sys_job_group" :value="scope.row.jobGroup" />
                </template>
             </el-table-column>
-            <el-table-column label="调用目标字符串" align="center" prop="invokeTarget" :show-overflow-tooltip="true" />
-            <el-table-column label="cron执行表达式" align="center" prop="cronExpression" :show-overflow-tooltip="true">
+            <el-table-column label="调用目标字符串" align="left" prop="invokeTarget" min-width="175" :show-overflow-tooltip="true" />
+            <el-table-column label="Cron 表达式" align="center" prop="cronExpression" min-width="142" :show-overflow-tooltip="true">
                <template #default="scope">
                   <span class="erp-code-chip">{{ scope.row.cronExpression }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="状态" align="center" width="90">
+            <el-table-column label="状态" align="center" width="76">
                <template #default="scope">
                   <el-switch
                      v-model="scope.row.status"
@@ -133,23 +133,25 @@
                   ></el-switch>
                </template>
             </el-table-column>
-            <el-table-column label="操作" align="center" width="200" class-name="small-padding fixed-width">
+            <el-table-column label="操作" align="center" width="168" fixed="right" class-name="small-padding fixed-width">
                <template #default="scope">
-                  <el-tooltip content="修改" placement="top">
-                     <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['monitor:job:edit']"></el-button>
-                  </el-tooltip>
-                  <el-tooltip content="删除" placement="top">
-                     <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['monitor:job:remove']"></el-button>
-                  </el-tooltip>
-                  <el-tooltip content="执行一次" placement="top">
-                     <el-button link type="primary" icon="CaretRight" @click="handleRun(scope.row)" v-hasPermi="['monitor:job:changeStatus']"></el-button>
-                  </el-tooltip>
-                  <el-tooltip content="任务详细" placement="top">
-                     <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['monitor:job:query']"></el-button>
-                  </el-tooltip>
-                  <el-tooltip content="调度日志" placement="top">
-                     <el-button link type="primary" icon="Operation" @click="handleJobLog(scope.row)" v-hasPermi="['monitor:job:query']"></el-button>
-                  </el-tooltip>
+                  <div class="erp-row-actions">
+                     <el-tooltip content="修改" placement="top">
+                        <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['monitor:job:edit']"></el-button>
+                     </el-tooltip>
+                     <el-tooltip content="删除" placement="top">
+                        <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['monitor:job:remove']"></el-button>
+                     </el-tooltip>
+                     <el-tooltip content="执行一次" placement="top">
+                        <el-button link type="primary" icon="CaretRight" @click="handleRun(scope.row)" v-hasPermi="['monitor:job:changeStatus']"></el-button>
+                     </el-tooltip>
+                     <el-tooltip content="任务详细" placement="top">
+                        <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['monitor:job:query']"></el-button>
+                     </el-tooltip>
+                     <el-tooltip content="调度日志" placement="top">
+                        <el-button link type="primary" icon="Operation" @click="handleJobLog(scope.row)" v-hasPermi="['monitor:job:query']"></el-button>
+                     </el-tooltip>
+                  </div>
                </template>
             </el-table-column>
          </el-table>

@@ -57,20 +57,20 @@
       </div>
 
       <el-table v-loading="loading" :data="invoiceList">
-        <el-table-column label="发票号码" align="center" prop="invoiceNo" min-width="150" show-overflow-tooltip>
+        <el-table-column label="发票号码" align="left" prop="invoiceNo" min-width="196" show-overflow-tooltip>
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.invoiceNo }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="方向 / 票种" align="center" width="136">
+        <el-table-column label="方向 / 票种" align="center" width="118">
           <template #default="scope">
-            <el-tag size="small" :type="scope.row.invoiceDirection === 'sale' ? 'primary' : 'success'" effect="light" style="margin-right: 4px">
+            <el-tag size="small" :type="scope.row.invoiceDirection === 'sale' ? 'primary' : 'success'" effect="light">
               {{ scope.row.invoiceDirection === 'sale' ? '销项' : '进项' }}
             </el-tag>
-            <span class="erp-cell-sub">{{ formatInvoiceTypeShort(scope.row.invoiceType) }}</span>
+            <div class="erp-cell-sub">{{ formatInvoiceTypeShort(scope.row.invoiceType) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="往来单位 / 关联单" align="left" prop="targetName" min-width="195" show-overflow-tooltip>
+        <el-table-column label="往来单位 / 关联单" align="left" prop="targetName" min-width="175" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.targetName }}</div>
             <div class="erp-cell-sub">
@@ -89,40 +89,38 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="价税合计" align="right" prop="totalAmount" width="112">
+        <el-table-column label="价税合计" align="right" prop="totalAmount" width="106">
           <template #default="scope">
             <span class="erp-amount is-primary">¥{{ formatMoney(scope.row.totalAmount) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="不含税额" align="right" prop="amountWithoutTax" width="106">
+        <el-table-column label="不含税 / 税额" align="right" width="136">
           <template #default="scope">
-            <span class="erp-num">¥{{ formatMoney(scope.row.amountWithoutTax) }}</span>
+            <div class="erp-num">¥{{ formatMoney(scope.row.amountWithoutTax) }}</div>
+            <div class="erp-cell-sub">税 ¥{{ formatMoney(scope.row.taxAmount) }} ({{ Number(scope.row.taxRate ?? 13) }}%)</div>
           </template>
         </el-table-column>
-        <el-table-column label="税额 (税率)" align="right" width="122">
-          <template #default="scope">
-            <span class="erp-num">¥{{ formatMoney(scope.row.taxAmount) }} ({{ Number(scope.row.taxRate ?? 13) }}%)</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="开票日期" align="center" prop="invoiceDate" width="108">
+        <el-table-column label="开票日期" align="center" prop="invoiceDate" width="104">
           <template #default="scope">
             <span>{{ parseTime(scope.row.invoiceDate, '{y}-{m}-{d}') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" align="center" prop="status" width="96">
+        <el-table-column label="状态" align="center" prop="status" width="88">
           <template #default="scope">
             <el-tooltip v-if="scope.row.status === 'red_void'" :content="scope.row.voidReason || '已红冲'" placement="top">
               <el-tag size="small" type="danger" effect="light">已红冲</el-tag>
             </el-tooltip>
             <el-tag v-else-if="scope.row.status === 'draft'" size="small" type="info" effect="light">草稿</el-tag>
-            <el-tag v-else size="small" type="success" effect="light">正常有效</el-tag>
+            <el-tag v-else size="small" type="success" effect="light">有效</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="195" fixed="right" align="center">
+        <el-table-column label="操作" width="204" fixed="right" align="center">
           <template #default="scope">
-            <el-button link type="info" icon="Printer" @click="handlePrintInvoice(scope.row)">打印</el-button>
-            <el-button v-if="scope.row.status !== 'red_void'" link type="primary" icon="Edit" @click="handleEdit(scope.row)" v-hasPermi="['business:invoice:edit']">修改</el-button>
-            <el-button v-if="scope.row.status !== 'red_void'" link type="danger" icon="RefreshLeft" @click="handleVoid(scope.row)" v-hasPermi="['business:invoice:void']">红冲</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="info" icon="Printer" @click="handlePrintInvoice(scope.row)">打印</el-button>
+              <el-button v-if="scope.row.status !== 'red_void'" link type="primary" icon="Edit" @click="handleEdit(scope.row)" v-hasPermi="['business:invoice:edit']">修改</el-button>
+              <el-button v-if="scope.row.status !== 'red_void'" link type="danger" icon="RefreshLeft" @click="handleVoid(scope.row)" v-hasPermi="['business:invoice:void']">红冲</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -136,8 +134,8 @@
       />
     </section>
 
-    <el-dialog v-model="open" :title="dialogTitle" width="680px" append-to-body>
-      <el-form ref="invoiceFormRef" :model="form" :rules="rules" label-width="110px">
+    <el-dialog v-model="open" :title="dialogTitle" width="780px" append-to-body>
+      <el-form ref="invoiceFormRef" :model="form" :rules="rules" label-width="105px">
         <el-row :gutter="14">
           <el-col :span="12">
             <el-form-item label="发票方向" prop="invoiceDirection">
@@ -176,7 +174,7 @@
             <el-form-item :label="form.invoiceDirection === 'sale' ? '关联销售单' : '关联采购单'">
               <el-select
                 v-model="form.sourceOrderId"
-                placeholder="可选，关联后自动带出往来单位与金额"
+                placeholder="可选，自动带出单位与余额"
                 clearable
                 filterable
                 style="width: 100%"
@@ -214,11 +212,11 @@
           <el-col :span="12">
             <el-form-item label="适用税率(%)" prop="taxRate">
               <el-select v-model="form.taxRate" style="width: 100%">
-                <el-option label="13%（标准货物销售税率）" :value="13" />
-                <el-option label="9%（运输/农产品税率）" :value="9" />
-                <el-option label="6%（现代服务业税率）" :value="6" />
-                <el-option label="3%（小规模征收率）" :value="3" />
-                <el-option label="1%（小规模优惠征收率）" :value="1" />
+                <el-option label="13%（标准货物）" :value="13" />
+                <el-option label="9%（运输/农产品）" :value="9" />
+                <el-option label="6%（现代服务）" :value="6" />
+                <el-option label="3%（小规模征收）" :value="3" />
+                <el-option label="1%（小规模优惠）" :value="1" />
                 <el-option label="0%（免税）" :value="0" />
               </el-select>
             </el-form-item>

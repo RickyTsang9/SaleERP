@@ -2494,4 +2494,17 @@ CREATE TABLE `wms_transfer_item` (
 -- ----------------------------
 INSERT INTO `wms_transfer_item` (`transfer_item_id`, `transfer_id`, `product_id`, `out_location_id`, `in_location_id`, `batch_no`, `expire_date`, `quantity`, `unit_cost`, `remark`) VALUES (1001, 1001, 990011, NULL, NULL, NULL, NULL, 5.00, 0.00, '调拨 iPhone 15 Pro 5台');
 
+-- ----------------------------
+-- Default monthly dashboard target configs
+-- ----------------------------
+INSERT INTO `sys_config` (`config_name`, `config_key`, `config_value`, `config_type`, `create_by`, `create_time`, `remark`)
+SELECT '经营看板销售目标', 'biz.report.dashboard.saleTargetAmount', '120000', 'N', 'admin', '2026-11-23 00:00:00', '用于经营看板展示月度销售目标（元）'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'biz.report.dashboard.saleTargetAmount');
+INSERT INTO `sys_config` (`config_name`, `config_key`, `config_value`, `config_type`, `create_by`, `create_time`, `remark`)
+SELECT '经营看板毛利目标', 'biz.report.dashboard.grossProfitTargetAmount', '60000', 'N', 'admin', '2026-11-23 00:00:00', '用于经营看板展示月度毛利目标（元）'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'biz.report.dashboard.grossProfitTargetAmount');
+INSERT INTO `sys_config` (`config_name`, `config_key`, `config_value`, `config_type`, `create_by`, `create_time`, `remark`)
+SELECT '经营看板回款率目标', 'biz.report.dashboard.collectionRateTarget', '75', 'N', 'admin', '2026-11-23 00:00:00', '用于经营看板展示月度回款率目标（百分比）'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'biz.report.dashboard.collectionRateTarget');
+
 SET FOREIGN_KEY_CHECKS = 1;

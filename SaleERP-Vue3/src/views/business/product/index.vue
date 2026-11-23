@@ -57,35 +57,35 @@
       </div>
 
       <el-table v-loading="loading" :data="productList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="商品编码" align="center" prop="productCode" min-width="125" show-overflow-tooltip>
+        <el-table-column type="selection" width="46" align="center" />
+        <el-table-column label="商品编码" align="center" prop="productCode" min-width="112" show-overflow-tooltip>
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.productCode }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="商品名称 / 规格" align="left" prop="productName" min-width="200" show-overflow-tooltip>
+        <el-table-column label="商品名称 / 规格" align="left" prop="productName" min-width="180" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.productName }}</div>
             <div class="erp-cell-sub">{{ scope.row.productSpec || '标准规格' }} · {{ scope.row.unitName || '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="分类 / 品牌" align="center" min-width="140" show-overflow-tooltip>
+        <el-table-column label="分类 / 品牌" align="center" min-width="115" show-overflow-tooltip>
           <template #default="scope">
             <el-tag size="small" type="info" effect="plain">{{ scope.row.categoryName || '未分类' }}</el-tag>
             <div v-if="scope.row.brandName" class="erp-cell-sub">{{ scope.row.brandName }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="成本价" align="right" prop="costPrice" width="108">
+        <el-table-column label="成本价" align="right" prop="costPrice" width="96">
           <template #default="scope">
             <span class="erp-num">¥{{ formatMoney(scope.row.costPrice) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="标准售价" align="right" prop="salePrice" width="112">
+        <el-table-column label="标准售价" align="right" prop="salePrice" width="98">
           <template #default="scope">
             <span class="erp-amount is-primary">¥{{ formatMoney(scope.row.salePrice) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" align="center" prop="status" width="88">
+        <el-table-column label="状态" align="center" prop="status" width="76">
           <template #default="scope">
             <el-switch
               v-model="scope.row.status"
@@ -95,16 +95,18 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" align="center" prop="createTime" width="165">
+        <el-table-column label="创建时间" align="center" prop="createTime" width="136">
           <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime) }}</span>
+            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="210" fixed="right" align="center">
+        <el-table-column label="操作" width="188" fixed="right" align="center">
           <template #default="scope">
-            <el-button link type="primary" icon="DataAnalysis" @click="handleViewProfile(scope.row)" v-hasPermi="['business:product:query']">画像</el-button>
-            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:product:edit']">修改</el-button>
-            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:product:remove']">删除</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="DataAnalysis" @click="handleViewProfile(scope.row)" v-hasPermi="['business:product:query']">画像</el-button>
+              <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:product:edit']">修改</el-button>
+              <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:product:remove']">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>

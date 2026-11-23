@@ -44,51 +44,53 @@
           <div v-loading="executiveActionItemLoading">
             <el-empty v-if="!executiveActionItemList.length" description="当前还没有经营决议事项，归档经营简报后会自动生成待跟进事项。" :image-size="88" />
             <el-table v-else :data="executiveActionItemList" border size="small">
-              <el-table-column label="决议事项" align="left" min-width="260" show-overflow-tooltip>
+              <el-table-column label="决议事项" align="left" min-width="200" show-overflow-tooltip>
                 <template #default="scope">
                   <div class="executive-action-title">{{ scope.row.actionTitle }}</div>
                   <div v-if="scope.row.briefTitleSnapshot" class="executive-action-brief-title">来源：{{ scope.row.briefTitleSnapshot }}</div>
                 </template>
               </el-table-column>
-              <el-table-column label="负责人" align="center" prop="ownerName" min-width="100" />
-              <el-table-column label="到期日" align="center" min-width="120">
+              <el-table-column label="负责人" align="center" prop="ownerName" width="84" />
+              <el-table-column label="到期日" align="center" width="100">
                 <template #default="scope">
                   <span :class="{ 'executive-action-overdue-text': isExecutiveActionItemOverdue(scope.row) }">
                     {{ scope.row.dueDate ? parseTime(scope.row.dueDate, '{y}-{m}-{d}') : '-' }}
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column label="优先级" align="center" width="100">
+              <el-table-column label="优先级" align="center" width="76">
                 <template #default="scope">
                   <el-tag size="small" :type="getExecutiveActionPriorityTagType(scope.row.priorityLevel)">
                     {{ getExecutiveActionPriorityLabel(scope.row.priorityLevel) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="状态" align="center" width="110">
+              <el-table-column label="状态" align="center" width="82">
                 <template #default="scope">
                   <el-tag size="small" :type="getExecutiveActionStatusTagType(scope.row.actionStatus)">
                     {{ getExecutiveActionStatusLabel(scope.row.actionStatus) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="进度备注" align="left" min-width="220" show-overflow-tooltip>
+              <el-table-column label="进度备注" align="left" min-width="170" show-overflow-tooltip>
                 <template #default="scope">
                   <span>{{ scope.row.progressRemark || '-' }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" align="center" width="180">
+              <el-table-column label="操作" align="center" width="142">
                 <template #default="scope">
-                  <el-button v-if="canManageExecutiveActionItem" link type="primary" @click="openExecutiveActionItemDialog(scope.row)">编辑</el-button>
-                  <el-button
-                    v-if="canManageExecutiveActionItem && scope.row.actionStatus !== 'completed'"
-                    link
-                    type="success"
-                    @click="handleExecutiveActionItemComplete(scope.row)"
-                  >
-                    完成
-                  </el-button>
-                  <el-button v-if="canManageExecutiveActionItem" link type="danger" @click="handleExecutiveActionItemRemove(scope.row)">删除</el-button>
+                  <div class="erp-row-actions">
+                    <el-button v-if="canManageExecutiveActionItem" link type="primary" @click="openExecutiveActionItemDialog(scope.row)">编辑</el-button>
+                    <el-button
+                      v-if="canManageExecutiveActionItem && scope.row.actionStatus !== 'completed'"
+                      link
+                      type="success"
+                      @click="handleExecutiveActionItemComplete(scope.row)"
+                    >
+                      完成
+                    </el-button>
+                    <el-button v-if="canManageExecutiveActionItem" link type="danger" @click="handleExecutiveActionItemRemove(scope.row)">删除</el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -598,7 +600,13 @@
               </div>
               <el-table :data="customerProfitTopList" border size="small">
                 <el-table-column label="客户" align="left" prop="targetName" min-width="150" show-overflow-tooltip />
-                <el-table-column label="等级" align="center" prop="customerLevel" width="90" />
+                <el-table-column label="等级" align="center" prop="customerLevel" width="96">
+                  <template #default="scope">
+                    <el-tag size="small" :type="['vip', 'gold', 'a', 'VIP'].includes(String(scope.row.customerLevel || '').toLowerCase()) ? 'warning' : 'primary'" effect="light">
+                      {{ formatCustomerLevelLabel(scope.row.customerLevel) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
                 <el-table-column label="销售额" align="right" min-width="110">
                   <template #default="scope">
                     <span>￥{{ formatAmountValue(scope.row.saleAmount) }}</span>
@@ -1139,28 +1147,28 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="annualBudgetPlanDialogOpen" :title="annualBudgetPlanFormMode === 'createVersion' ? '新建预算版本' : '维护年度预算计划'" width="1280px" append-to-body>
+    <el-dialog v-model="annualBudgetPlanDialogOpen" :title="annualBudgetPlanFormMode === 'createVersion' ? '新建预算版本' : '维护年度预算计划'" width="1160px" append-to-body>
       <el-alert
         :title="annualBudgetPlanFormMode === 'createVersion' ? '系统已带入当前生效版本的预算拆解，请补充版本标签和调整原因后继续微调。' : '建议先录入年度总量，再一键均分到月度，最后按旺淡季和回款节奏微调每个月预算。'"
         type="info"
         :closable="false"
         show-icon
       />
-      <el-form ref="annualBudgetPlanFormRef" :model="annualBudgetPlanForm" :rules="annualBudgetPlanRules" label-width="110px" style="margin-top: 16px">
-        <el-row :gutter="12">
-          <el-col :span="8">
+      <el-form ref="annualBudgetPlanFormRef" :model="annualBudgetPlanForm" :rules="annualBudgetPlanRules" label-width="96px" style="margin-top: 14px">
+        <el-row :gutter="10">
+          <el-col :span="7">
             <el-form-item label="预算年度" prop="budgetYear">
               <el-input-number v-model="annualBudgetPlanForm.budgetYear" :min="2020" :max="2099" controls-position="right" style="width: 100%" :disabled="annualBudgetPlanFormMode === 'createVersion' || !!annualBudgetPlanForm.planId" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="预算名称" prop="planName">
               <el-input v-model="annualBudgetPlanForm.planName" placeholder="请输入预算计划名称" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
+          <el-col :span="7">
             <el-form-item label="版本标签">
-              <el-input v-model="annualBudgetPlanForm.versionLabel" placeholder="请输入版本标签，例如 v2" />
+              <el-input v-model="annualBudgetPlanForm.versionLabel" placeholder="例如 v2" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -1169,64 +1177,64 @@
         </el-form-item>
         <div class="annual-budget-form-action-row">
           <span class="annual-budget-form-action-text">先填写年度总量，再点击“按年度均分”，最后可逐月微调。</span>
-          <el-button type="primary" plain @click="distributeAllAnnualBudgetPlanMetrics">按年度均分</el-button>
+          <el-button type="primary" plain size="small" @click="distributeAllAnnualBudgetPlanMetrics">按年度均分</el-button>
         </div>
-        <el-row :gutter="12">
+        <el-row :gutter="10">
           <el-col :span="8">
-            <el-form-item label="年度销售预算">
+            <el-form-item label="年度销售">
               <el-input-number v-model="annualBudgetPlanForm.saleBudgetAmount" :min="0" :precision="2" controls-position="right" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="年度毛利预算">
+            <el-form-item label="年度毛利">
               <el-input-number v-model="annualBudgetPlanForm.grossProfitBudgetAmount" :min="0" :precision="2" controls-position="right" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="年度回款预算">
+            <el-form-item label="年度回款">
               <el-input-number v-model="annualBudgetPlanForm.collectionBudgetAmount" :min="0" :precision="2" controls-position="right" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="年度采购预算">
+            <el-form-item label="年度采购">
               <el-input-number v-model="annualBudgetPlanForm.purchaseBudgetAmount" :min="0" :precision="2" controls-position="right" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="年度净现金流">
+            <el-form-item label="年度净现金">
               <el-input-number v-model="annualBudgetPlanForm.netCashBudgetAmount" :precision="2" controls-position="right" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-table :data="annualBudgetMonthLabelList.map((monthLabel, monthIndexValue) => ({ monthLabel, monthIndexValue }))" border size="small">
-          <el-table-column label="月份" align="center" width="80">
+          <el-table-column label="月份" align="center" width="60">
             <template #default="scope">
               <span>{{ scope.row.monthLabel }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="销售预算" min-width="140">
+          <el-table-column label="销售预算" min-width="115">
             <template #default="scope">
-              <el-input-number v-model="annualBudgetPlanForm.saleMonthlyPlanList[scope.row.monthIndexValue]" :min="0" :precision="2" controls-position="right" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('saleBudgetAmount')" />
+              <el-input-number v-model="annualBudgetPlanForm.saleMonthlyPlanList[scope.row.monthIndexValue]" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('saleBudgetAmount')" />
             </template>
           </el-table-column>
-          <el-table-column label="毛利预算" min-width="140">
+          <el-table-column label="毛利预算" min-width="115">
             <template #default="scope">
-              <el-input-number v-model="annualBudgetPlanForm.grossProfitMonthlyPlanList[scope.row.monthIndexValue]" :min="0" :precision="2" controls-position="right" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('grossProfitBudgetAmount')" />
+              <el-input-number v-model="annualBudgetPlanForm.grossProfitMonthlyPlanList[scope.row.monthIndexValue]" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('grossProfitBudgetAmount')" />
             </template>
           </el-table-column>
-          <el-table-column label="回款预算" min-width="140">
+          <el-table-column label="回款预算" min-width="115">
             <template #default="scope">
-              <el-input-number v-model="annualBudgetPlanForm.collectionMonthlyPlanList[scope.row.monthIndexValue]" :min="0" :precision="2" controls-position="right" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('collectionBudgetAmount')" />
+              <el-input-number v-model="annualBudgetPlanForm.collectionMonthlyPlanList[scope.row.monthIndexValue]" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('collectionBudgetAmount')" />
             </template>
           </el-table-column>
-          <el-table-column label="采购预算" min-width="140">
+          <el-table-column label="采购预算" min-width="115">
             <template #default="scope">
-              <el-input-number v-model="annualBudgetPlanForm.purchaseMonthlyPlanList[scope.row.monthIndexValue]" :min="0" :precision="2" controls-position="right" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('purchaseBudgetAmount')" />
+              <el-input-number v-model="annualBudgetPlanForm.purchaseMonthlyPlanList[scope.row.monthIndexValue]" :min="0" :precision="2" :controls="false" size="small" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('purchaseBudgetAmount')" />
             </template>
           </el-table-column>
-          <el-table-column label="净现金流" min-width="140">
+          <el-table-column label="净现金流" min-width="115">
             <template #default="scope">
-              <el-input-number v-model="annualBudgetPlanForm.netCashMonthlyPlanList[scope.row.monthIndexValue]" :precision="2" controls-position="right" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('netCashBudgetAmount')" />
+              <el-input-number v-model="annualBudgetPlanForm.netCashMonthlyPlanList[scope.row.monthIndexValue]" :precision="2" :controls="false" size="small" style="width: 100%" @change="syncAnnualBudgetPlanFormTotalAmount('netCashBudgetAmount')" />
             </template>
           </el-table-column>
         </el-table>
@@ -1704,6 +1712,24 @@ const hasDecisionSupportData = computed(() => {
 
 // 统一读取预算执行与预测概览数据。
 const decisionBudgetOverviewData = computed(() => decisionSupportData.value.decisionBudgetOverview || {})
+
+// 客户等级编码映射中文展示，避免输出原始英文枚举值（如 vip）。
+function formatCustomerLevelLabel(levelValue) {
+  const key = String(levelValue || "").trim().toLowerCase()
+  const map = {
+    vip: "VIP客户",
+    gold: "金牌客户",
+    a: "A级客户",
+    b: "B级客户",
+    c: "C级客户",
+    key: "重点客户",
+    important: "重点客户",
+    normal: "普通客户",
+    ordinary: "普通客户",
+    potential: "潜在客户"
+  }
+  return map[key] || (levelValue ? String(levelValue) : "普通客户")
+}
 
 // 统一读取客户利润分析数据。
 const customerProfitAnalysisData = computed(() => decisionSupportData.value.customerProfitAnalysis || {})

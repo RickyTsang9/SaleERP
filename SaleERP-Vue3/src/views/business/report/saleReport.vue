@@ -74,63 +74,50 @@
       </div>
 
       <el-table v-loading="loading" :data="reportList">
-        <el-table-column label="业务单号" align="center" prop="orderNo" width="215">
+        <el-table-column label="业务单号 / 日期" align="left" prop="orderNo" min-width="148" show-overflow-tooltip>
           <template #default="scope">
-            <span class="erp-code-chip">{{ scope.row.orderNo }}</span>
-            <el-tag
-              v-if="scope.row.billType === 'sale_return'"
-              size="small"
-              type="danger"
-              effect="light"
-              style="margin-left: 6px"
-            >
-              退货冲减
-            </el-tag>
+            <div>
+              <span class="erp-code-chip">{{ scope.row.orderNo }}</span>
+              <el-tag
+                v-if="scope.row.billType === 'sale_return'"
+                size="small"
+                type="danger"
+                effect="light"
+                style="margin-left: 4px"
+              >退货</el-tag>
+            </div>
+            <div class="erp-cell-sub">{{ parseTime(scope.row.saleDate, '{y}-{m}-{d} {h}:{i}') }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="销售日期" align="center" prop="saleDate" width="175">
-          <template #default="scope">
-            <span>{{ parseTime(scope.row.saleDate, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="客户名称" align="left" prop="customerName" min-width="150" show-overflow-tooltip />
-        <el-table-column label="商品信息" align="left" min-width="180" show-overflow-tooltip>
+        <el-table-column label="客户名称" align="left" prop="customerName" min-width="115" show-overflow-tooltip />
+        <el-table-column label="商品 / 分类" align="left" min-width="132" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.productName }}</div>
-            <div class="erp-cell-sub">{{ scope.row.productCode }}</div>
+            <div class="erp-cell-sub">{{ scope.row.productCode }} · {{ scope.row.categoryName || '未分类' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="分类" align="center" prop="categoryName" width="110">
+        <el-table-column label="净销数 / 单价" align="right" width="104">
           <template #default="scope">
-            <el-tag size="small" type="info" effect="plain">{{ scope.row.categoryName || '-' }}</el-tag>
+            <div :class="Number(scope.row.quantity || 0) < 0 ? 'erp-amount is-danger' : 'erp-num'">{{ scope.row.quantity }} 件</div>
+            <div class="erp-cell-sub">¥{{ Number(scope.row.price || 0).toFixed(2) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="净销数量" align="right" prop="quantity" width="100">
-          <template #default="scope">
-            <span :class="Number(scope.row.quantity || 0) < 0 ? 'erp-amount is-danger' : 'erp-num'">{{ scope.row.quantity }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="单价(元)" align="right" prop="price" width="110">
-          <template #default="scope">
-            <span>¥{{ Number(scope.row.price || 0).toFixed(2) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="成交金额(元)" align="right" prop="amount" width="122">
+        <el-table-column label="成交金额" align="right" prop="amount" width="98">
           <template #default="scope">
             <span :class="['erp-amount', Number(scope.row.amount || 0) < 0 ? 'is-danger' : 'is-primary']">
               {{ Number(scope.row.amount || 0) < 0 ? '-' : '' }}¥{{ Math.abs(Number(scope.row.amount || 0)).toFixed(2) }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="成本金额(元)" align="right" prop="costAmount" width="118">
+        <el-table-column label="成本金额" align="right" prop="costAmount" width="96">
           <template #default="scope">
-            <span v-if="scope.row.costAmount === null || scope.row.costAmount === undefined" class="erp-cell-sub">权限脱敏</span>
+            <span v-if="scope.row.costAmount === null || scope.row.costAmount === undefined" class="erp-cell-sub">脱敏</span>
             <span v-else class="erp-num">{{ Number(scope.row.costAmount) < 0 ? '-' : '' }}¥{{ Math.abs(Number(scope.row.costAmount)).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="毛利额(元)" align="right" prop="grossProfit" width="118">
+        <el-table-column label="毛利额" align="right" prop="grossProfit" width="96">
           <template #default="scope">
-            <span v-if="scope.row.grossProfit === null || scope.row.grossProfit === undefined" class="erp-cell-sub">权限脱敏</span>
+            <span v-if="scope.row.grossProfit === null || scope.row.grossProfit === undefined" class="erp-cell-sub">脱敏</span>
             <span v-else :class="['erp-amount', Number(scope.row.grossProfit) < 0 ? 'is-danger' : 'is-positive']">
               {{ Number(scope.row.grossProfit) < 0 ? '-' : '' }}¥{{ Math.abs(Number(scope.row.grossProfit)).toFixed(2) }}
             </span>

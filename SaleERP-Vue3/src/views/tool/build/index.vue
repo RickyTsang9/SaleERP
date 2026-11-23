@@ -324,7 +324,7 @@ $lighterBlue: #409EFF;
   overflow: hidden;
 
   .left-board {
-    width: 260px;
+    width: 220px;
     position: absolute;
     left: 0;
     top: 0;
@@ -431,7 +431,7 @@ $lighterBlue: #409EFF;
   .center-board {
     height: calc(100vh - 96px);
     width: auto;
-    margin: 0 350px 0 260px;
+    margin: 0 290px 0 220px;
     box-sizing: border-box;
 
     .action-bar {

@@ -105,38 +105,48 @@
       </el-row>
 
       <el-table ref="genRef" v-loading="loading" :data="tableList" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
-        <el-table-column type="selection" align="center" width="55"></el-table-column>
-        <el-table-column label="序号" type="index" width="55" align="center">
+        <el-table-column type="selection" align="center" width="44"></el-table-column>
+        <el-table-column label="序号" type="index" width="52" align="center">
           <template #default="scope">
             <span>{{(queryParams.pageNum - 1) * queryParams.pageSize + scope.$index + 1}}</span>
           </template>
         </el-table-column>
-        <el-table-column label="表名称" align="center" prop="tableName" :show-overflow-tooltip="true">
+        <el-table-column label="表名称" align="left" prop="tableName" min-width="140" :show-overflow-tooltip="true">
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.tableName }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="表描述" align="center" prop="tableComment" :show-overflow-tooltip="true" />
-        <el-table-column label="实体" align="center" prop="className" :show-overflow-tooltip="true" />
-        <el-table-column label="创建时间" align="center" prop="createTime" width="165" sortable="custom" :sort-orders="['descending', 'ascending']" />
-        <el-table-column label="更新时间" align="center" prop="updateTime" width="165" sortable="custom" :sort-orders="['descending', 'ascending']" />
-        <el-table-column label="操作" align="center" width="260" class-name="small-padding fixed-width">
+        <el-table-column label="表描述" align="left" prop="tableComment" min-width="120" :show-overflow-tooltip="true" />
+        <el-table-column label="实体" align="center" prop="className" min-width="115" :show-overflow-tooltip="true" />
+        <el-table-column label="创建时间" align="center" prop="createTime" width="136" sortable="custom" :sort-orders="['descending', 'ascending']">
           <template #default="scope">
-            <el-tooltip content="预览" placement="top">
-              <el-button link type="primary" icon="View" @click="handlePreview(scope.row)" v-hasPermi="['tool:gen:preview']"></el-button>
-            </el-tooltip>
-            <el-tooltip content="编辑" placement="top">
-              <el-button link type="primary" icon="Edit" @click="handleEditTable(scope.row)" v-hasPermi="['tool:gen:edit']"></el-button>
-            </el-tooltip>
-            <el-tooltip content="删除" placement="top">
-              <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['tool:gen:remove']"></el-button>
-            </el-tooltip>
-            <el-tooltip content="同步" placement="top">
-              <el-button link type="primary" icon="Refresh" @click="handleSynchDb(scope.row)" v-hasPermi="['tool:gen:edit']"></el-button>
-            </el-tooltip>
-            <el-tooltip content="生成代码" placement="top">
-              <el-button link type="primary" icon="Download" @click="handleGenTable(scope.row)" v-hasPermi="['tool:gen:code']"></el-button>
-            </el-tooltip>
+            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="更新时间" align="center" prop="updateTime" width="136" sortable="custom" :sort-orders="['descending', 'ascending']">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.updateTime, '{y}-{m}-{d} {h}:{i}') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" width="175" fixed="right" class-name="small-padding fixed-width">
+          <template #default="scope">
+            <div class="erp-row-actions">
+              <el-tooltip content="预览" placement="top">
+                <el-button link type="primary" icon="View" @click="handlePreview(scope.row)" v-hasPermi="['tool:gen:preview']"></el-button>
+              </el-tooltip>
+              <el-tooltip content="编辑" placement="top">
+                <el-button link type="primary" icon="Edit" @click="handleEditTable(scope.row)" v-hasPermi="['tool:gen:edit']"></el-button>
+              </el-tooltip>
+              <el-tooltip content="删除" placement="top">
+                <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['tool:gen:remove']"></el-button>
+              </el-tooltip>
+              <el-tooltip content="同步" placement="top">
+                <el-button link type="primary" icon="Refresh" @click="handleSynchDb(scope.row)" v-hasPermi="['tool:gen:edit']"></el-button>
+              </el-tooltip>
+              <el-tooltip content="生成代码" placement="top">
+                <el-button link type="primary" icon="Download" @click="handleGenTable(scope.row)" v-hasPermi="['tool:gen:code']"></el-button>
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
       </el-table>

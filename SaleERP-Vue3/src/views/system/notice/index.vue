@@ -28,12 +28,12 @@
                   v-model="queryParams.createBy"
                   placeholder="请输入操作人员"
                   clearable
-                  style="width: 190px"
+                  style="width: 145px"
                   @keyup.enter="handleQuery"
                />
             </el-form-item>
             <el-form-item label="类型" prop="noticeType">
-               <el-select v-model="queryParams.noticeType" placeholder="公告类型" clearable style="width: 170px">
+               <el-select v-model="queryParams.noticeType" placeholder="公告类型" clearable style="width: 120px">
                   <el-option
                      v-for="dict in sys_notice_type"
                      :key="dict.value"
@@ -84,37 +84,40 @@
          </el-row>
 
          <el-table v-loading="loading" :data="noticeList" @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55" align="center" />
-            <el-table-column label="序号" align="center" prop="noticeId" width="90" />
+            <el-table-column type="selection" width="44" align="center" />
+            <el-table-column label="序号" align="center" prop="noticeId" width="62" />
             <el-table-column
                label="公告标题"
                prop="noticeTitle"
+               min-width="220"
                :show-overflow-tooltip="true"
             >
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.noticeTitle }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="公告类型" align="center" prop="noticeType" width="110">
+            <el-table-column label="公告类型" align="center" prop="noticeType" width="88">
                <template #default="scope">
                   <dict-tag :options="sys_notice_type" :value="scope.row.noticeType" />
                </template>
             </el-table-column>
-            <el-table-column label="状态" align="center" prop="status" width="100">
+            <el-table-column label="状态" align="center" prop="status" width="76">
                <template #default="scope">
                   <dict-tag :options="sys_notice_status" :value="scope.row.status" />
                </template>
             </el-table-column>
-            <el-table-column label="创建者" align="center" prop="createBy" width="110" />
-            <el-table-column label="创建时间" align="center" prop="createTime" width="120">
+            <el-table-column label="创建者" align="center" prop="createBy" width="84" />
+            <el-table-column label="创建时间" align="center" prop="createTime" width="104">
                <template #default="scope">
                   <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="操作" align="center" width="145" fixed="right" class-name="small-padding fixed-width">
+            <el-table-column label="操作" align="center" width="136" fixed="right" class-name="small-padding fixed-width">
                <template #default="scope">
-                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:notice:edit']">修改</el-button>
-                  <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:notice:remove']" >删除</el-button>
+                  <div class="erp-row-actions">
+                     <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:notice:edit']">修改</el-button>
+                     <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:notice:remove']">删除</el-button>
+                  </div>
                </template>
             </el-table-column>
          </el-table>

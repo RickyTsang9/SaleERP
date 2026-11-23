@@ -21,7 +21,7 @@
         <span>{{ item.value }}</span>
         <span v-if="item.suffix" class="erp-stat-card__affix is-suffix">{{ item.suffix }}</span>
       </div>
-      <div v-if="item.hint" class="erp-stat-card__hint">{{ item.hint }}</div>
+      <div v-if="item.hint" class="erp-stat-card__hint" :title="item.hint">{{ item.hint }}</div>
     </div>
   </section>
 </template>
@@ -194,10 +194,13 @@ const emit = defineEmits(['select'])
 .erp-stat-card__hint {
   margin-top: 6px;
   font-size: 12px;
+  line-height: 1.45;
   color: var(--erp-text-muted);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 :global(html.dark) {

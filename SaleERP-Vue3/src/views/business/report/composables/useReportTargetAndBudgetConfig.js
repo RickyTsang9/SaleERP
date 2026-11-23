@@ -313,6 +313,21 @@ export function useReportTargetAndBudgetConfig({
     }
   }
 
+  function resolveConfigKeyValue(configResponse) {
+    const raw =
+      configResponse?.data !== undefined && configResponse?.data !== null && configResponse?.data !== ""
+        ? configResponse.data
+        : configResponse?.msg
+    if (raw === undefined || raw === null) {
+      return ""
+    }
+    const text = String(raw).trim()
+    if (!text || text === "操作成功") {
+      return ""
+    }
+    return text
+  }
+
   async function loadDashboardTargetConfig() {
     dashboardTargetLoading.value = true
     try {
@@ -327,7 +342,7 @@ export function useReportTargetAndBudgetConfig({
           ...currentConfigDetail,
           configKey: dashboardTargetMeta.configKey,
           configName: dashboardTargetMeta.configName,
-          configValue: configResponse?.data,
+          configValue: resolveConfigKeyValue(configResponse),
           configType: "N",
           remark: dashboardTargetMeta.remark
         }
@@ -571,7 +586,7 @@ export function useReportTargetAndBudgetConfig({
           ...currentConfigDetail,
           configKey: decisionBudgetMeta.configKey,
           configName: decisionBudgetMeta.configName,
-          configValue: configResponse?.data,
+          configValue: resolveConfigKeyValue(configResponse),
           configType: "N",
           remark: decisionBudgetMeta.remark
         }

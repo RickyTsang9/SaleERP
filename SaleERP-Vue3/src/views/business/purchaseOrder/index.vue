@@ -60,81 +60,76 @@
           <erp-status-tabs :model-value="queryParams.status ?? ''" :items="purchaseStatusTabItems" @change="handleQuickStatus" />
         </div>
         <div class="erp-toolbar-right">
-          <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
-          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
-          <el-button type="primary" plain icon="OfficeBuilding" :disabled="ids.length !== 1" @click="handleViewSupplier" v-hasPermi="['business:supplier:list']">供应商资料</el-button>
-          <el-button type="primary" plain icon="Connection" :disabled="ids.length !== 1" @click="handlePurchaseOrderChain" v-hasPermi="['business:purchaseOrder:query']">链路追踪</el-button>
-          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
+          <el-button size="small" type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
+          <el-button size="small" type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
+          <el-button size="small" type="primary" plain icon="Connection" :disabled="ids.length !== 1" @click="handlePurchaseOrderChain" v-hasPermi="['business:purchaseOrder:query']">链路追踪</el-button>
+          <el-button size="small" type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
           <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
         </div>
       </div>
 
       <el-table v-loading="loading" :data="purchaseOrderList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="采购单号" align="center" prop="orderNo" min-width="165">
+        <el-table-column type="selection" width="44" align="center" />
+        <el-table-column label="采购单号" align="center" prop="orderNo" min-width="148" show-overflow-tooltip>
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.orderNo }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="供应商" align="left" prop="supplierId" min-width="180" show-overflow-tooltip>
+        <el-table-column label="供应商" align="left" prop="supplierId" min-width="175" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.supplierName || getSupplierName(scope.row.supplierId) }}</div>
             <div class="erp-cell-sub">采购日期：{{ parseTime(scope.row.purchaseDate, '{y}-{m}-{d}') || '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="采购数量" align="right" prop="totalQuantity" width="96">
+        <el-table-column label="数量 / 已入" align="right" width="94">
           <template #default="scope">
-            <span>{{ formatPurchaseQuantity(scope.row.totalQuantity) }}</span>
+            <div class="erp-num">{{ formatPurchaseQuantity(scope.row.totalQuantity) }}</div>
+            <div class="erp-cell-sub">已入 {{ formatPurchaseQuantity(scope.row.inboundQuantity) }} / 待 {{ formatPurchaseQuantity(scope.row.remainQuantity) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="已入库" align="right" prop="inboundQuantity" width="90">
-          <template #default="scope">
-            <span class="erp-amount is-positive">{{ formatPurchaseQuantity(scope.row.inboundQuantity) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="待入库" align="right" prop="remainQuantity" width="90">
-          <template #default="scope">
-            <span :class="{ 'erp-amount is-warning': Number(scope.row.remainQuantity || 0) > 0 }">
-              {{ formatPurchaseQuantity(scope.row.remainQuantity) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="采购总额" align="right" prop="totalAmount" min-width="118">
+        <el-table-column label="采购总额" align="right" prop="totalAmount" min-width="104">
           <template #default="scope">
             <span class="erp-amount is-primary">¥{{ Number(scope.row.totalAmount || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="收票进度" align="center" width="108">
-          <template #default="scope">
-            <el-tag :type="getInvoiceStatusType(scope.row.invoiceStatus)" effect="plain" size="small">
-              {{ getInvoiceStatusLabel(scope.row.invoiceStatus, 'purchase') }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" align="center" prop="status" width="115">
+        <el-table-column label="状态 / 收票" align="center" prop="status" width="104">
           <template #default="scope">
             <el-tooltip v-if="scope.row.status === 'draft' && scope.row.rejectReason" :content="`驳回原因：${scope.row.rejectReason}`" placement="top">
-              <el-tag type="danger" effect="light">已驳回待改</el-tag>
+              <el-tag type="danger" effect="light" size="small">已驳回待改</el-tag>
             </el-tooltip>
-            <el-tag v-else :type="getPurchaseOrderStatusType(scope.row.status)" effect="light">{{ getPurchaseOrderStatusName(scope.row.status) }}</el-tag>
+            <el-tag v-else :type="getPurchaseOrderStatusType(scope.row.status)" effect="light" size="small">{{ getPurchaseOrderStatusName(scope.row.status) }}</el-tag>
+            <div class="erp-cell-sub">
+              <el-tag :type="getInvoiceStatusType(scope.row.invoiceStatus)" effect="plain" size="small" style="margin-top: 3px">
+                {{ getInvoiceStatusLabel(scope.row.invoiceStatus, 'purchase') }}
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" align="center" fixed="right" width="295">
+        <el-table-column label="操作" align="center" fixed="right" width="218">
           <template #default="scope">
-            <el-button v-if="isEditablePurchaseOrderStatus(scope.row.status)" link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
-            <el-button v-if="scope.row.status === 'draft'" link type="primary" icon="Upload" @click="handleSubmitOrder(scope.row)" v-hasPermi="['business:purchaseOrder:edit']">提交</el-button>
-            <el-button v-if="scope.row.status === '0'" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
-            <el-button v-if="scope.row.status === '0'" link type="warning" icon="RefreshLeft" @click="handleRejectOrder(scope.row)" v-hasPermi="['business:purchaseOrder:audit']">驳回</el-button>
-            <el-button v-if="scope.row.status === '1' && Number(scope.row.inboundQuantity || 0) <= 0" link type="warning" icon="RefreshLeft" @click="handleReverseAuditOrder(scope.row)" v-hasPermi="['business:purchaseOrder:audit']">反审核</el-button>
-            <el-button v-if="scope.row.status === '2'" link type="warning" icon="Finished" @click="handleForceCloseOrder(scope.row)" v-hasPermi="['business:purchaseOrder:audit', 'business:purchaseOrder:edit']">短装结案</el-button>
-            <el-button link type="primary" icon="OfficeBuilding" @click="handleViewSupplier(scope.row)" v-hasPermi="['business:supplier:list']">供应商</el-button>
-            <el-button link type="primary" icon="Connection" @click="handlePurchaseOrderChain(scope.row)" v-hasPermi="['business:purchaseOrder:query']">链路</el-button>
-            <el-button v-if="canViewLinkedPayable(scope.row.status)" link type="primary" icon="Money" @click="handleViewPayable(scope.row)" v-hasPermi="['business:payable:list']">应付</el-button>
-            <el-button v-if="canViewLinkedInbound(scope.row.status)" link type="primary" icon="Box" @click="handleViewInbound(scope.row)" v-hasPermi="['business:inbound:list']">入库</el-button>
-            <el-button v-if="canCancelPurchaseOrderStatus(scope.row.status)" link type="warning" icon="Close" @click="handleCancel(scope.row)" v-hasPermi="['business:purchaseOrder:edit']">作废</el-button>
-            <el-button v-if="isEditablePurchaseOrderStatus(scope.row.status)" link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
-            <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
-            <el-button link type="primary" icon="Printer" @click="handlePrint(scope.row)">打印</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
+              <el-button link type="primary" icon="Connection" @click="handlePurchaseOrderChain(scope.row)" v-hasPermi="['business:purchaseOrder:query']">链路</el-button>
+              <el-button link type="primary" icon="Printer" @click="handlePrint(scope.row)">打印</el-button>
+              <el-dropdown trigger="click">
+                <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="isEditablePurchaseOrderStatus(scope.row.status)" @click="handleUpdate(scope.row)">修改订单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" @click="handleSubmitOrder(scope.row)">提交审核</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '0'" @click="handleAudit(scope.row)">审核通过</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '0'" @click="handleRejectOrder(scope.row)">审核驳回</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '1' && Number(scope.row.inboundQuantity || 0) <= 0" @click="handleReverseAuditOrder(scope.row)">反审核</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '2'" @click="handleForceCloseOrder(scope.row)">短装结案</el-dropdown-item>
+                    <el-dropdown-item v-if="canViewLinkedInbound(scope.row.status)" @click="handleViewInbound(scope.row)">查看入库</el-dropdown-item>
+                    <el-dropdown-item v-if="canViewLinkedPayable(scope.row.status)" @click="handleViewPayable(scope.row)">查看应付</el-dropdown-item>
+                    <el-dropdown-item @click="handleViewSupplier(scope.row)">供应商资料</el-dropdown-item>
+                    <el-dropdown-item v-if="canCancelPurchaseOrderStatus(scope.row.status)" @click="handleCancel(scope.row)">作废订单</el-dropdown-item>
+                    <el-dropdown-item v-if="isEditablePurchaseOrderStatus(scope.row.status)" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -327,19 +322,25 @@
       </template>
     </el-dialog>
 
-    <el-dialog title="采购订单链路追踪" v-model="purchaseOrderChainOpen" width="1040px" append-to-body>
-      <el-descriptions v-if="purchaseOrderChainData.purchaseOrder" :column="4" border class="mb8">
-        <el-descriptions-item label="采购单号">{{ purchaseOrderChainData.purchaseOrder.orderNo }}</el-descriptions-item>
+    <el-dialog title="采购订单链路追踪" v-model="purchaseOrderChainOpen" width="1120px" append-to-body>
+      <el-descriptions v-if="purchaseOrderChainData.purchaseOrder" :column="4" border class="mb12">
+        <el-descriptions-item label="采购单号"><span style="white-space: nowrap">{{ purchaseOrderChainData.purchaseOrder.orderNo }}</span></el-descriptions-item>
         <el-descriptions-item label="供应商">{{ getSupplierName(purchaseOrderChainData.purchaseOrder.supplierId) }}</el-descriptions-item>
         <el-descriptions-item label="订单状态">{{ getPurchaseOrderStatusName(purchaseOrderChainData.purchaseOrder.status) }}</el-descriptions-item>
         <el-descriptions-item label="采购日期">{{ parseTime(purchaseOrderChainData.purchaseOrder.purchaseDate, '{y}-{m}-{d}') }}</el-descriptions-item>
         <el-descriptions-item label="采购数量">{{ formatPurchaseQuantity(purchaseOrderChainData.purchaseOrder.totalQuantity) }}</el-descriptions-item>
         <el-descriptions-item label="已入库">{{ formatPurchaseQuantity(purchaseOrderChainData.purchaseOrder.inboundQuantity) }}</el-descriptions-item>
         <el-descriptions-item label="待入库">{{ formatPurchaseQuantity(purchaseOrderChainData.purchaseOrder.remainQuantity) }}</el-descriptions-item>
-        <el-descriptions-item label="总金额">{{ purchaseOrderChainData.purchaseOrder.totalAmount || "0.00" }}</el-descriptions-item>
+        <el-descriptions-item label="总金额">¥{{ purchaseOrderChainData.purchaseOrder.totalAmount || "0.00" }}</el-descriptions-item>
       </el-descriptions>
-      <el-steps :active="getActivePurchaseOrderChainStep()" finish-status="success" process-status="process" align-center class="mb8">
-        <el-step v-for="chainNode in purchaseOrderChainData.chainNodeList" :key="chainNode.nodeKey" :title="chainNode.nodeName" :description="chainNode.nodeSummary || chainNode.nodeStatus" />
+      <el-steps align-center class="mb12 erp-chain-steps">
+        <el-step
+          v-for="chainNode in purchaseOrderChainData.chainNodeList"
+          :key="chainNode.nodeKey"
+          :title="chainNode.nodeName"
+          :status="getPurchaseOrderChainStepStatus(chainNode)"
+          :description="chainNode.nodeSummary || chainNode.nodeStatus"
+        />
       </el-steps>
       <el-tabs v-model="purchaseOrderChainActiveTab">
         <el-tab-pane label="入库单" name="inbound">
@@ -736,6 +737,21 @@ function getPurchaseOrderStatusName(statusValue) {
 function getPurchaseOrderStatusType(statusValue) {
   const purchaseOrderStatusOption = purchaseOrderStatusOptionList.find(optionItem => optionItem.value === statusValue)
   return purchaseOrderStatusOption?.type || "info"
+}
+
+// 根据采购链路每个节点的实际状态返回独立步骤态，避免未生成节点被误标为绿色完成。
+function getPurchaseOrderChainStepStatus(chainNode) {
+  const statusText = String(chainNode?.nodeStatus || "").trim()
+  if (!statusText || statusText === "未生成" || statusText === "未收票" || statusText === "无退货") {
+    return "wait"
+  }
+  if (statusText.includes("作废") || statusText.includes("驳回") || statusText.includes("取消")) {
+    return "error"
+  }
+  if (statusText.includes("草稿") || statusText.includes("待") || statusText.includes("部分")) {
+    return "process"
+  }
+  return "success"
 }
 
 // 返回采购订单链路当前完成到第几个节点，便于流程条呈现真实进展。

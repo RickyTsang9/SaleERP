@@ -764,7 +764,7 @@ function tagChange(tagIcon) {
 
 <style lang="scss" scoped>
 .right-board {
-  width: 350px;
+  width: 290px;
   position: absolute;
   right: 0;
   top: 0;

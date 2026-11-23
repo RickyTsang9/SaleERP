@@ -71,27 +71,29 @@
             :default-expand-all="isExpandAll"
             :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
          >
-            <el-table-column prop="deptName" label="部门名称" width="260">
+            <el-table-column prop="deptName" label="部门名称" min-width="200">
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.deptName }}</span>
                </template>
             </el-table-column>
-            <el-table-column prop="orderNum" label="排序" align="center" width="120"></el-table-column>
-            <el-table-column prop="status" label="状态" align="center" width="100">
+            <el-table-column prop="orderNum" label="排序" align="center" width="76"></el-table-column>
+            <el-table-column prop="status" label="状态" align="center" width="84">
                <template #default="scope">
                   <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
                </template>
             </el-table-column>
-            <el-table-column label="创建时间" align="center" prop="createTime" width="200">
+            <el-table-column label="创建时间" align="center" prop="createTime" width="150">
                <template #default="scope">
-                  <span>{{ parseTime(scope.row.createTime) }}</span>
+                  <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+            <el-table-column label="操作" align="center" width="192" fixed="right" class-name="small-padding fixed-width">
                <template #default="scope">
-                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:dept:edit']">修改</el-button>
-                  <el-button link type="primary" icon="Plus" @click="handleAdd(scope.row)" v-hasPermi="['system:dept:add']">新增</el-button>
-                  <el-button v-if="scope.row.parentId != 0" link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:dept:remove']">删除</el-button>
+                  <div class="erp-row-actions">
+                     <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:dept:edit']">修改</el-button>
+                     <el-button link type="primary" icon="Plus" @click="handleAdd(scope.row)" v-hasPermi="['system:dept:add']">新增</el-button>
+                     <el-button v-if="scope.row.parentId != 0" link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:dept:remove']">删除</el-button>
+                  </div>
                </template>
             </el-table-column>
          </el-table>

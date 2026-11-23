@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     :title="statementData?.reconcileTypeLabel || '标准往来对账单'"
-    width="860px"
+    width="960px"
     append-to-body
   >
     <div class="statement-toolbar">
@@ -63,35 +63,35 @@
 
         <div class="statement-section-title">{{ isReceivable ? '一、应收账款明细' : '一、应付账款明细' }}</div>
         <el-table :data="statementData.billList || []" size="small" border class="mb16">
-          <el-table-column label="单据编号" prop="billNo" width="120" align="center" />
-          <el-table-column :label="isReceivable ? '来源销售单' : '来源采购单'" prop="sourceOrderNo" min-width="150" align="center" />
-          <el-table-column :label="isReceivable ? '应收金额' : '应付金额'" align="right" width="110">
+          <el-table-column label="单据编号" prop="billNo" width="102" align="center" />
+          <el-table-column :label="isReceivable ? '来源销售单' : '来源采购单'" prop="sourceOrderNo" min-width="136" align="center" show-overflow-tooltip />
+          <el-table-column :label="isReceivable ? '应收金额' : '应付金额'" align="right" width="98">
             <template #default="scope">¥{{ formatMoney(scope.row.amountDue) }}</template>
           </el-table-column>
-          <el-table-column :label="isReceivable ? '已收金额' : '已付金额'" align="right" width="110">
+          <el-table-column :label="isReceivable ? '已收金额' : '已付金额'" align="right" width="98">
             <template #default="scope">¥{{ formatMoney(scope.row.amountPaid) }}</template>
           </el-table-column>
-          <el-table-column label="未结余额" align="right" width="110">
+          <el-table-column label="未结余额" align="right" width="98">
             <template #default="scope">¥{{ formatMoney(scope.row.remainAmount) }}</template>
           </el-table-column>
-          <el-table-column label="状态" prop="statusLabel" width="90" align="center" />
-          <el-table-column label="到期日" width="110" align="center">
+          <el-table-column label="状态" prop="statusLabel" width="80" align="center" />
+          <el-table-column label="到期日" width="100" align="center">
             <template #default="scope">{{ formatDateOnly(scope.row.dueDate) }}</template>
           </el-table-column>
         </el-table>
 
         <div class="statement-section-title">{{ isReceivable ? '二、回款结算明细' : '二、付款结算明细' }}</div>
         <el-table :data="statementData.settlementList || []" size="small" border>
-          <el-table-column label="流水编号" prop="settlementNo" width="120" align="center" />
-          <el-table-column :label="isReceivable ? '来源销售单' : '来源采购单'" prop="sourceOrderNo" min-width="150" align="center" />
-          <el-table-column :label="isReceivable ? '回款金额' : '付款金额'" align="right" width="120">
+          <el-table-column label="流水编号" prop="settlementNo" width="102" align="center" />
+          <el-table-column :label="isReceivable ? '来源销售单' : '来源采购单'" prop="sourceOrderNo" min-width="136" align="center" show-overflow-tooltip />
+          <el-table-column :label="isReceivable ? '回款金额' : '付款金额'" align="right" width="102">
             <template #default="scope">¥{{ formatMoney(scope.row.amount) }}</template>
           </el-table-column>
-          <el-table-column label="结算方式" prop="paymentMethodLabel" width="105" align="center" />
-          <el-table-column label="结算时间" width="160" align="center">
-            <template #default="scope">{{ parseTime(scope.row.settlementTime) }}</template>
+          <el-table-column label="结算方式" prop="paymentMethodLabel" width="90" align="center" />
+          <el-table-column label="结算时间" width="144" align="center">
+            <template #default="scope">{{ parseTime(scope.row.settlementTime, '{y}-{m}-{d} {h}:{i}') }}</template>
           </el-table-column>
-          <el-table-column label="备注" prop="remark" min-width="140" show-overflow-tooltip />
+          <el-table-column label="备注" prop="remark" min-width="130" show-overflow-tooltip />
         </el-table>
 
         <div class="statement-footer-sign">

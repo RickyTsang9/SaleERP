@@ -53,53 +53,57 @@
       </div>
 
       <el-table v-loading="loading" :data="purchaseReturnList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="退货单号" align="center" prop="returnNo" min-width="175">
+        <el-table-column type="selection" width="44" align="center" />
+        <el-table-column label="退货单号" align="left" prop="returnNo" min-width="148" show-overflow-tooltip>
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.returnNo }}</span>
             <div v-if="scope.row.purchaseOrderNo" class="erp-cell-sub">来源：{{ scope.row.purchaseOrderNo }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="供应商 / 仓库" align="left" min-width="200" show-overflow-tooltip>
+        <el-table-column label="供应商 / 仓库" align="left" min-width="148" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.supplierName || getSupplierName(scope.row.supplierId) }}</div>
             <div class="erp-cell-sub">退回仓：{{ scope.row.warehouseName || getWarehouseName(scope.row.warehouseId) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="退货类型" align="center" prop="returnType" width="110">
+        <el-table-column label="数量 / 金额" align="right" width="112">
           <template #default="scope">
-            <el-tag size="small" type="info" effect="plain">{{ scope.row.returnType === 'purchase_return' ? '采购退货' : (scope.row.returnType || '采购退货') }}</el-tag>
+            <div class="erp-amount is-warning">¥{{ Number(scope.row.totalAmount || 0).toFixed(2) }}</div>
+            <div class="erp-cell-sub">共 {{ scope.row.totalQty }} 件</div>
           </template>
         </el-table-column>
-        <el-table-column label="退货数量" align="right" prop="totalQty" width="95" />
-        <el-table-column label="退货金额" align="right" prop="totalAmount" width="115">
-          <template #default="scope">
-            <span class="erp-amount is-warning">¥{{ Number(scope.row.totalAmount || 0).toFixed(2) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" align="center" prop="status" width="110">
+        <el-table-column label="状态" align="center" prop="status" width="84">
           <template #default="scope">
             <el-tooltip v-if="scope.row.status === 'draft' && scope.row.rejectReason" :content="`驳回原因：${scope.row.rejectReason}`" placement="top">
-              <el-tag type="danger" effect="light">已驳回待改</el-tag>
+              <el-tag type="danger" effect="light" size="small">已驳回待改</el-tag>
             </el-tooltip>
-            <el-tag v-else :type="getPurchaseReturnStatusType(scope.row.status)" effect="light">{{ getPurchaseReturnStatusLabel(scope.row.status) }}</el-tag>
+            <el-tag v-else :type="getPurchaseReturnStatusType(scope.row.status)" effect="light" size="small">{{ getPurchaseReturnStatusLabel(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" align="center" prop="createTime" width="160">
+        <el-table-column label="创建时间" align="center" prop="createTime" width="128">
           <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime) }}</span>
+            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="295" fixed="right" align="center">
+        <el-table-column label="操作" width="248" fixed="right" align="center">
           <template #default="scope">
-            <el-button link type="primary" icon="List" @click="handleOpenPurchaseReturnItem(scope.row)" v-hasPermi="['business:purchaseReturn:query']">明细</el-button>
-            <el-button link type="info" icon="Printer" @click="handlePrintPurchaseReturn(scope.row)">打印</el-button>
-            <el-button v-if="isDraftPurchaseReturnStatus(scope.row.status)" link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:purchaseReturn:edit']">修改</el-button>
-            <el-button v-if="isDraftPurchaseReturnStatus(scope.row.status)" link type="primary" icon="Upload" @click="handleSubmit(scope.row)" v-hasPermi="['business:purchaseReturn:edit']">提交</el-button>
-            <el-button v-if="isSubmittedPurchaseReturnStatus(scope.row.status)" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:purchaseReturn:audit']">审核</el-button>
-            <el-button v-if="isSubmittedPurchaseReturnStatus(scope.row.status)" link type="warning" icon="RefreshLeft" @click="handleReject(scope.row)" v-hasPermi="['business:purchaseReturn:audit']">驳回</el-button>
-            <el-button v-if="canCancelPurchaseReturnStatus(scope.row.status)" link type="warning" icon="Close" @click="handleCancelOrder(scope.row)" v-hasPermi="['business:purchaseReturn:edit']">作废</el-button>
-            <el-button v-if="isDraftPurchaseReturnStatus(scope.row.status)" link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:purchaseReturn:remove']">删除</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="List" @click="handleOpenPurchaseReturnItem(scope.row)" v-hasPermi="['business:purchaseReturn:query']">明细</el-button>
+              <el-button link type="info" icon="Printer" @click="handlePrintPurchaseReturn(scope.row)">打印</el-button>
+              <el-button v-if="isSubmittedPurchaseReturnStatus(scope.row.status)" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:purchaseReturn:audit']">审核</el-button>
+              <el-button v-else-if="isDraftPurchaseReturnStatus(scope.row.status)" link type="primary" icon="Upload" @click="handleSubmit(scope.row)" v-hasPermi="['business:purchaseReturn:edit']">提交</el-button>
+              <el-dropdown v-if="isDraftPurchaseReturnStatus(scope.row.status) || isSubmittedPurchaseReturnStatus(scope.row.status) || canCancelPurchaseReturnStatus(scope.row.status)" trigger="click">
+                <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="isDraftPurchaseReturnStatus(scope.row.status)" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
+                    <el-dropdown-item v-if="isSubmittedPurchaseReturnStatus(scope.row.status)" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
+                    <el-dropdown-item v-if="canCancelPurchaseReturnStatus(scope.row.status)" @click="handleCancelOrder(scope.row)">作废单据</el-dropdown-item>
+                    <el-dropdown-item v-if="isDraftPurchaseReturnStatus(scope.row.status)" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -136,7 +140,9 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="退货类型" prop="returnType">
-              <el-input v-model="form.returnType" placeholder="默认 purchase_return" />
+              <el-select v-model="form.returnType" style="width: 100%" placeholder="请选择退货类型" disabled>
+                <el-option label="采购退货" value="purchase_return" />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
@@ -408,6 +414,10 @@ function recalcInlineReturnTotals() {
 async function handlePrintPurchaseReturn(row) {
   const res = await listPurchaseReturnItem({ pageNum: 1, pageSize: 500, purchaseReturnId: row.purchaseReturnId })
   const items = res.rows || []
+  await Promise.all([
+    ensurePurchaseReturnItemReferenceOptionsLoaded(items),
+    loadLocationsByWarehouse(row.warehouseId)
+  ])
   printDialogRef.value?.openPrint({
     docType: "purchaseReturn",
     title: "采购退货出库单",

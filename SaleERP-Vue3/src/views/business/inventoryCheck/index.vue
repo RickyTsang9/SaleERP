@@ -171,7 +171,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog :title="inventoryCheckItemTitle" v-model="inventoryCheckItemOpen" width="1080px" append-to-body>
+    <el-dialog :title="inventoryCheckItemTitle" v-model="inventoryCheckItemOpen" width="1160px" append-to-body>
       <el-alert
         v-if="!isInventoryCheckItemEditable()"
         title="当前盘点单已提交或已审核，明细仅支持查看，不支持继续增删改。"
@@ -181,7 +181,7 @@
       />
       <el-row :gutter="10" class="mb8" align="middle">
         <el-col :span="1.5" v-if="isInventoryCheckItemEditable()">
-          <el-button type="success" plain icon="MagicStick" :loading="snapshotLoading" @click="handleLoadWarehouseSnapshot" v-hasPermi="['business:inventoryCheck:edit']">一键载入当前仓库库存</el-button>
+          <el-button type="success" plain icon="MagicStick" :loading="snapshotLoading" @click="handleLoadWarehouseSnapshot" v-hasPermi="['business:inventoryCheck:edit']">一键载入库存</el-button>
         </el-col>
         <el-col :span="1.5">
           <el-button v-if="isInventoryCheckItemEditable()" type="primary" plain icon="Plus" @click="handleAddInventoryCheckItem" v-hasPermi="['business:inventoryCheck:add']">新增明细</el-button>
@@ -189,10 +189,10 @@
         <el-col :span="1.5">
           <el-button v-if="isInventoryCheckItemEditable()" type="danger" plain icon="Delete" :disabled="inventoryCheckItemMultiple" @click="handleDeleteInventoryCheckItem" v-hasPermi="['business:inventoryCheck:remove']">删除明细</el-button>
         </el-col>
-        <el-col :span="9" v-if="isInventoryCheckItemEditable()">
+        <el-col :span="10" v-if="isInventoryCheckItemEditable()">
           <el-input
             v-model="checkScanCode"
-            placeholder="扫码盘点：扫描/输入条码或商品编码按回车（自动实盘+1）"
+            placeholder="扫码或输入商品编码按回车（自动实盘 +1）"
             clearable
             style="width: 100%"
             @keyup.enter="handleCheckBarcodeScan"
@@ -203,44 +203,46 @@
           </el-input>
         </el-col>
         <el-col :span="1.5">
-          <el-switch v-model="blindCheckMode" active-text="盲盘模式（隐藏账面数）" />
+          <el-switch v-model="blindCheckMode" active-text="盲盘模式" />
         </el-col>
       </el-row>
       <el-table v-loading="inventoryCheckItemLoading" :data="inventoryCheckItemList" @selection-change="handleInventoryCheckItemSelectionChange">
-        <el-table-column v-if="isInventoryCheckItemEditable()" type="selection" width="55" align="center" />
-        <el-table-column label="明细编号" align="center" prop="checkItemId" width="85" />
-        <el-table-column label="商品" align="center" prop="productId" min-width="175">
+        <el-table-column v-if="isInventoryCheckItemEditable()" type="selection" width="44" align="center" />
+        <el-table-column label="编号" align="center" prop="checkItemId" width="68" />
+        <el-table-column label="商品" align="left" prop="productId" min-width="145" show-overflow-tooltip>
           <template #default="scope">
             <span>{{ getProductName(scope.row.productId) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="库位" align="center" prop="locationId" min-width="150">
+        <el-table-column label="库位" align="left" prop="locationId" min-width="115" show-overflow-tooltip>
           <template #default="scope">
             <span>{{ getLocationName(scope.row.locationId) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="批次号" align="center" prop="batchNo" min-width="115" />
-        <el-table-column label="账面数量" align="center" prop="stockQty" width="100">
+        <el-table-column label="批次号" align="center" prop="batchNo" min-width="102" show-overflow-tooltip />
+        <el-table-column label="账面数" align="right" prop="stockQty" width="76">
           <template #default="scope">
             <span>{{ blindCheckMode ? '***' : scope.row.stockQty }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="实盘数量" align="center" prop="actualQty" width="105" />
-        <el-table-column label="差异数量" align="center" prop="diffQty" width="100">
+        <el-table-column label="实盘数" align="right" prop="actualQty" width="76" />
+        <el-table-column label="差异数" align="right" prop="diffQty" width="76">
           <template #default="scope">
             <span>{{ blindCheckMode ? '***' : scope.row.diffQty }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="单价" align="center" prop="price" width="95" />
-        <el-table-column label="差异金额" align="center" prop="diffAmount" width="110">
+        <el-table-column label="单价" align="right" prop="price" width="76" />
+        <el-table-column label="差异金额" align="right" prop="diffAmount" width="90">
           <template #default="scope">
             <span>{{ blindCheckMode ? '***' : scope.row.diffAmount }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="isInventoryCheckItemEditable()" label="操作" width="180" align="center">
+        <el-table-column v-if="isInventoryCheckItemEditable()" label="操作" width="140" fixed="right" align="center">
           <template #default="scope">
-            <el-button link type="primary" icon="Edit" @click="handleUpdateInventoryCheckItem(scope.row)" v-hasPermi="['business:inventoryCheck:edit']">修改</el-button>
-            <el-button link type="primary" icon="Delete" @click="handleDeleteInventoryCheckItem(scope.row)" v-hasPermi="['business:inventoryCheck:remove']">删除</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="Edit" @click="handleUpdateInventoryCheckItem(scope.row)" v-hasPermi="['business:inventoryCheck:edit']">修改</el-button>
+              <el-button link type="danger" icon="Delete" @click="handleDeleteInventoryCheckItem(scope.row)" v-hasPermi="['business:inventoryCheck:remove']">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>

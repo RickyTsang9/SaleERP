@@ -16,11 +16,11 @@
 
     <splitpanes :horizontal="appStore.device === 'mobile'" class="default-theme erp-user-splitpanes">
       <!--部门数据-->
-      <pane size="18" min-size="14">
+      <pane size="22" min-size="16">
         <div class="erp-section-card erp-dept-tree-card">
           <div class="erp-dept-tree-card__title">组织部门</div>
           <div class="head-container">
-            <el-input v-model="deptName" placeholder="请输入部门名称" clearable prefix-icon="Search" style="margin-bottom: 14px" />
+            <el-input v-model="deptName" placeholder="搜索部门" clearable prefix-icon="Search" style="margin-bottom: 14px" />
           </div>
           <div class="head-container">
             <el-tree :data="deptOptions" :props="{ label: 'label', children: 'children' }" :expand-on-click-node="false" :filter-node-method="filterNode" ref="deptTreeRef" node-key="id" highlight-current default-expand-all @node-click="handleNodeClick" />
@@ -28,7 +28,7 @@
         </div>
       </pane>
       <!--用户数据-->
-      <pane size="82">
+      <pane size="78">
         <div class="erp-user-main">
           <div class="erp-filter-card" v-show="showSearch">
             <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="68px">
@@ -74,17 +74,17 @@
             </el-row>
 
             <el-table v-loading="loading" :data="userList" @selection-change="handleSelectionChange">
-              <el-table-column type="selection" width="50" align="center" />
-              <el-table-column label="用户编号" align="center" key="userId" prop="userId" v-if="columns.userId.visible" width="90" />
-              <el-table-column label="用户名称" align="center" key="userName" prop="userName" v-if="columns.userName.visible" :show-overflow-tooltip="true">
+              <el-table-column type="selection" width="42" align="center" />
+              <el-table-column label="编号" align="center" key="userId" prop="userId" v-if="columns.userId.visible" width="56" />
+              <el-table-column label="用户 / 昵称" align="left" key="userName" prop="userName" v-if="columns.userName.visible || columns.nickName.visible" min-width="112" :show-overflow-tooltip="true">
                 <template #default="scope">
-                  <span class="erp-cell-title">{{ scope.row.userName }}</span>
+                  <div class="erp-cell-title">{{ scope.row.userName }}</div>
+                  <div class="erp-cell-sub">{{ scope.row.nickName || '-' }}</div>
                 </template>
               </el-table-column>
-              <el-table-column label="用户昵称" align="center" key="nickName" prop="nickName" v-if="columns.nickName.visible" :show-overflow-tooltip="true" />
-              <el-table-column label="部门" align="center" key="deptName" prop="dept.deptName" v-if="columns.deptName.visible" :show-overflow-tooltip="true" />
-              <el-table-column label="手机号码" align="center" key="phonenumber" prop="phonenumber" v-if="columns.phonenumber.visible" width="130" />
-              <el-table-column label="状态" align="center" key="status" v-if="columns.status.visible" width="90">
+              <el-table-column label="部门" align="center" key="deptName" prop="dept.deptName" v-if="columns.deptName.visible" min-width="86" :show-overflow-tooltip="true" />
+              <el-table-column label="手机号码" align="center" key="phonenumber" prop="phonenumber" v-if="columns.phonenumber.visible" width="112" />
+              <el-table-column label="状态" align="center" key="status" v-if="columns.status.visible" width="66">
                 <template #default="scope">
                   <el-switch
                     v-model="scope.row.status"
@@ -94,25 +94,27 @@
                   ></el-switch>
                 </template>
               </el-table-column>
-              <el-table-column label="创建时间" align="center" prop="createTime" v-if="columns.createTime.visible" width="165">
+              <el-table-column label="创建时间" align="center" prop="createTime" v-if="columns.createTime.visible" width="128">
                 <template #default="scope">
-                  <span>{{ parseTime(scope.row.createTime) }}</span>
+                  <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+              <el-table-column label="操作" align="center" width="142" fixed="right" class-name="small-padding fixed-width">
                 <template #default="scope">
-                  <el-tooltip content="修改" placement="top" v-if="scope.row.userId !== 1">
-                    <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:user:edit']"></el-button>
-                  </el-tooltip>
-                  <el-tooltip content="删除" placement="top" v-if="scope.row.userId !== 1">
-                    <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:user:remove']"></el-button>
-                  </el-tooltip>
-                  <el-tooltip content="重置密码" placement="top" v-if="scope.row.userId !== 1">
-                    <el-button link type="primary" icon="Key" @click="handleResetPwd(scope.row)" v-hasPermi="['system:user:resetPwd']"></el-button>
-                  </el-tooltip>
-                  <el-tooltip content="分配角色" placement="top" v-if="scope.row.userId !== 1">
-                    <el-button link type="primary" icon="CircleCheck" @click="handleAuthRole(scope.row)" v-hasPermi="['system:user:edit']"></el-button>
-                  </el-tooltip>
+                  <div class="erp-row-actions">
+                    <el-tooltip content="修改" placement="top" v-if="scope.row.userId !== 1">
+                      <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:user:edit']"></el-button>
+                    </el-tooltip>
+                    <el-tooltip content="删除" placement="top" v-if="scope.row.userId !== 1">
+                      <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:user:remove']"></el-button>
+                    </el-tooltip>
+                    <el-tooltip content="重置密码" placement="top" v-if="scope.row.userId !== 1">
+                      <el-button link type="primary" icon="Key" @click="handleResetPwd(scope.row)" v-hasPermi="['system:user:resetPwd']"></el-button>
+                    </el-tooltip>
+                    <el-tooltip content="分配角色" placement="top" v-if="scope.row.userId !== 1">
+                      <el-button link type="primary" icon="CircleCheck" @click="handleAuthRole(scope.row)" v-hasPermi="['system:user:edit']"></el-button>
+                    </el-tooltip>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>

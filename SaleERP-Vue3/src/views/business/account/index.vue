@@ -41,48 +41,48 @@
 
       <template v-if="activeTab === 'accounts'">
         <el-table v-loading="accountLoading" :data="accountList">
-          <el-table-column label="账户编码" align="center" prop="accountCode" width="145">
+          <el-table-column label="账户编码 / 名称" align="left" min-width="185" show-overflow-tooltip>
             <template #default="scope">
-              <span class="erp-code-chip">{{ scope.row.accountCode }}</span>
+              <div class="erp-cell-title">
+                {{ scope.row.accountName }}
+                <el-tag v-if="scope.row.isDefault === 'Y'" type="warning" size="small" effect="light" style="margin-left: 4px">默认</el-tag>
+              </div>
+              <div class="erp-cell-sub">{{ scope.row.accountCode }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="账户名称" align="left" prop="accountName" min-width="195">
+          <el-table-column label="账户类型" align="center" prop="accountType" width="102">
             <template #default="scope">
-              <span class="erp-cell-title">{{ scope.row.accountName }}</span>
-              <el-tag v-if="scope.row.isDefault === 'Y'" type="warning" size="small" effect="light" style="margin-left: 6px">默认户</el-tag>
+              <el-tag :type="getAccountTypeTag(scope.row.accountType)" effect="light" size="small">{{ formatAccountType(scope.row.accountType) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="账户类型" align="center" prop="accountType" width="118">
-            <template #default="scope">
-              <el-tag :type="getAccountTypeTag(scope.row.accountType)" effect="light">{{ formatAccountType(scope.row.accountType) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="开户行 / 账号" align="left" min-width="200" show-overflow-tooltip>
+          <el-table-column label="开户行 / 账号" align="left" min-width="175" show-overflow-tooltip>
             <template #default="scope">
               <div class="erp-cell-title">{{ scope.row.bankName || '-' }}</div>
               <div class="erp-cell-sub">{{ scope.row.bankNo || '-' }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="期初余额" align="right" prop="openingBalance" width="130">
+          <el-table-column label="期初余额" align="right" prop="openingBalance" width="112">
             <template #default="scope">
               <span class="erp-num">¥{{ formatMoney(scope.row.openingBalance) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="当前实时余额" align="right" prop="currentBalance" width="148">
+          <el-table-column label="实时余额" align="right" prop="currentBalance" width="122">
             <template #default="scope">
               <span class="erp-amount is-primary">¥{{ formatMoney(scope.row.currentBalance) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="状态" align="center" prop="status" width="90">
+          <el-table-column label="状态" align="center" prop="status" width="76">
             <template #default="scope">
-              <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'" effect="light">{{ scope.row.status === '0' ? '正常' : '停用' }}</el-tag>
+              <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'" effect="light" size="small">{{ scope.row.status === '0' ? '正常' : '停用' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="235" fixed="right" align="center">
+          <el-table-column label="操作" width="208" fixed="right" align="center">
             <template #default="scope">
-              <el-button link type="info" icon="Document" @click="handleViewAccountJournal(scope.row)">查看流水</el-button>
-              <el-button link type="primary" icon="Edit" @click="handleEditAccount(scope.row)" v-hasPermi="['business:account:edit']">编辑</el-button>
-              <el-button v-if="scope.row.isDefault !== 'Y' && scope.row.status === '0'" link type="warning" icon="Star" @click="handleSetDefaultAccount(scope.row)" v-hasPermi="['business:account:edit']">设为默认</el-button>
+              <div class="erp-row-actions">
+                <el-button link type="info" icon="Document" @click="handleViewAccountJournal(scope.row)">流水</el-button>
+                <el-button link type="primary" icon="Edit" @click="handleEditAccount(scope.row)" v-hasPermi="['business:account:edit']">编辑</el-button>
+                <el-button v-if="scope.row.isDefault !== 'Y' && scope.row.status === '0'" link type="warning" icon="Star" @click="handleSetDefaultAccount(scope.row)" v-hasPermi="['business:account:edit']">设默认</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -92,18 +92,18 @@
         <div class="journal-filter-bar">
           <el-form :inline="true" :model="journalQuery" size="default">
             <el-form-item label="资金账户">
-              <el-select v-model="journalQuery.accountId" placeholder="全部账户" clearable style="width: 195px" @change="handleJournalQuery">
+              <el-select v-model="journalQuery.accountId" placeholder="全部账户" clearable style="width: 168px" @change="handleJournalQuery">
                 <el-option v-for="acc in accountList" :key="acc.accountId" :label="acc.accountName" :value="acc.accountId" />
               </el-select>
             </el-form-item>
-            <el-form-item label="收支方向">
-              <el-select v-model="journalQuery.direction" placeholder="全部方向" clearable style="width: 120px" @change="handleJournalQuery">
+            <el-form-item label="方向">
+              <el-select v-model="journalQuery.direction" placeholder="全部" clearable style="width: 100px" @change="handleJournalQuery">
                 <el-option label="收入" value="in" />
                 <el-option label="支出" value="out" />
               </el-select>
             </el-form-item>
             <el-form-item label="业务类型">
-              <el-select v-model="journalQuery.bizType" placeholder="全部类型" clearable style="width: 150px" @change="handleJournalQuery">
+              <el-select v-model="journalQuery.bizType" placeholder="全部类型" clearable style="width: 138px" @change="handleJournalQuery">
                 <el-option label="期初建账" value="opening" />
                 <el-option label="销售收款" value="receipt" />
                 <el-option label="收款作废冲回" value="receipt_void" />
@@ -125,55 +125,45 @@
         </div>
 
         <el-table v-loading="journalLoading" :data="journalList">
-          <el-table-column label="资金流水号" align="center" prop="journalNo" width="190">
+          <el-table-column label="流水号 / 时间" align="left" prop="journalNo" min-width="168" show-overflow-tooltip>
             <template #default="scope">
               <span class="erp-code-chip">{{ scope.row.journalNo }}</span>
+              <div class="erp-cell-sub">{{ scope.row.occurTime || '-' }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="资金账户" align="left" prop="accountName" min-width="155" show-overflow-tooltip />
-          <el-table-column label="方向" align="center" prop="direction" width="76">
+          <el-table-column label="资金账户" align="left" prop="accountName" min-width="135" show-overflow-tooltip />
+          <el-table-column label="收支 / 类型" align="center" width="128">
             <template #default="scope">
               <el-tag size="small" :type="scope.row.direction === 'in' ? 'success' : 'danger'" effect="light">
                 {{ scope.row.direction === 'in' ? '收入' : '支出' }}
               </el-tag>
+              <div class="erp-cell-sub" style="margin-top: 3px">
+                <el-tag size="small" :type="getJournalBizTypeTag(scope.row.bizType)" effect="plain">
+                  {{ formatJournalBizType(scope.row.bizType) }}
+                </el-tag>
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="业务类型" align="center" prop="bizType" width="118">
+          <el-table-column label="关联单 / 往来单位" align="left" min-width="155" show-overflow-tooltip>
             <template #default="scope">
-              <el-tag size="small" :type="getJournalBizTypeTag(scope.row.bizType)" effect="plain">
-                {{ formatJournalBizType(scope.row.bizType) }}
-              </el-tag>
+              <div class="erp-cell-title">{{ scope.row.targetName || '-' }}</div>
+              <div class="erp-cell-sub">{{ scope.row.bizNo || '-' }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="关联单号" align="center" prop="bizNo" width="165" show-overflow-tooltip>
+          <el-table-column label="发生金额" align="right" prop="amount" width="114">
             <template #default="scope">
-              <span>{{ scope.row.bizNo || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="对手方 / 往来单位" align="left" prop="targetName" min-width="140" show-overflow-tooltip>
-            <template #default="scope">
-              <span>{{ scope.row.targetName || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="发生金额" align="right" prop="amount" width="128">
-            <template #default="scope">
-              <span :class="['erp-amount', scope.row.direction === 'in' ? 'is-success' : 'is-danger']">
+              <span :class="['erp-amount', scope.row.direction === 'in' ? 'is-positive' : 'is-danger']">
                 {{ scope.row.direction === 'in' ? '+' : '-' }}¥{{ formatMoney(scope.row.amount) }}
               </span>
             </template>
           </el-table-column>
-          <el-table-column label="变动前余额" align="right" prop="beforeBalance" width="122">
+          <el-table-column label="变动后 / 前余额" align="right" width="132">
             <template #default="scope">
-              <span class="erp-num">¥{{ formatMoney(scope.row.beforeBalance) }}</span>
+              <div class="erp-amount is-primary">¥{{ formatMoney(scope.row.afterBalance) }}</div>
+              <div class="erp-cell-sub">前 ¥{{ formatMoney(scope.row.beforeBalance) }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="变动后余额" align="right" prop="afterBalance" width="126">
-            <template #default="scope">
-              <span class="erp-amount is-primary">¥{{ formatMoney(scope.row.afterBalance) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="发生时间" align="center" prop="occurTime" width="165" />
-          <el-table-column label="备注" align="left" prop="remark" min-width="150" show-overflow-tooltip>
+          <el-table-column label="备注" align="left" prop="remark" min-width="120" show-overflow-tooltip>
             <template #default="scope">
               <span>{{ scope.row.remark || '-' }}</span>
             </template>
@@ -197,43 +187,45 @@
         />
 
         <el-table v-loading="periodLoading" :data="periodList">
-          <el-table-column label="会计期间" align="center" prop="periodMonth" width="130">
+          <el-table-column label="会计期间" align="center" prop="periodMonth" width="104">
             <template #default="scope">
               <span class="erp-code-chip">{{ scope.row.periodMonth }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="月结状态" align="center" prop="closeStatus" width="130">
+          <el-table-column label="月结状态" align="center" prop="closeStatus" width="118">
             <template #default="scope">
-              <el-tag :type="scope.row.closeStatus === 'closed' ? 'danger' : 'warning'" effect="light">
+              <el-tag :type="scope.row.closeStatus === 'closed' ? 'danger' : 'warning'" effect="light" size="small">
                 {{ scope.row.closeStatus === 'closed' ? '已关账锁定' : '已反结账开放' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="月度销售额快照" align="right" prop="saleAmountSnapshot" width="150">
+          <el-table-column label="月销售快照" align="right" prop="saleAmountSnapshot" width="118">
             <template #default="scope">
               <span class="erp-amount is-primary">¥{{ formatMoney(scope.row.saleAmountSnapshot) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="月度采购额快照" align="right" prop="purchaseAmountSnapshot" width="150">
+          <el-table-column label="月采购快照" align="right" prop="purchaseAmountSnapshot" width="118">
             <template #default="scope">
               <span class="erp-amount">¥{{ formatMoney(scope.row.purchaseAmountSnapshot) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="关账人 / 时间" align="center" width="190">
+          <el-table-column label="关账人 / 时间" align="center" min-width="148" show-overflow-tooltip>
             <template #default="scope">
               <div class="erp-cell-title">{{ scope.row.closedBy || '-' }}</div>
               <div class="erp-cell-sub">{{ scope.row.closedTime || '-' }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="备注 / 反结账记录" align="left" min-width="210" show-overflow-tooltip>
+          <el-table-column label="备注 / 反结账记录" align="left" min-width="150" show-overflow-tooltip>
             <template #default="scope">
               <span>{{ scope.row.reopenReason ? `[反结账] ${scope.row.reopenReason}` : (scope.row.remark || '-') }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right" align="center">
+          <el-table-column label="操作" width="124" fixed="right" align="center">
             <template #default="scope">
-              <el-button v-if="scope.row.closeStatus === 'closed'" link type="danger" icon="Unlock" @click="handleReopenPeriod(scope.row)" v-hasPermi="['business:periodClose:manage']">反结账解锁</el-button>
-              <el-button v-else link type="primary" icon="Lock" @click="handleRecloseMonth(scope.row)" v-hasPermi="['business:periodClose:manage']">重新关账</el-button>
+              <div class="erp-row-actions">
+                <el-button v-if="scope.row.closeStatus === 'closed'" link type="danger" icon="Unlock" @click="handleReopenPeriod(scope.row)" v-hasPermi="['business:periodClose:manage']">反结账</el-button>
+                <el-button v-else link type="primary" icon="Lock" @click="handleRecloseMonth(scope.row)" v-hasPermi="['business:periodClose:manage']">重新关账</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>

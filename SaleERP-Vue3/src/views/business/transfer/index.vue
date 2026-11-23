@@ -52,13 +52,13 @@
       </div>
 
       <el-table v-loading="loading" :data="transferList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="调拨单号" align="center" prop="transferNo" min-width="175">
+        <el-table-column type="selection" width="46" align="center" />
+        <el-table-column label="调拨单号" align="center" prop="transferNo" min-width="150" show-overflow-tooltip>
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.transferNo }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="调拨路径（调出 → 调入）" align="left" min-width="240" show-overflow-tooltip>
+        <el-table-column label="调拨路径（调出 → 调入）" align="left" min-width="195" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">
               {{ scope.row.outWarehouseName || getWarehouseName(scope.row.outWarehouseId) }} → {{ scope.row.inWarehouseName || getWarehouseName(scope.row.inWarehouseId) }}
@@ -66,12 +66,12 @@
             <div class="erp-cell-sub">调拨日期：{{ parseTime(scope.row.transferDate, '{y}-{m}-{d}') || '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="调拨总数量" align="right" prop="totalQuantity" width="115">
+        <el-table-column label="调拨数量" align="right" prop="totalQuantity" width="90">
           <template #default="scope">
             <span class="erp-amount is-primary">{{ scope.row.totalQuantity }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" align="center" prop="status" width="125">
+        <el-table-column label="状态" align="center" prop="status" width="104">
           <template #default="scope">
             <el-tooltip v-if="scope.row.status === 'draft' && scope.row.rejectReason" :content="`驳回原因：${scope.row.rejectReason}`" placement="top">
               <el-tag type="danger" effect="light">已驳回待改</el-tag>
@@ -79,18 +79,27 @@
             <el-tag v-else :type="getTransferStatusType(scope.row.status)" effect="light">{{ getTransferStatusName(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="295" fixed="right" align="center">
+        <el-table-column label="操作" width="245" fixed="right" align="center">
           <template #default="scope">
-            <el-button v-if="isEditableTransferStatus(scope.row.status)" link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:transfer:edit']">修改</el-button>
-            <el-button v-if="scope.row.status === 'draft'" link type="primary" icon="Upload" @click="handleSubmitTransfer(scope.row)" v-hasPermi="['business:transfer:edit']">提交</el-button>
-            <el-button v-if="scope.row.status === '0'" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:transfer:audit']">审核调出</el-button>
-            <el-button v-if="scope.row.status === '0'" link type="warning" icon="RefreshLeft" @click="handleRejectTransfer(scope.row)" v-hasPermi="['business:transfer:audit']">驳回</el-button>
-            <el-button v-if="scope.row.status === 'in_transit'" link type="success" icon="Select" @click="handleReceiveTransfer(scope.row)" v-hasPermi="['business:transfer:audit', 'business:transfer:edit']">调入签收</el-button>
-            <el-button v-if="scope.row.status === 'in_transit'" link type="danger" icon="RefreshLeft" @click="handleRecallTransfer(scope.row)" v-hasPermi="['business:transfer:audit', 'business:transfer:edit']">在途撤回</el-button>
-            <el-button v-if="canCancelTransferStatus(scope.row.status)" link type="warning" icon="Close" @click="handleCancelOrder(scope.row)" v-hasPermi="['business:transfer:edit']">作废</el-button>
-            <el-button v-if="isEditableTransferStatus(scope.row.status)" link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:transfer:remove']">删除</el-button>
-            <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
-            <el-button link type="info" icon="Printer" @click="handlePrintTransfer(scope.row)">打印</el-button>
+            <div class="erp-row-actions">
+              <el-button v-if="scope.row.status === '0'" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:transfer:audit']">审核调出</el-button>
+              <el-button v-else-if="scope.row.status === 'in_transit'" link type="success" icon="Select" @click="handleReceiveTransfer(scope.row)" v-hasPermi="['business:transfer:audit', 'business:transfer:edit']">签收</el-button>
+              <el-button v-else-if="scope.row.status === 'draft'" link type="primary" icon="Upload" @click="handleSubmitTransfer(scope.row)" v-hasPermi="['business:transfer:edit']">提交</el-button>
+              <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
+              <el-button link type="info" icon="Printer" @click="handlePrintTransfer(scope.row)">打印</el-button>
+              <el-dropdown v-if="isEditableTransferStatus(scope.row.status) || scope.row.status === '0' || scope.row.status === 'in_transit' || canCancelTransferStatus(scope.row.status)" trigger="click">
+                <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="isEditableTransferStatus(scope.row.status)" @click="handleUpdate(scope.row)">修改调拨单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '0'" @click="handleRejectTransfer(scope.row)">驳回至草稿</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'in_transit'" @click="handleRecallTransfer(scope.row)"><span style="color: var(--el-color-danger)">在途撤回</span></el-dropdown-item>
+                    <el-dropdown-item v-if="canCancelTransferStatus(scope.row.status)" @click="handleCancelOrder(scope.row)">作废单据</el-dropdown-item>
+                    <el-dropdown-item v-if="isEditableTransferStatus(scope.row.status)" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -224,11 +233,13 @@ async function handlePrintTransfer(row) {
   const res = await getTransfer(row.transferId)
   const detail = res.data || row
   const items = detail.wmsTransferItemList || []
+  await ensureProductOptionLoaded(items.map(i => i.productId))
   printDialogRef.value?.openPrint({
     docType: "transfer",
     title: "仓库库存调拨单",
     docNo: detail.transferNo || `TF-${detail.transferId}`,
     defaultPaperMode: "triplicate",
+    showAmount: false,
     metaFields: [
       { label: "调拨单号", value: detail.transferNo || "-" },
       { label: "调出仓库", value: detail.outWarehouseName || getWarehouseName(detail.outWarehouseId) },
@@ -248,7 +259,6 @@ async function handlePrintTransfer(row) {
       remark: it.remark || "-"
     })),
     totalQty: detail.totalQuantity || items.reduce((s, i) => s + Number(i.quantity || 0), 0),
-    totalAmount: 0,
     remark: detail.remark || ""
   })
 }

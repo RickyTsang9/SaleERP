@@ -94,33 +94,35 @@
          </el-row>
 
          <el-table v-loading="loading" :data="postList" @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55" align="center" />
-            <el-table-column label="岗位编号" align="center" prop="postId" width="100" />
-            <el-table-column label="岗位编码" align="center" prop="postCode">
+            <el-table-column type="selection" width="44" align="center" />
+            <el-table-column label="编号" align="center" prop="postId" width="66" />
+            <el-table-column label="岗位编码" align="center" prop="postCode" min-width="105">
                <template #default="scope">
                   <span class="erp-code-chip">{{ scope.row.postCode }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="岗位名称" align="center" prop="postName">
+            <el-table-column label="岗位名称" align="center" prop="postName" min-width="115">
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.postName }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="岗位排序" align="center" prop="postSort" width="100" />
-            <el-table-column label="状态" align="center" prop="status" width="100">
+            <el-table-column label="排序" align="center" prop="postSort" width="64" />
+            <el-table-column label="状态" align="center" prop="status" width="76">
                <template #default="scope">
                   <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
                </template>
             </el-table-column>
-            <el-table-column label="创建时间" align="center" prop="createTime" width="180">
+            <el-table-column label="创建时间" align="center" prop="createTime" width="136">
                <template #default="scope">
-                  <span>{{ parseTime(scope.row.createTime) }}</span>
+                  <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="操作" width="180" align="center" class-name="small-padding fixed-width">
+            <el-table-column label="操作" width="136" fixed="right" align="center" class-name="small-padding fixed-width">
                <template #default="scope">
-                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:post:edit']">修改</el-button>
-                  <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:post:remove']">删除</el-button>
+                  <div class="erp-row-actions">
+                     <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:post:edit']">修改</el-button>
+                     <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:post:remove']">删除</el-button>
+                  </div>
                </template>
             </el-table-column>
          </el-table>

@@ -56,31 +56,31 @@
       </div>
 
       <el-table v-loading="loading" :data="outboundList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="出库单号" align="center" prop="outboundNo" min-width="170">
+        <el-table-column type="selection" width="46" align="center" />
+        <el-table-column label="出库单号" align="center" prop="outboundNo" min-width="150" show-overflow-tooltip>
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.outboundNo }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="类型 / 来源单" align="left" min-width="180" show-overflow-tooltip>
+        <el-table-column label="类型 / 来源单" align="left" min-width="145" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ getOutboundTypeLabel(scope.row.outboundType) }}</div>
             <div class="erp-cell-sub">{{ getSaleOrderDisplayName(scope.row.saleOrderNo, scope.row.saleOrderId) || '直接出库' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="客户 / 发货仓" align="left" min-width="185" show-overflow-tooltip>
+        <el-table-column label="客户 / 发货仓" align="left" min-width="165" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.customerName || getCustomerName(scope.row.customerId) }}</div>
             <div class="erp-cell-sub">仓库：{{ scope.row.warehouseName || getWarehouseName(scope.row.warehouseId) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="数量" align="right" prop="totalQty" width="85" />
-        <el-table-column label="出库总额" align="right" prop="totalAmount" width="112">
+        <el-table-column label="数量" align="right" prop="totalQty" width="72" />
+        <el-table-column label="出库总额" align="right" prop="totalAmount" width="104">
           <template #default="scope">
             <span class="erp-amount is-primary">¥{{ Number(scope.row.totalAmount || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="单据状态" align="center" prop="status" width="112">
+        <el-table-column label="单据状态" align="center" prop="status" width="94">
           <template #default="scope">
             <el-tooltip v-if="scope.row.status === 'draft' && scope.row.rejectReason" :content="`驳回原因：${scope.row.rejectReason}`" placement="top">
               <el-tag type="danger" effect="light">已驳回待改</el-tag>
@@ -88,39 +88,48 @@
             <el-tag v-else :type="getOutboundStatusType(scope.row.status)" effect="light">{{ getOutboundStatusLabel(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="配送状态" align="center" prop="deliveryStatus" width="102">
+        <el-table-column label="配送状态" align="center" prop="deliveryStatus" width="88">
           <template #default="scope">
             <el-tag :type="getOutboundDeliveryStatusType(scope.row.deliveryStatus)" effect="plain">{{ getOutboundDeliveryStatusLabel(scope.row.deliveryStatus) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" align="center" prop="createTime" width="160">
+        <el-table-column label="创建时间" align="center" prop="createTime" width="136">
           <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime) }}</span>
+            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="315" fixed="right" align="center">
+        <el-table-column label="操作" width="215" fixed="right" align="center">
           <template #default="scope">
-            <el-button link type="primary" icon="List" @click="handleOpenOutboundItem(scope.row)" v-hasPermi="['business:outbound:query']">明细</el-button>
-            <el-button link type="primary" icon="Printer" @click="handlePrintOutbound(scope.row)">送货单</el-button>
-            <el-button link type="primary" icon="Tickets" @click="handleViewSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:list']" v-if="scope.row.saleOrderId">销售单</el-button>
-            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:outbound:edit']" v-if="scope.row.status === 'draft'">修改</el-button>
-            <el-button link type="primary" icon="Upload" @click="handleSubmit(scope.row)" v-hasPermi="['business:outbound:edit']" v-if="scope.row.status === 'draft'">提交</el-button>
-            <el-button link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:outbound:audit']" v-if="scope.row.status === 'submitted'">审核</el-button>
-            <el-button link type="warning" icon="RefreshLeft" @click="handleReject(scope.row)" v-hasPermi="['business:outbound:audit']" v-if="scope.row.status === 'submitted'">驳回</el-button>
-            <el-button
-              v-if="scope.row.status === 'audited' && (!scope.row.deliveryStatus || scope.row.deliveryStatus === 'pending')"
-              link type="primary" icon="Van"
-              @click="handleOpenDeliveryDialog(scope.row, 'shipping')"
-              v-hasPermi="['business:outbound:edit', 'business:outbound:audit']"
-            >开始配送</el-button>
-            <el-button
-              v-if="scope.row.status === 'audited' && scope.row.deliveryStatus === 'shipping'"
-              link type="success" icon="Select"
-              @click="handleOpenDeliveryDialog(scope.row, 'delivered')"
-              v-hasPermi="['business:outbound:edit', 'business:outbound:audit']"
-            >确认签收</el-button>
-            <el-button link type="warning" icon="Close" @click="handleCancel(scope.row)" v-hasPermi="['business:outbound:edit']" v-if="scope.row.status !== 'audited' && scope.row.status !== 'cancelled'">作废</el-button>
-            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:outbound:remove']" v-if="scope.row.status === 'draft'">删除</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="List" @click="handleOpenOutboundItem(scope.row)" v-hasPermi="['business:outbound:query']">明细</el-button>
+              <el-button link type="primary" icon="Printer" @click="handlePrintOutbound(scope.row)">打印</el-button>
+              <el-button v-if="scope.row.status === 'submitted'" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:outbound:audit']">审核</el-button>
+              <el-button v-else-if="scope.row.status === 'draft'" link type="primary" icon="Upload" @click="handleSubmit(scope.row)" v-hasPermi="['business:outbound:edit']">提交</el-button>
+              <el-button
+                v-else-if="scope.row.status === 'audited' && (!scope.row.deliveryStatus || scope.row.deliveryStatus === 'pending')"
+                link type="primary" icon="Van"
+                @click="handleOpenDeliveryDialog(scope.row, 'shipping')"
+                v-hasPermi="['business:outbound:edit', 'business:outbound:audit']"
+              >配送</el-button>
+              <el-button
+                v-else-if="scope.row.status === 'audited' && scope.row.deliveryStatus === 'shipping'"
+                link type="success" icon="Select"
+                @click="handleOpenDeliveryDialog(scope.row, 'delivered')"
+                v-hasPermi="['business:outbound:edit', 'business:outbound:audit']"
+              >签收</el-button>
+              <el-dropdown v-if="scope.row.saleOrderId || scope.row.status !== 'audited'" trigger="click">
+                <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="scope.row.saleOrderId" @click="handleViewSaleOrder(scope.row)">查看销售单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'submitted'" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status !== 'audited' && scope.row.status !== 'cancelled'" @click="handleCancel(scope.row)">作废单据</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>

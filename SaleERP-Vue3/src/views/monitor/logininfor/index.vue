@@ -109,26 +109,34 @@
          </el-row>
 
          <el-table ref="logininforRef" v-loading="loading" :data="logininforList" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
-            <el-table-column type="selection" width="55" align="center" />
-            <el-table-column label="访问编号" align="center" prop="infoId" width="100" />
-            <el-table-column label="用户名称" align="center" prop="userName" :show-overflow-tooltip="true" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <el-table-column type="selection" width="44" align="center" />
+            <el-table-column label="编号" align="center" prop="infoId" width="68" />
+            <el-table-column label="用户名称" align="center" prop="userName" min-width="92" :show-overflow-tooltip="true" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.userName }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="地址" align="center" prop="ipaddr" :show-overflow-tooltip="true" />
-            <el-table-column label="登录地点" align="center" prop="loginLocation" :show-overflow-tooltip="true" />
-            <el-table-column label="操作系统" align="center" prop="os" :show-overflow-tooltip="true" />
-            <el-table-column label="浏览器" align="center" prop="browser" :show-overflow-tooltip="true" />
-            <el-table-column label="登录状态" align="center" prop="status" width="100">
+            <el-table-column label="地址 / 地点" align="left" min-width="125" :show-overflow-tooltip="true">
+               <template #default="scope">
+                  <div>{{ scope.row.ipaddr }}</div>
+                  <div class="erp-cell-sub">{{ scope.row.loginLocation || '-' }}</div>
+               </template>
+            </el-table-column>
+            <el-table-column label="终端环境" align="left" min-width="125" :show-overflow-tooltip="true">
+               <template #default="scope">
+                  <div>{{ scope.row.browser || '-' }}</div>
+                  <div class="erp-cell-sub">{{ scope.row.os || '-' }}</div>
+               </template>
+            </el-table-column>
+            <el-table-column label="状态" align="center" prop="status" width="76">
                <template #default="scope">
                   <dict-tag :options="sys_common_status" :value="scope.row.status" />
                </template>
             </el-table-column>
-            <el-table-column label="描述" align="center" prop="msg" :show-overflow-tooltip="true" />
-            <el-table-column label="访问时间" align="center" prop="loginTime" sortable="custom" :sort-orders="['descending', 'ascending']" width="180">
+            <el-table-column label="描述" align="left" prop="msg" min-width="105" :show-overflow-tooltip="true" />
+            <el-table-column label="访问时间" align="center" prop="loginTime" sortable="custom" :sort-orders="['descending', 'ascending']" width="140">
                <template #default="scope">
-                  <span>{{ parseTime(scope.row.loginTime) }}</span>
+                  <span>{{ parseTime(scope.row.loginTime, '{y}-{m}-{d} {h}:{i}') }}</span>
                </template>
             </el-table-column>
          </el-table>

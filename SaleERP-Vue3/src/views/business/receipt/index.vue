@@ -59,51 +59,60 @@
       </div>
 
       <el-table v-loading="loading" :data="receiptList">
-        <el-table-column label="回款 / 应收单" align="left" min-width="155">
+        <el-table-column label="回款 / 应收单" align="left" min-width="126">
           <template #default="scope">
             <span class="erp-code-chip">{{ 'RC' + String(scope.row.receiptId || '').padStart(5, '0') }}</span>
             <div class="erp-cell-sub">{{ scope.row.receivableId ? ('AR' + String(scope.row.receivableId).padStart(5, '0')) : '-' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="客户 / 来源销售单" align="left" min-width="195" show-overflow-tooltip>
+        <el-table-column label="客户 / 来源销售单" align="left" min-width="165" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.customerName || getCustomerName(scope.row.customerId, scope.row.saleOrderId) }}</div>
             <div class="erp-cell-sub">{{ scope.row.saleOrderNo || (scope.row.saleOrderId ? ('SO-' + scope.row.saleOrderId) : '-') }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="回款金额" align="right" prop="amount" min-width="118">
+        <el-table-column label="回款金额" align="right" prop="amount" width="108">
           <template #default="scope">
             <span class="erp-amount" :class="scope.row.status === 'voided' ? 'is-danger' : 'is-positive'">
               ¥{{ Number(scope.row.amount || 0).toFixed(2) }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="方式 / 结算账户" align="left" min-width="160" show-overflow-tooltip>
+        <el-table-column label="方式 / 结算账户" align="left" min-width="148" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ getReceiptPaymentMethodLabel(scope.row.paymentMethod) }}</div>
             <div class="erp-cell-sub">{{ scope.row.accountName || getAccountName(scope.row.accountId) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="回款时间" align="center" prop="paymentTime" width="165">
+        <el-table-column label="回款时间" align="center" prop="paymentTime" width="136">
           <template #default="scope">
-            <span>{{ parseTime(scope.row.paymentTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+            <span>{{ parseTime(scope.row.paymentTime, '{y}-{m}-{d} {h}:{i}') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" align="center" prop="status" width="96">
+        <el-table-column label="状态" align="center" prop="status" width="84">
           <template #default="scope">
             <el-tooltip v-if="scope.row.status === 'voided'" :content="scope.row.voidReason || '已冲红'" placement="top">
-              <el-tag type="danger" effect="light">已冲红</el-tag>
+              <el-tag type="danger" effect="light" size="small">已冲红</el-tag>
             </el-tooltip>
-            <el-tag v-else type="success" effect="light">正常</el-tag>
+            <el-tag v-else type="success" effect="light" size="small">正常</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="备注" align="left" prop="remark" min-width="140" show-overflow-tooltip />
-        <el-table-column label="操作" width="265" fixed="right" align="center">
+        <el-table-column label="备注" align="left" prop="remark" min-width="110" show-overflow-tooltip />
+        <el-table-column label="操作" width="192" fixed="right" align="center">
           <template #default="scope">
-            <el-button link type="primary" icon="View" @click="handleViewReceivable(scope.row)" v-hasPermi="['business:receivable:list']">应收</el-button>
-            <el-button link type="primary" icon="Tickets" @click="handleViewSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:list']" v-if="scope.row.saleOrderId">销售单</el-button>
-            <el-button link type="info" icon="Printer" @click="handlePrintReceipt(scope.row)">凭证</el-button>
-            <el-button v-if="scope.row.status !== 'voided'" link type="danger" icon="RefreshLeft" @click="handleVoidReceipt(scope.row)" v-hasPermi="['business:receipt:edit']">冲红</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="View" @click="handleViewReceivable(scope.row)" v-hasPermi="['business:receivable:list']">应收</el-button>
+              <el-button link type="info" icon="Printer" @click="handlePrintReceipt(scope.row)">凭证</el-button>
+              <el-dropdown v-if="scope.row.saleOrderId || scope.row.status !== 'voided'" trigger="click">
+                <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="scope.row.saleOrderId" @click="handleViewSaleOrder(scope.row)">查看销售单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status !== 'voided'" divided @click="handleVoidReceipt(scope.row)"><span style="color: var(--el-color-danger)">冲红作废</span></el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>

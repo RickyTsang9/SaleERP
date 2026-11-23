@@ -196,11 +196,27 @@
 }
 
 .list-group-item {
-  border-bottom: 1px solid #e7eaec;
-  border-top: 1px solid #e7eaec;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--erp-border, #e7eaec);
+  border-top: 1px solid var(--erp-border, #e7eaec);
   margin-bottom: -1px;
   padding: 11px 0px;
   font-size: 13px;
+
+  > .svg-icon {
+    flex-shrink: 0;
+  }
+
+  .pull-right {
+    float: none !important;
+    margin-left: auto;
+    text-align: right;
+    color: var(--erp-heading, inherit);
+    word-break: break-all;
+  }
 }
 
 .pull-right {

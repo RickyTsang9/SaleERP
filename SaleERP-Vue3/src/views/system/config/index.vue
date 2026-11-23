@@ -114,34 +114,36 @@
          </el-row>
 
          <el-table v-loading="loading" :data="configList" @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55" align="center" />
-            <el-table-column label="参数主键" align="center" prop="configId" width="100" />
-            <el-table-column label="参数名称" align="center" prop="configName" :show-overflow-tooltip="true">
+            <el-table-column type="selection" width="44" align="center" />
+            <el-table-column label="编号" align="center" prop="configId" width="64" />
+            <el-table-column label="参数名称" align="left" prop="configName" min-width="145" :show-overflow-tooltip="true">
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.configName }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="参数键名" align="center" prop="configKey" :show-overflow-tooltip="true">
+            <el-table-column label="参数键名" align="left" prop="configKey" min-width="175" :show-overflow-tooltip="true">
                <template #default="scope">
                   <span class="erp-code-chip">{{ scope.row.configKey }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="参数键值" align="center" prop="configValue" :show-overflow-tooltip="true" />
-            <el-table-column label="系统内置" align="center" prop="configType" width="100">
+            <el-table-column label="参数键值" align="center" prop="configValue" min-width="92" :show-overflow-tooltip="true" />
+            <el-table-column label="内置" align="center" prop="configType" width="70">
                <template #default="scope">
                   <dict-tag :options="sys_yes_no" :value="scope.row.configType" />
                </template>
             </el-table-column>
-            <el-table-column label="备注" align="center" prop="remark" :show-overflow-tooltip="true" />
-            <el-table-column label="创建时间" align="center" prop="createTime" width="180">
+            <el-table-column label="备注" align="left" prop="remark" min-width="140" :show-overflow-tooltip="true" />
+            <el-table-column label="创建时间" align="center" prop="createTime" width="136">
                <template #default="scope">
-                  <span>{{ parseTime(scope.row.createTime) }}</span>
+                  <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="操作" align="center" width="145" fixed="right" class-name="small-padding fixed-width">
+            <el-table-column label="操作" align="center" width="136" fixed="right" class-name="small-padding fixed-width">
                <template #default="scope">
-                  <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:config:edit']" >修改</el-button>
-                  <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:config:remove']">删除</el-button>
+                  <div class="erp-row-actions">
+                     <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:config:edit']">修改</el-button>
+                     <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:config:remove']">删除</el-button>
+                  </div>
                </template>
             </el-table-column>
          </el-table>

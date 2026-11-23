@@ -110,20 +110,20 @@
 
          <!-- 表格数据 -->
          <el-table v-loading="loading" :data="roleList" @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55" align="center" />
-            <el-table-column label="角色编号" prop="roleId" width="110" align="center" />
-            <el-table-column label="角色名称" prop="roleName" :show-overflow-tooltip="true" width="160">
+            <el-table-column type="selection" width="44" align="center" />
+            <el-table-column label="编号" prop="roleId" width="68" align="center" />
+            <el-table-column label="角色名称" prop="roleName" :show-overflow-tooltip="true" min-width="125">
                <template #default="scope">
                   <span class="erp-cell-title">{{ scope.row.roleName }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="权限字符" prop="roleKey" :show-overflow-tooltip="true" width="170">
+            <el-table-column label="权限字符" prop="roleKey" :show-overflow-tooltip="true" min-width="135">
                <template #default="scope">
                   <span class="erp-code-chip">{{ scope.row.roleKey }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="显示顺序" prop="roleSort" width="100" align="center" />
-            <el-table-column label="状态" align="center" width="100">
+            <el-table-column label="排序" prop="roleSort" width="66" align="center" />
+            <el-table-column label="状态" align="center" width="76">
                <template #default="scope">
                   <el-switch
                      v-model="scope.row.status"
@@ -133,12 +133,12 @@
                   ></el-switch>
                </template>
             </el-table-column>
-            <el-table-column label="创建时间" align="center" prop="createTime" width="170">
+            <el-table-column label="创建时间" align="center" prop="createTime" width="136">
                <template #default="scope">
-                  <span>{{ parseTime(scope.row.createTime) }}</span>
+                  <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
                </template>
             </el-table-column>
-            <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+            <el-table-column label="操作" align="center" width="144" fixed="right" class-name="small-padding fixed-width">
                <template #default="scope">
                  <el-tooltip content="修改" placement="top" v-if="scope.row.roleId !== 1">
                    <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:role:edit']"></el-button>

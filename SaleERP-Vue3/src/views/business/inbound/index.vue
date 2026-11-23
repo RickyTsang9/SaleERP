@@ -59,31 +59,31 @@
       </div>
 
       <el-table v-loading="loading" :data="inboundList" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="50" align="center" />
-        <el-table-column label="入库单号" align="center" prop="inboundNo" min-width="170">
+        <el-table-column type="selection" width="46" align="center" />
+        <el-table-column label="入库单号" align="center" prop="inboundNo" min-width="150" show-overflow-tooltip>
           <template #default="scope">
             <span class="erp-code-chip">{{ scope.row.inboundNo }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="类型 / 来源单" align="left" min-width="180" show-overflow-tooltip>
+        <el-table-column label="类型 / 来源单" align="left" min-width="150" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ getInboundTypeLabel(scope.row.inboundType) }}</div>
             <div class="erp-cell-sub">{{ getPurchaseOrderDisplayName(scope.row.purchaseOrderNo, scope.row.purchaseOrderId) || '手工建单' }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="供应商 / 仓库" align="left" min-width="185" show-overflow-tooltip>
+        <el-table-column label="供应商 / 仓库" align="left" min-width="175" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.supplierName || getSupplierName(scope.row.supplierId, scope.row.purchaseOrderId) }}</div>
             <div class="erp-cell-sub">仓库：{{ scope.row.warehouseName || getWarehouseName(scope.row.warehouseId) }}</div>
           </template>
         </el-table-column>
-        <el-table-column label="总数量" align="right" prop="totalQty" width="90" />
-        <el-table-column label="入库总额" align="right" prop="totalAmount" width="115">
+        <el-table-column label="数量" align="right" prop="totalQty" width="76" />
+        <el-table-column label="入库总额" align="right" prop="totalAmount" width="106">
           <template #default="scope">
             <span class="erp-amount is-primary">¥{{ Number(scope.row.totalAmount || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" align="center" prop="status" width="115">
+        <el-table-column label="状态" align="center" prop="status" width="96">
           <template #default="scope">
             <el-tooltip v-if="scope.row.status === 'draft' && scope.row.rejectReason" :content="`驳回原因：${scope.row.rejectReason}`" placement="top">
               <el-tag type="danger" effect="light">已驳回待改</el-tag>
@@ -91,22 +91,31 @@
             <el-tag v-else :type="getInboundStatusType(scope.row.status)" effect="light">{{ getInboundStatusLabel(scope.row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" align="center" prop="createTime" width="160">
+        <el-table-column label="创建时间" align="center" prop="createTime" width="142">
           <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime) }}</span>
+            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="265" fixed="right" align="center">
+        <el-table-column label="操作" width="205" fixed="right" align="center">
           <template #default="scope">
-            <el-button link type="primary" icon="List" @click="handleOpenInboundItem(scope.row)" v-hasPermi="['business:inbound:query']">明细</el-button>
-            <el-button link type="primary" icon="Printer" @click="handlePrintInbound(scope.row)">打印</el-button>
-            <el-button link type="primary" icon="Tickets" @click="handleViewPurchaseOrder(scope.row)" v-hasPermi="['business:purchaseOrder:list']" v-if="scope.row.purchaseOrderId">采购单</el-button>
-            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:inbound:edit']" v-if="scope.row.status === 'draft'">修改</el-button>
-            <el-button link type="primary" icon="Upload" @click="handleSubmit(scope.row)" v-hasPermi="['business:inbound:edit']" v-if="scope.row.status === 'draft'">提交</el-button>
-            <el-button link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:inbound:audit']" v-if="scope.row.status === 'submitted'">审核</el-button>
-            <el-button link type="warning" icon="RefreshLeft" @click="handleReject(scope.row)" v-hasPermi="['business:inbound:audit']" v-if="scope.row.status === 'submitted'">驳回</el-button>
-            <el-button link type="warning" icon="Close" @click="handleCancel(scope.row)" v-hasPermi="['business:inbound:edit']" v-if="scope.row.status !== 'audited' && scope.row.status !== 'cancelled'">作废</el-button>
-            <el-button link type="danger" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['business:inbound:remove']" v-if="scope.row.status === 'draft'">删除</el-button>
+            <div class="erp-row-actions">
+              <el-button link type="primary" icon="List" @click="handleOpenInboundItem(scope.row)" v-hasPermi="['business:inbound:query']">明细</el-button>
+              <el-button link type="primary" icon="Printer" @click="handlePrintInbound(scope.row)">打印</el-button>
+              <el-button v-if="scope.row.status === 'submitted'" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:inbound:audit']">审核</el-button>
+              <el-button v-else-if="scope.row.status === 'draft'" link type="primary" icon="Upload" @click="handleSubmit(scope.row)" v-hasPermi="['business:inbound:edit']">提交</el-button>
+              <el-dropdown v-if="scope.row.purchaseOrderId || scope.row.status !== 'audited'" trigger="click">
+                <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="scope.row.purchaseOrderId" @click="handleViewPurchaseOrder(scope.row)">查看采购单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'submitted'" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status !== 'audited' && scope.row.status !== 'cancelled'" @click="handleCancel(scope.row)">作废单据</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -230,7 +239,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog :title="inboundItemTitle" v-model="inboundItemOpen" width="980px" append-to-body>
+    <el-dialog :title="inboundItemTitle" v-model="inboundItemOpen" width="1140px" append-to-body>
       <el-alert
         v-if="!isInboundItemEditable() || isLinkedPurchaseOrderInboundItemMode()"
         :title="!isInboundItemEditable() ? '当前入库单已进入后续流程，明细仅支持查看。' : '来源采购单明细已自动带入，当前只需维护库位、批次和实收数量。'"
@@ -275,46 +284,48 @@
         </el-col>
       </el-row>
       <el-table v-loading="inboundItemLoading" :data="inboundItemList" @selection-change="handleInboundItemSelectionChange">
-        <el-table-column v-if="isInboundItemEditable() && !isLinkedPurchaseOrderInboundItemMode()" type="selection" width="55" align="center" />
-        <el-table-column label="明细编号" align="center" prop="inboundItemId" />
-        <el-table-column label="商品" align="center" prop="productId" min-width="180">
+        <el-table-column v-if="isInboundItemEditable() && !isLinkedPurchaseOrderInboundItemMode()" type="selection" width="46" align="center" />
+        <el-table-column label="明细编号" align="center" prop="inboundItemId" width="84" />
+        <el-table-column label="商品" align="left" prop="productId" min-width="160" show-overflow-tooltip>
           <template #default="scope">
             <span>{{ getProductName(scope.row.productId) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="采购数量" align="center" prop="purchaseQuantity" width="110">
+        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="采购数量" align="right" prop="purchaseQuantity" width="88">
           <template #default="scope">
             <span>{{ formatInboundItemQuantity(scope.row.purchaseQuantity) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="已入库" align="center" prop="receivedQuantity" width="110">
+        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="已入库" align="right" prop="receivedQuantity" width="82">
           <template #default="scope">
             <span>{{ formatInboundItemQuantity(scope.row.receivedQuantity) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="待入库" align="center" prop="remainQuantity" width="110">
+        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="待入库" align="right" prop="remainQuantity" width="82">
           <template #default="scope">
             <span>{{ formatInboundItemQuantity(scope.row.remainQuantity) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="库位" align="center" prop="locationId" min-width="180">
+        <el-table-column label="库位" align="left" prop="locationId" min-width="140" show-overflow-tooltip>
           <template #default="scope">
             <span>{{ getLocationName(scope.row.locationId) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="批次号" align="center" prop="batchNo" />
-        <el-table-column label="效期到期日" align="center" prop="expireDate" width="115">
+        <el-table-column label="批次号" align="center" prop="batchNo" min-width="132" show-overflow-tooltip />
+        <el-table-column label="效期到期日" align="center" prop="expireDate" width="112">
           <template #default="scope">
             <span>{{ scope.row.expireDate ? parseTime(scope.row.expireDate, '{y}-{m}-{d}') : '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="数量" align="center" prop="quantity" />
-        <el-table-column label="单价" align="center" prop="price" />
-        <el-table-column label="金额" align="center" prop="amount" />
-        <el-table-column v-if="isInboundItemEditable()" label="操作" width="180" align="center">
+        <el-table-column label="数量" align="right" prop="quantity" width="84" />
+        <el-table-column label="单价" align="right" prop="price" width="90" />
+        <el-table-column label="金额" align="right" prop="amount" width="102" />
+        <el-table-column v-if="isInboundItemEditable()" label="操作" width="130" fixed="right" align="center">
           <template #default="scope">
-            <el-button v-if="isInboundItemEditable()" link type="primary" icon="Edit" @click="handleUpdateInboundItem(scope.row)" v-hasPermi="['business:inbound:edit']">修改</el-button>
-            <el-button v-if="isInboundItemEditable() && !isLinkedPurchaseOrderInboundItemMode()" link type="primary" icon="Delete" @click="handleDeleteInboundItem(scope.row)" v-hasPermi="['business:inbound:remove']">删除</el-button>
+            <div class="erp-row-actions">
+              <el-button v-if="isInboundItemEditable()" link type="primary" icon="Edit" @click="handleUpdateInboundItem(scope.row)" v-hasPermi="['business:inbound:edit']">修改</el-button>
+              <el-button v-if="isInboundItemEditable() && !isLinkedPurchaseOrderInboundItemMode()" link type="danger" icon="Delete" @click="handleDeleteInboundItem(scope.row)" v-hasPermi="['business:inbound:remove']">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>

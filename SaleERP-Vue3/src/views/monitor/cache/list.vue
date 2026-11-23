@@ -14,7 +14,7 @@
     </erp-page-header>
 
     <el-row :gutter="16">
-      <el-col :span="8">
+      <el-col :span="9">
         <el-card style="height: calc(100vh - 220px)">
           <template #header>
             <Collection style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">缓存列表</span>
@@ -36,36 +36,36 @@
           >
             <el-table-column
               label="序号"
-              width="60"
+              width="48"
+              align="center"
               type="index"
             ></el-table-column>
 
             <el-table-column
-              label="缓存名称"
-              align="center"
+              label="缓存名称 / 备注"
+              align="left"
               prop="cacheName"
+              min-width="145"
               :show-overflow-tooltip="true"
-              :formatter="nameFormatter"
-            ></el-table-column>
+            >
+              <template #default="scope">
+                <div class="erp-cell-title">{{ nameFormatter(scope.row) }}</div>
+                <div class="erp-cell-sub">{{ scope.row.remark || '-' }}</div>
+              </template>
+            </el-table-column>
 
             <el-table-column
-              label="备注"
-              align="center"
-              prop="remark"
-              :show-overflow-tooltip="true"
-            />
-            <el-table-column
               label="操作"
-              width="60"
+              width="52"
               align="center"
               class-name="small-padding fixed-width"
             >
               <template #default="scope">
                 <el-button
                   link
-                  type="primary"
+                  type="danger"
                   icon="Delete"
-                  @click="handleClearCacheName(scope.row)"
+                  @click.stop="handleClearCacheName(scope.row)"
                 ></el-button>
               </template>
             </el-table-column>
@@ -73,7 +73,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="8">
+      <el-col :span="7">
         <el-card style="height: calc(100vh - 220px)">
           <template #header>
             <Key style="width: 1em; height: 1em; vertical-align: middle;" /> <span style="vertical-align: middle;">键名列表</span>
