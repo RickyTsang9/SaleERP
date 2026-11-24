@@ -47,8 +47,8 @@ export const decisionBudgetMetaList = [
     key: "saleBudgetAmount",
     title: "销售预算",
     configKey: "biz.report.decision.saleBudgetAmount",
-    configName: "管理驾驶舱销售预算",
-    remark: "用于管理驾驶舱展示本月销售预算（元）",
+    configName: "经营报表销售预算",
+    remark: "用于经营报表展示本月销售预算（元）",
     unitType: "amount",
     actualValueField: "currentMonthSaleAmount"
   },
@@ -56,8 +56,8 @@ export const decisionBudgetMetaList = [
     key: "grossProfitBudgetAmount",
     title: "毛利预算",
     configKey: "biz.report.decision.grossProfitBudgetAmount",
-    configName: "管理驾驶舱毛利预算",
-    remark: "用于管理驾驶舱展示本月毛利预算（元）",
+    configName: "经营报表毛利预算",
+    remark: "用于经营报表展示本月毛利预算（元）",
     unitType: "amount",
     actualValueField: "currentMonthGrossProfitAmount"
   },
@@ -65,8 +65,8 @@ export const decisionBudgetMetaList = [
     key: "collectionBudgetAmount",
     title: "回款预算",
     configKey: "biz.report.decision.collectionBudgetAmount",
-    configName: "管理驾驶舱回款预算",
-    remark: "用于管理驾驶舱展示本月回款预算（元）",
+    configName: "经营报表回款预算",
+    remark: "用于经营报表展示本月回款预算（元）",
     unitType: "amount",
     actualValueField: "currentMonthCollectionAmount"
   },
@@ -74,8 +74,8 @@ export const decisionBudgetMetaList = [
     key: "purchaseBudgetAmount",
     title: "采购预算",
     configKey: "biz.report.decision.purchaseBudgetAmount",
-    configName: "管理驾驶舱采购预算",
-    remark: "用于管理驾驶舱展示本月采购预算（元）",
+    configName: "经营报表采购预算",
+    remark: "用于经营报表展示本月采购预算（元）",
     unitType: "amount",
     actualValueField: "currentMonthPurchaseAmount"
   },
@@ -83,8 +83,8 @@ export const decisionBudgetMetaList = [
     key: "netCashBudgetAmount",
     title: "净现金流预算",
     configKey: "biz.report.decision.netCashBudgetAmount",
-    configName: "管理驾驶舱净现金流预算",
-    remark: "用于管理驾驶舱展示本月净现金流预算（元）",
+    configName: "经营报表净现金流预算",
+    remark: "用于经营报表展示本月净现金流预算（元）",
     unitType: "amount",
     actualValueField: "currentMonthNetCashFlowAmount"
   }

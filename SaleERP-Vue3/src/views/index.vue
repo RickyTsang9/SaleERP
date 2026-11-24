@@ -5,11 +5,11 @@
       <div class="home-hero__main">
         <div class="home-hero__eyebrow">
           <span class="pulse-dot" />
-          <span>SaleERP 智慧经销指挥台</span>
+          <span>SaleERP 进销存工作台</span>
           <span class="home-hero__date">{{ todayText }}</span>
         </div>
-        <h1 class="home-hero__title">{{ greetingText }}，欢迎回到经营首页</h1>
-        <p class="home-hero__desc">聚合销售营收、应收回款、库存健康度与审批流转状态，一键直达高频核心业务。</p>
+        <h1 class="home-hero__title">{{ greetingText }}，欢迎回到工作台</h1>
+        <p class="home-hero__desc">汇总展示销售营收、应收回款、库存状态与待审单据，支持一键进入常用业务页面。</p>
 
         <div class="home-hero__quick">
           <el-button type="primary" size="small" v-hasPermi="['business:saleOrder:add']" @click="navigateTo(businessRoutePathMap.saleOrder, { mode: 'create' })">
@@ -44,9 +44,9 @@
           <span class="hero-pill__sub">查看回款台账 →</span>
         </div>
         <div class="hero-pill" v-if="canViewDashboard" @click="navigateTo('/finance/report')">
-          <span class="hero-pill__label">经营驾驶舱</span>
-          <strong class="hero-pill__val">实时同步</strong>
-          <span class="hero-pill__sub">深度财务分析 →</span>
+          <span class="hero-pill__label">经营分析报表</span>
+          <strong class="hero-pill__val">实时汇总</strong>
+          <span class="hero-pill__sub">查看经营看板 →</span>
         </div>
       </div>
     </section>
@@ -96,7 +96,7 @@
         <el-card shadow="never" class="chart-card">
           <template #header>
             <div class="card-header">
-              <span>销售趋势洞察</span>
+              <span>销售金额趋势</span>
               <el-tag size="small" type="primary" effect="plain">近期走势</el-tag>
             </div>
           </template>

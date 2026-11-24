@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="仓储作业 · 仓间调拨"
+      eyebrow="库存管理 · 库存调拨"
       title="库存调拨管理"
-      subtitle="支持【草稿 → 提交待审 → 调出仓审核出库(在途) → 调入仓确认签收】两阶段在途闭环，完整保留原批次效期。"
+      subtitle="支持【草稿 → 提交待审 → 调出仓审核出库(在途) → 调入仓确认签收】两阶段调拨流程，保留原批次效期。"
       icon="Switch"
       tone="indigo"
       :badge="`共 ${total} 笔调拨单`"
@@ -14,22 +14,34 @@
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="transferStatItems" :columns="4" />
+    <erp-stat-strip :items="transferStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="82px">
         <el-form-item label="调拨单号" prop="transferNo">
-          <el-input v-model="queryParams.transferNo" placeholder="请输入调拨单号" clearable style="width: 190px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.transferNo" placeholder="请输入调拨单号" clearable style="width: 170px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="调出仓库" prop="outWarehouseId">
-          <el-select v-model="queryParams.outWarehouseId" placeholder="请选择调出仓" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 185px">
+          <el-select v-model="queryParams.outWarehouseId" placeholder="请选择调出仓" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 170px">
             <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
           </el-select>
         </el-form-item>
         <el-form-item label="调入仓库" prop="inWarehouseId">
-          <el-select v-model="queryParams.inWarehouseId" placeholder="请选择调入仓" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 185px">
+          <el-select v-model="queryParams.inWarehouseId" placeholder="请选择调入仓" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 170px">
             <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="调拨日期">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -44,9 +56,10 @@
           <erp-status-tabs :model-value="queryParams.status ?? ''" :items="transferStatusTabItems" @change="handleQuickStatus" />
         </div>
         <div class="erp-toolbar-right">
-          <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:transfer:edit']">修改</el-button>
-          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:transfer:audit']">审核</el-button>
-          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:transfer:remove']">删除</el-button>
+          <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate()" v-hasPermi="['business:transfer:edit']">修改</el-button>
+          <el-button type="info" plain icon="Upload" :disabled="!canSubmitSelected" @click="handleSubmitTransfer()" v-hasPermi="['business:transfer:edit']">提交</el-button>
+          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit()" v-hasPermi="['business:transfer:audit']">审核</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete()" v-hasPermi="['business:transfer:remove']">删除</el-button>
           <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
         </div>
       </div>
@@ -141,7 +154,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="调出仓库" prop="outWarehouseId">
-              <el-select v-model="form.outWarehouseId" placeholder="请选择调出仓库" style="width: 100%" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" :disabled="!isTransferFormEditable()">
+              <el-select v-model="form.outWarehouseId" placeholder="请选择调出仓库" style="width: 100%" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" :disabled="!isTransferFormEditable()" @change="handleOutWarehouseChange">
                 <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
               </el-select>
             </el-form-item>
@@ -179,11 +192,16 @@
         <el-table :data="wmsTransferItemList" :row-class-name="rowWmsTransferItemIndex" @selection-change="handleWmsTransferItemSelectionChange" ref="wmsTransferItem">
           <el-table-column v-if="isTransferFormEditable()" type="selection" width="50" align="center" />
           <el-table-column label="序号" align="center" prop="index" width="50"/>
-          <el-table-column label="商品" prop="productId">
+          <el-table-column label="商品" prop="productId" min-width="210">
             <template #default="scope">
-              <el-select v-model="scope.row.productId" placeholder="请选择商品" v-if="isTransferFormEditable()" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading">
-                <el-option v-for="product in productSelectOptionList" :key="product.productId" :label="product.productName" :value="product.productId" />
-              </el-select>
+              <template v-if="isTransferFormEditable()">
+                <el-select v-model="scope.row.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 100%" @change="val => handleTransferProductSelect(scope.row, val)">
+                  <el-option v-for="product in productSelectOptionList" :key="product.productId" :label="product.productName" :value="product.productId" />
+                </el-select>
+                <div v-if="scope.row.productId && scope.row.availQty !== undefined" style="font-size: 11px; margin-top: 2px;" :style="{ color: Number(scope.row.availQty) >= Number(scope.row.quantity || 0) ? 'var(--el-color-success)' : 'var(--el-color-danger)' }">
+                  调出仓可用：{{ scope.row.availQty }}
+                </div>
+              </template>
               <span v-else>{{ getProductName(scope.row.productId) }}</span>
             </template>
           </el-table-column>
@@ -243,11 +261,13 @@
 
 <script setup name="Transfer">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
-import { listTransfer, getTransfer, delTransfer, addTransfer, updateTransfer, submitTransfer, auditTransfer, receiveTransfer, rejectTransfer, recallTransfer, cancelTransfer } from "@/api/business/transfer"
+import { listTransfer, getTransfer, delTransfer, addTransfer, updateTransfer, submitTransfer, auditTransfer, batchSubmitTransfer, batchAuditTransfer, receiveTransfer, rejectTransfer, recallTransfer, cancelTransfer } from "@/api/business/transfer"
+import { listStock } from "@/api/business/stock"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listLocation } from "@/api/business/location"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -302,6 +322,7 @@ const checkedTransferItemIndexList = ref([])
 const total = ref(0)
 const title = ref("")
 const isView = ref(false)
+const dateRange = ref([])
 const warehouseList = ref([])
 const warehouseListLoading = ref(false)
 const productList = ref([])
@@ -348,13 +369,20 @@ const transferStatItems = computed(() => {
   const pendingCount = rows.filter(r => r.status === "0").length
   const inTransitCount = rows.filter(r => r.status === "in_transit").length
   const totalQty = rows.reduce((s, r) => s + Number(r.totalQuantity || 0), 0)
+  const curStatus = queryParams.value.status ?? ""
   return [
-    { label: "调拨单总数", value: total.value, suffix: "单", hint: "跨仓调拨任务总数", icon: "Switch", tone: "indigo" },
-    { label: "本页待审调出", value: pendingCount, suffix: "单", hint: "审核后扣减调出仓进入在途", icon: "Stamp", tone: "amber" },
-    { label: "本页在途待签", value: inTransitCount, suffix: "单", hint: "等待调入仓确认入库", icon: "Van", tone: "blue" },
-    { label: "本页调拨总量", value: totalQty, suffix: "件", hint: "当前页调拨货品总数量", icon: "Box", tone: "emerald" }
+    { key: "all", statusVal: "", label: "调拨单总数", value: total.value, suffix: "单", hint: "点击查看全部调拨单", icon: "Switch", tone: "indigo", clickable: true, active: curStatus === "" },
+    { key: "pending", statusVal: "0", label: "本页待审调出", value: pendingCount, suffix: "单", hint: "点击筛选待审核调拨单", icon: "Stamp", tone: "amber", clickable: true, active: curStatus === "0" },
+    { key: "transit", statusVal: "in_transit", label: "本页在途待签", value: inTransitCount, suffix: "单", hint: "点击筛选在途待签收单据", icon: "Van", tone: "blue", clickable: true, active: curStatus === "in_transit" },
+    { key: "qty", label: "本页调拨总量", value: totalQty, suffix: "件", hint: "当前页调拨货品总数量", icon: "Box", tone: "emerald" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.statusVal !== undefined) {
+    handleQuickStatus(item.statusVal)
+  }
+}
 
 function handleQuickStatus(val) {
   queryParams.value.status = val === "" ? undefined : val
@@ -364,9 +392,11 @@ function handleQuickStatus(val) {
 const warehouseSelectOptionList = computed(() => buildWarehouseSelectOptionList())
 const productSelectOptionList = computed(() => buildProductSelectOptionList())
 
-const canUpdateSelected = computed(() => ids.value.length === 1 && transferList.value.some(transfer => transfer.transferId === ids.value[0] && isEditableTransferStatus(transfer.status)))
-const canAuditSelected = computed(() => ids.value.length === 1 && transferList.value.some(transfer => transfer.transferId === ids.value[0] && isPendingTransferStatus(transfer.status)))
-const canDeleteSelected = computed(() => ids.value.length > 0 && transferList.value.filter(transfer => ids.value.includes(transfer.transferId)).every(transfer => isEditableTransferStatus(transfer.status)))
+const selectedRows = computed(() => transferList.value.filter(tf => ids.value.includes(tf.transferId)))
+const canUpdateSelected = computed(() => selectedRows.value.length === 1 && isEditableTransferStatus(selectedRows.value[0].status))
+const canSubmitSelected = computed(() => selectedRows.value.length > 0 && selectedRows.value.every(tf => isEditableTransferStatus(tf.status)))
+const canAuditSelected = computed(() => selectedRows.value.length > 0 && selectedRows.value.every(tf => isPendingTransferStatus(tf.status)))
+const canDeleteSelected = computed(() => selectedRows.value.length > 0 && selectedRows.value.every(tf => isEditableTransferStatus(tf.status)))
 
 // 初始化页面基础主数据，保证首次进入即可进行名称搜索。
 async function initBasicData() {
@@ -565,7 +595,7 @@ function handleTransferDialogPrimaryAction() {
 async function getList() {
   loading.value = true
   try {
-    const response = await listTransfer(queryParams.value)
+    const response = await listTransfer(proxy.addDateRange(queryParams.value, dateRange.value))
     transferList.value = response.rows || []
     total.value = response.total || 0
     await ensureTransferReferenceOptionsLoaded(transferList.value)
@@ -620,7 +650,9 @@ function handleQuery() {
 
 // 重置查询条件并重新拉取列表。
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
+  queryParams.value.status = undefined
   handleQuery()
 }
 
@@ -684,9 +716,30 @@ function handleAddWmsTransferItem() {
   wmsTransferItemList.value.push({
     productId: undefined,
     quantity: 1,
-    remark: ""
+    remark: "",
+    availQty: undefined
   })
   calculateTotal()
+}
+
+async function handleTransferProductSelect(row, productId) {
+  row.availQty = undefined
+  if (!productId || !form.value.outWarehouseId) return
+  try {
+    const res = await listStock({ pageNum: 1, pageSize: 50, warehouseId: form.value.outWarehouseId, productId })
+    const avail = (res.rows || []).reduce((s, r) => s + Math.max(0, Number(r.quantity || 0) - Number(r.lockedQuantity || 0) - Number(r.frozenQuantity || 0)), 0)
+    row.availQty = Number(avail.toFixed(2))
+  } catch (e) {}
+}
+
+function handleOutWarehouseChange() {
+  ;(wmsTransferItemList.value || []).forEach(row => {
+    if (row.productId) {
+      handleTransferProductSelect(row, row.productId)
+    } else {
+      row.availQty = undefined
+    }
+  })
 }
 
 // 删除选中的调拨明细。
@@ -776,8 +829,17 @@ function getTargetTransferRow(row, actionText) {
   return transferRow
 }
 
-// 审核库存调拨，审核后系统自动处理调出和调入库存。
+// 审核库存调拨（支持单条与多选批量审核）。
 function handleAudit(row) {
+  if (!row?.transferId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量审核选中的 ${ids.value.length} 笔调拨单？审核后调出仓将扣减库存并进入【在途待签收】状态。`).then(() => {
+      return batchAuditTransfer(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量审核完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const transferRow = getTargetTransferRow(row, "审核")
   if (!transferRow) {
     return
@@ -791,8 +853,19 @@ function handleAudit(row) {
 }
 
 function handleSubmitTransfer(row) {
-  proxy.$modal.confirm(`确认提交库存调拨单"${row.transferNo}"进入待审核？`).then(() => {
-    return submitTransfer(row.transferId)
+  if (!row?.transferId && ids.value.length > 1) {
+    proxy.$modal.confirm(`确认批量提交选中的 ${ids.value.length} 笔调拨单进入待审核？`).then(() => {
+      return batchSubmitTransfer(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量提交完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
+  const transferRow = getTargetTransferRow(row, "提交")
+  if (!transferRow) return
+  proxy.$modal.confirm(`确认提交库存调拨单"${transferRow.transferNo}"进入待审核？`).then(() => {
+    return submitTransfer(transferRow.transferId)
   }).then(() => {
     proxy.$modal.msgSuccess("提交成功")
     getList()

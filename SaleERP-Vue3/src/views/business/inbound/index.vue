@@ -14,30 +14,37 @@
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="inboundStatItems" :columns="4" />
+    <erp-stat-strip :items="inboundStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true">
         <el-form-item label="入库单号" prop="inboundNo">
-          <el-input v-model="queryParams.inboundNo" placeholder="请输入入库单号" clearable style="width: 190px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.inboundNo" placeholder="请输入入库单号" clearable style="width: 175px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="采购单号" prop="purchaseOrderNo">
-          <el-input v-model="queryParams.purchaseOrderNo" placeholder="请输入采购单号" clearable style="width: 190px" @keyup.enter="handleQuery" />
-        </el-form-item>
-        <el-form-item label="入库类型" prop="inboundType">
-          <el-select v-model="queryParams.inboundType" placeholder="全部类型" clearable style="width: 145px">
-            <el-option v-for="inboundTypeOption in inboundTypeOptionList" :key="inboundTypeOption.value" :label="inboundTypeOption.label" :value="inboundTypeOption.value" />
-          </el-select>
+          <el-input v-model="queryParams.purchaseOrderNo" placeholder="请输入采购单号" clearable style="width: 175px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="供应商" prop="supplierId">
-          <el-select v-model="queryParams.supplierId" placeholder="请选择供应商" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadSupplierOptionList" :loading="supplierListLoading" style="width: 190px">
+          <el-select v-model="queryParams.supplierId" placeholder="请选择供应商" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadSupplierOptionList" :loading="supplierListLoading" style="width: 175px">
             <el-option v-for="supplier in supplierSelectOptionList" :key="supplier.supplierId" :label="supplier.supplierName" :value="supplier.supplierId" />
           </el-select>
         </el-form-item>
         <el-form-item label="仓库" prop="warehouseId">
-          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 170px">
+          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 165px">
             <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="入库日期">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -53,7 +60,9 @@
         </div>
         <div class="erp-toolbar-right">
           <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:inbound:edit']">修改</el-button>
-          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:inbound:remove']">删除</el-button>
+          <el-button type="info" plain icon="Upload" :disabled="!canSubmitSelected" @click="handleSubmit()" v-hasPermi="['business:inbound:edit']">提交</el-button>
+          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit()" v-hasPermi="['business:inbound:audit']">审核</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete()" v-hasPermi="['business:inbound:remove']">删除</el-button>
           <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
         </div>
       </div>
@@ -149,9 +158,14 @@
               <el-select
                 v-if="!form.inboundId"
                 v-model="form.purchaseOrderId"
-                placeholder="可选：关联已审核采购单自动带入明细"
+                placeholder="可选：搜索采购单号关联自动带入明细"
                 clearable
                 filterable
+                remote
+                reserve-keyword
+                remote-show-suffix
+                :remote-method="loadAvailablePurchaseOrders"
+                :loading="poSelectLoading"
                 style="width: 100%"
                 @change="handlePurchaseOrderSelectChange"
               >
@@ -247,7 +261,13 @@
         :closable="false"
         class="mb8"
       />
-      <el-row :gutter="10" class="mb8">
+      <el-row :gutter="10" class="mb8" align="middle">
+        <el-col :span="1.5" v-if="isInboundItemEditable() && inboundItemList.length > 0">
+          <el-button type="success" plain icon="MagicStick" @click="handleQuickFillInboundDefaults" v-hasPermi="['business:inbound:edit']">一键填充库位/批次</el-button>
+        </el-col>
+        <el-col :span="1.5" v-if="isInboundItemEditable() && inboundItemList.length > 0">
+          <el-button type="primary" icon="Check" :loading="batchSaveInboundLoading" @click="handleBatchSaveInboundItems" v-hasPermi="['business:inbound:edit']">保存全部明细</el-button>
+        </el-col>
         <el-col :span="1.5">
           <el-button
             v-if="isInboundItemEditable() && !isLinkedPurchaseOrderInboundItemMode()"
@@ -269,7 +289,10 @@
             v-hasPermi="['business:inbound:remove']"
           >删除明细</el-button>
         </el-col>
-        <el-col :span="12" v-if="isInboundItemEditable()" v-hasPermi="['business:inbound:add', 'business:inbound:edit']">
+        <el-col :span="1.5">
+          <el-button plain icon="Download" @click="handleExportInboundItems" v-hasPermi="['business:inbound:export']">导出明细</el-button>
+        </el-col>
+        <el-col :span="9" v-if="isInboundItemEditable()" v-hasPermi="['business:inbound:add', 'business:inbound:edit']">
           <el-input
             v-model="inboundScanCode"
             placeholder="扫码入库：扫描/输入条码或商品编码按回车（自动匹配+1）"
@@ -285,41 +308,85 @@
       </el-row>
       <el-table v-loading="inboundItemLoading" :data="inboundItemList" @selection-change="handleInboundItemSelectionChange">
         <el-table-column v-if="isInboundItemEditable() && !isLinkedPurchaseOrderInboundItemMode()" type="selection" width="46" align="center" />
-        <el-table-column label="明细编号" align="center" prop="inboundItemId" width="84" />
-        <el-table-column label="商品" align="left" prop="productId" min-width="160" show-overflow-tooltip>
+        <el-table-column label="明细编号" align="center" prop="inboundItemId" width="80" />
+        <el-table-column label="商品" align="left" prop="productId" min-width="150" show-overflow-tooltip>
           <template #default="scope">
             <span>{{ getProductName(scope.row.productId) }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="采购数量" align="right" prop="purchaseQuantity" width="88">
+        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="采购数量" align="right" prop="purchaseQuantity" width="84">
           <template #default="scope">
             <span>{{ formatInboundItemQuantity(scope.row.purchaseQuantity) }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="已入库" align="right" prop="receivedQuantity" width="82">
+        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="已入库" align="right" prop="receivedQuantity" width="78">
           <template #default="scope">
             <span>{{ formatInboundItemQuantity(scope.row.receivedQuantity) }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="待入库" align="right" prop="remainQuantity" width="82">
+        <el-table-column v-if="isLinkedPurchaseOrderInboundItemMode()" label="待入库" align="right" prop="remainQuantity" width="78">
           <template #default="scope">
             <span>{{ formatInboundItemQuantity(scope.row.remainQuantity) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="库位" align="left" prop="locationId" min-width="140" show-overflow-tooltip>
+        <el-table-column label="库位" align="left" prop="locationId" min-width="155">
           <template #default="scope">
-            <span>{{ getLocationName(scope.row.locationId) }}</span>
+            <el-select
+              v-if="isInboundItemEditable()"
+              v-model="scope.row.locationId"
+              placeholder="选择库位"
+              filterable
+              size="small"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="location in locationSelectOptionList"
+                :key="location.locationId"
+                :label="location.locationName"
+                :value="location.locationId"
+              />
+            </el-select>
+            <span v-else>{{ getLocationName(scope.row.locationId) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="批次号" align="center" prop="batchNo" min-width="132" show-overflow-tooltip />
-        <el-table-column label="效期到期日" align="center" prop="expireDate" width="112">
+        <el-table-column label="批次号" align="center" prop="batchNo" min-width="145">
           <template #default="scope">
-            <span>{{ scope.row.expireDate ? parseTime(scope.row.expireDate, '{y}-{m}-{d}') : '-' }}</span>
+            <el-input v-if="isInboundItemEditable()" v-model="scope.row.batchNo" size="small" placeholder="批次号" />
+            <span v-else>{{ scope.row.batchNo }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="数量" align="right" prop="quantity" width="84" />
-        <el-table-column label="单价" align="right" prop="price" width="90" />
-        <el-table-column label="金额" align="right" prop="amount" width="102" />
+        <el-table-column label="效期到期日" align="center" prop="expireDate" width="142">
+          <template #default="scope">
+            <el-date-picker
+              v-if="isInboundItemEditable()"
+              v-model="scope.row.expireDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              size="small"
+              placeholder="可选效期"
+              clearable
+              style="width: 128px"
+            />
+            <span v-else>{{ scope.row.expireDate ? parseTime(scope.row.expireDate, '{y}-{m}-{d}') : '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="数量" align="right" prop="quantity" width="122">
+          <template #default="scope">
+            <el-input-number
+              v-if="isInboundItemEditable()"
+              v-model="scope.row.quantity"
+              :min="0.01"
+              :precision="2"
+              size="small"
+              controls-position="right"
+              style="width: 105px"
+              @change="handleInlineInboundRowChange(scope.row)"
+            />
+            <span v-else>{{ scope.row.quantity }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="单价" align="right" prop="price" width="86" />
+        <el-table-column label="金额" align="right" prop="amount" width="96" />
         <el-table-column v-if="isInboundItemEditable()" label="操作" width="130" fixed="right" align="center">
           <template #default="scope">
             <div class="erp-row-actions">
@@ -412,8 +479,8 @@
 
 <script setup name="Inbound">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
-import { listInbound, getInbound, addInbound, updateInbound, delInbound, submitInbound, auditInbound, rejectInbound, cancelInbound } from "@/api/business/inbound"
-import { listInboundItem, getInboundItem, addInboundItem, updateInboundItem, delInboundItem } from "@/api/business/inboundItem"
+import { listInbound, getInbound, addInbound, updateInbound, delInbound, submitInbound, auditInbound, batchSubmitInbound, batchAuditInbound, rejectInbound, cancelInbound } from "@/api/business/inbound"
+import { listInboundItem, getInboundItem, addInboundItem, updateInboundItem, batchUpdateInboundItem, delInboundItem } from "@/api/business/inboundItem"
 import { listSupplier, getSupplier } from "@/api/business/supplier"
 import { listPurchaseOrder, getPurchaseOrder } from "@/api/business/purchaseOrder"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
@@ -421,6 +488,7 @@ import { listProduct, getProduct, scanProductByCode } from "@/api/business/produ
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
 import { buildDocumentSelectionState, resolveDocumentActionRow } from "@/utils/documentPage"
+import { ERP_DATE_SHORTCUTS, buildTodayDateString } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -434,7 +502,12 @@ const ids = ref([])
 const single = ref(true)
 const multiple = ref(true)
 const canUpdateSelected = ref(false)
+const canSubmitSelected = ref(false)
+const canAuditSelected = ref(false)
 const canDeleteSelected = ref(false)
+const dateRange = ref([])
+const poSelectLoading = ref(false)
+const batchSaveInboundLoading = ref(false)
 const total = ref(0)
 const title = ref("")
 const inboundItemOpen = ref(false)
@@ -517,13 +590,20 @@ const inboundStatItems = computed(() => {
   const draftCount = rows.filter(r => r.status === "draft").length
   const submittedCount = rows.filter(r => r.status === "submitted").length
   const pageAmount = rows.reduce((s, r) => s + Number(r.totalAmount || 0), 0)
+  const curStatus = queryParams.value.status ?? ""
   return [
-    { label: "入库单总数", value: total.value, suffix: "单", hint: "匹配当前筛选的全部记录", icon: "Download", tone: "emerald" },
-    { label: "本页草稿待提交", value: draftCount, suffix: "单", hint: "支持扫码补充明细", icon: "EditPen", tone: "slate" },
-    { label: "本页待审核入库", value: submittedCount, suffix: "单", hint: "审核后自动增加库存", icon: "Stamp", tone: "amber" },
-    { label: "本页入库总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "本页收货货值合计", icon: "Money", tone: "indigo" }
+    { key: "all", statusVal: "", label: "入库单总数", value: total.value, suffix: "单", hint: "点击查看全部入库单", icon: "Download", tone: "emerald", clickable: true, active: curStatus === "" },
+    { key: "draft", statusVal: "draft", label: "本页草稿待提交", value: draftCount, suffix: "单", hint: "点击筛选草稿入库单", icon: "EditPen", tone: "slate", clickable: true, active: curStatus === "draft" },
+    { key: "submitted", statusVal: "submitted", label: "本页待审核入库", value: submittedCount, suffix: "单", hint: "点击筛选待审核入库单", icon: "Stamp", tone: "amber", clickable: true, active: curStatus === "submitted" },
+    { key: "amt", label: "本页入库总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "本页收货货值合计", icon: "Money", tone: "indigo" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.statusVal !== undefined) {
+    handleQuickStatus(item.statusVal)
+  }
+}
 
 function handleQuickStatus(val) {
   queryParams.value.status = val === "" ? undefined : val
@@ -854,7 +934,11 @@ function buildLocationSelectOptionList() {
   const filtered = targetWarehouseId
     ? locationList.value.filter(loc => (!loc.warehouseId || Number(loc.warehouseId) === Number(targetWarehouseId)) && loc.status !== "1")
     : locationList.value.filter(loc => loc.status !== "1")
-  return buildSelectOptionList(filtered, [inboundItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
+  const referencedIds = [
+    inboundItemForm.value.locationId,
+    ...(inboundItemList.value || []).map(item => item.locationId)
+  ]
+  return buildSelectOptionList(filtered, referencedIds, "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据供应商编号和来源采购订单返回供应商名称，优先展示回补后的正式供应商名称。
@@ -919,7 +1003,7 @@ function getPurchaseOrderDisplayName(purchaseOrderNo, purchaseOrderId) {
 
 function getList() {
   loading.value = true
-  return listInbound(queryParams.value).then(response => {
+  return listInbound(proxy.addDateRange(queryParams.value, dateRange.value)).then(response => {
     inboundList.value = response.rows
     total.value = response.total
     ensureInboundReferenceOptionsLoaded(response.rows)
@@ -1043,6 +1127,7 @@ function handleQuery() {
 }
 
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.purchaseOrderId = undefined
   queryParams.value.purchaseOrderNo = undefined
@@ -1055,17 +1140,99 @@ function handleSelectionChange(selection) {
   single.value = selectionState.single
   multiple.value = selectionState.multiple
   canUpdateSelected.value = selection.length === 1 && isDraftInboundStatus(selection[0].status)
+  canSubmitSelected.value = selection.length > 0 && selection.every(selectionItem => isDraftInboundStatus(selectionItem.status))
+  canAuditSelected.value = selection.length > 0 && selection.every(selectionItem => selectionItem.status === "submitted")
   canDeleteSelected.value = selection.length > 0 && selection.every(selectionItem => isDraftInboundStatus(selectionItem.status))
 }
 
-function loadAvailablePurchaseOrders() {
+function loadAvailablePurchaseOrders(keyword) {
+  poSelectLoading.value = true
+  const orderNo = normalizeRemoteKeyword(keyword)
   Promise.all([
-    listPurchaseOrder({ pageNum: 1, pageSize: 100, status: "1" }),
-    listPurchaseOrder({ pageNum: 1, pageSize: 100, status: "2" })
+    listPurchaseOrder({ pageNum: 1, pageSize: 50, status: "1", orderNo }),
+    listPurchaseOrder({ pageNum: 1, pageSize: 50, status: "2", orderNo })
   ]).then(([r1, r2]) => {
     const merged = [...(r1.rows || []), ...(r2.rows || [])]
     availablePurchaseOrderList.value = merged.filter(po => Number(po.remainQuantity ?? po.totalQuantity ?? 1) > 0)
-  }).catch(() => {})
+  }).catch(() => {}).finally(() => {
+    poSelectLoading.value = false
+  })
+}
+
+function handleInlineInboundRowChange(row) {
+  if (!row) return
+  const qty = Number(row.quantity || 0)
+  const price = Number(row.price || 0)
+  row.amount = (qty * price).toFixed(2)
+}
+
+function handleQuickFillInboundDefaults() {
+  if (!ensureInboundItemEditable("填充")) return
+  const defaultLoc = locationSelectOptionList.value[0]?.locationId
+  const defaultBatch = "B" + buildTodayDateString().replace(/-/g, "")
+  let updated = 0
+  ;(inboundItemList.value || []).forEach(row => {
+    if (!row.locationId && defaultLoc) {
+      row.locationId = defaultLoc
+      updated++
+    }
+    if (!row.batchNo || !String(row.batchNo).trim()) {
+      row.batchNo = defaultBatch
+      updated++
+    }
+  })
+  if (updated > 0) {
+    proxy.$modal.msgSuccess("已自动填充缺失库位与今日批次号，核对后请点击「保存全部明细」")
+  } else {
+    proxy.$modal.msgInfo("当前明细均已填写库位与批次号")
+  }
+}
+
+async function handleBatchSaveInboundItems() {
+  if (!ensureInboundItemEditable("保存")) return
+  if (!inboundItemList.value.length) return
+  for (let i = 0; i < inboundItemList.value.length; i++) {
+    const row = inboundItemList.value[i]
+    if (!row.locationId) {
+      proxy.$modal.msgWarning(`第 ${i + 1} 行请选择库位`)
+      return
+    }
+    if (!row.batchNo || !String(row.batchNo).trim()) {
+      proxy.$modal.msgWarning(`第 ${i + 1} 行请填写批次号`)
+      return
+    }
+    if (!(Number(row.quantity || 0) > 0)) {
+      proxy.$modal.msgWarning(`第 ${i + 1} 行数量必须大于 0`)
+      return
+    }
+  }
+  batchSaveInboundLoading.value = true
+  try {
+    const payload = inboundItemList.value.map(row => {
+      const qty = Number(row.quantity || 0)
+      const price = Number(row.price || 0)
+      return {
+        ...row,
+        inboundId: currentInboundId.value,
+        batchNo: String(row.batchNo).trim(),
+        quantity: qty,
+        amount: Number((qty * price).toFixed(2))
+      }
+    })
+    const res = await batchUpdateInboundItem(payload)
+    proxy.$modal.msgSuccess(res.msg || "入库明细已全部保存")
+    getInboundItemList()
+    getList()
+  } finally {
+    batchSaveInboundLoading.value = false
+  }
+}
+
+function handleExportInboundItems() {
+  if (!currentInboundId.value) return
+  proxy.download("business/inboundItem/export", {
+    inboundId: currentInboundId.value
+  }, `inboundItem_${currentInboundId.value}_${new Date().getTime()}.xlsx`)
 }
 
 function handlePurchaseOrderSelectChange(poId) {
@@ -1314,8 +1481,17 @@ function getTargetInboundRow(row, actionText) {
   )
 }
 
-// 提交按钮操作，补充空选择保护，避免未来工具栏入口场景下出现静默无响应。
+// 提交按钮操作，支持单条与多选批量提交。
 function handleSubmit(row) {
+  if (!row?.inboundId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量提交选中的 ${ids.value.length} 笔入库单？`).then(() => {
+      return batchSubmitInbound(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量提交完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const targetInboundRow = getTargetInboundRow(row, "提交")
   if (!targetInboundRow) {
     return
@@ -1328,8 +1504,17 @@ function handleSubmit(row) {
   }).catch(() => {})
 }
 
-// 审核按钮操作，补充空选择保护，避免未来工具栏入口场景下出现静默无响应。
+// 审核按钮操作，支持单条与多选批量审核。
 function handleAudit(row) {
+  if (!row?.inboundId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量审核选中的 ${ids.value.length} 笔入库单？审核后将自动增加库存并更新移动加权平均成本。`).then(() => {
+      return batchAuditInbound(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量审核完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const targetInboundRow = getTargetInboundRow(row, "审核")
   if (!targetInboundRow) {
     return

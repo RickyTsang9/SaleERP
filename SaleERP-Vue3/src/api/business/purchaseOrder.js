@@ -109,3 +109,35 @@ export function exportPurchaseOrder(query) {
     params: query
   })
 }
+
+export function suggestPurchasePrice(supplierId, productId) {
+  return request({
+    url: '/business/purchaseOrder/suggestPrice',
+    method: 'get',
+    params: { supplierId, productId }
+  })
+}
+
+export function createPurchaseOrderFromReplenish(data) {
+  return request({
+    url: '/business/purchaseOrder/createFromReplenish',
+    method: 'post',
+    data
+  })
+}
+
+export function batchSubmitPurchaseOrder(ids) {
+  return request({
+    url: '/business/purchaseOrder/batchSubmit',
+    method: 'post',
+    data: ids
+  })
+}
+
+export function batchAuditPurchaseOrder(ids) {
+  return request({
+    url: '/business/purchaseOrder/batchAudit',
+    method: 'post',
+    data: ids
+  })
+}

@@ -138,6 +138,7 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateWmsSaleReturn(WmsSaleReturn wmsSaleReturn)
     {
         WmsSaleReturn databaseSaleReturn = wmsSaleReturnMapper.selectWmsSaleReturnById(wmsSaleReturn.getSaleReturnId());
@@ -151,7 +152,31 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
         }
         validateSaleReturnBeforeSave(wmsSaleReturn);
         wmsSaleReturn.setStatus(databaseSaleReturn.getStatus());
-        return wmsSaleReturnMapper.updateWmsSaleReturn(wmsSaleReturn);
+        int rows = wmsSaleReturnMapper.updateWmsSaleReturn(wmsSaleReturn);
+        if (wmsSaleReturn.getItems() != null)
+        {
+            wmsSaleReturnItemMapper.deleteWmsSaleReturnItemBySaleReturnIds(new Long[] { wmsSaleReturn.getSaleReturnId() });
+            for (WmsSaleReturnItem item : wmsSaleReturn.getItems())
+            {
+                if (item == null || item.getProductId() == null)
+                {
+                    continue;
+                }
+                if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+                {
+                    throw new ServiceException("销售退货明细数量必须大于0");
+                }
+                if (item.getPrice() == null || item.getPrice().compareTo(BigDecimal.ZERO) < 0)
+                {
+                    throw new ServiceException("销售退货明细单价不能小于0");
+                }
+                item.setSaleReturnId(wmsSaleReturn.getSaleReturnId());
+                item.setAmount(item.getQuantity().multiply(item.getPrice()).setScale(2, RoundingMode.HALF_UP));
+                wmsSaleReturnItemMapper.insertWmsSaleReturnItem(item);
+            }
+            wmsSaleReturnMapper.refreshTotalBySaleReturnId(wmsSaleReturn.getSaleReturnId());
+        }
+        return rows;
     }
 
     @Override
@@ -246,6 +271,40 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
                     existingExpireDate = matchedStock.getExpireDate();
                 }
             }
+            BigDecimal costPriceSnapshot = resolveReturnUnitCost(databaseSaleReturn.getSaleOrderId(), wmsSaleReturnItem.getProductId());
+            // OPT-12: 销售退货重新入库前，按历史出库成本快照与当前在库数量加权融合移动平均成本
+            if (mdProductMapper != null && wmsStockMapper != null
+                && costPriceSnapshot != null && costPriceSnapshot.compareTo(BigDecimal.ZERO) > 0
+                && wmsSaleReturnItem.getQuantity() != null && wmsSaleReturnItem.getQuantity().compareTo(BigDecimal.ZERO) > 0)
+            {
+                MdProduct product = mdProductMapper.selectMdProductById(wmsSaleReturnItem.getProductId());
+                BigDecimal oldTotalStock = wmsStockMapper.selectTotalProductStockQuantity(wmsSaleReturnItem.getProductId());
+                if (oldTotalStock == null || oldTotalStock.compareTo(BigDecimal.ZERO) < 0)
+                {
+                    oldTotalStock = BigDecimal.ZERO;
+                }
+                if (product != null)
+                {
+                    BigDecimal curCost = (product.getCostPrice() == null || product.getCostPrice().compareTo(BigDecimal.ZERO) <= 0)
+                        ? costPriceSnapshot : product.getCostPrice();
+                    BigDecimal denom = oldTotalStock.add(wmsSaleReturnItem.getQuantity());
+                    if (denom.compareTo(BigDecimal.ZERO) > 0)
+                    {
+                        BigDecimal blended = oldTotalStock.multiply(curCost)
+                            .add(wmsSaleReturnItem.getQuantity().multiply(costPriceSnapshot))
+                            .divide(denom, 4, RoundingMode.HALF_UP).stripTrailingZeros();
+                        if (blended.scale() < 2)
+                        {
+                            blended = blended.setScale(2, RoundingMode.HALF_UP);
+                        }
+                        MdProduct patch = new MdProduct();
+                        patch.setProductId(product.getProductId());
+                        patch.setCostPrice(blended);
+                        patch.setUpdateBy(auditUsername);
+                        mdProductMapper.updateMdProduct(patch);
+                    }
+                }
+            }
             BigDecimal[] qtys = wmsStockService.increaseStockByKeyAtomically(
                 databaseSaleReturn.getWarehouseId(),
                 wmsSaleReturnItem.getProductId(),
@@ -255,7 +314,6 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
                 wmsSaleReturnItem.getQuantity(),
                 auditUsername
             );
-            BigDecimal costPriceSnapshot = resolveReturnUnitCost(databaseSaleReturn.getSaleOrderId(), wmsSaleReturnItem.getProductId());
             WmsSaleReturnItem costPatch = new WmsSaleReturnItem();
             costPatch.setSaleReturnItemId(wmsSaleReturnItem.getSaleReturnItemId());
             costPatch.setCostPriceSnapshot(costPriceSnapshot);

@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="仓储基础架构"
+      eyebrow="仓储管理 · 仓库档案"
       title="仓库管理"
-      subtitle="配置实体与逻辑仓库节点、责任联系人及地址信息，支持一键穿透查看库位分布。"
+      subtitle="维护实体与逻辑仓库信息、负责人及地址，支持快捷查看关联库位。"
       icon="House"
       tone="indigo"
       :badge="`共 ${total} 座仓库`"

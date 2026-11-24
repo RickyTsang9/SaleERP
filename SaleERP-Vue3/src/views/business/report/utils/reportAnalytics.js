@@ -82,11 +82,10 @@ export function isDateInMonthRange(dateValue, monthRange) {
     && parsedDateValue < new Date(monthRange.endDateObject.getFullYear(), monthRange.endDateObject.getMonth(), monthRange.endDateObject.getDate() + 1)
 }
 
-// 统一按分页拉取完整列表，保证兼容模式可以在现有列表接口上完成管理驾驶舱汇总。
-export async function fetchPagedRowList(requestMethod, baseQueryParams = {}) {
+// 按有界分页拉取分析所需近期数据，默认单页（最多 200 条）防止首屏产生 N×20 翻页请求风暴。
+export async function fetchPagedRowList(requestMethod, baseQueryParams = {}, maxPageCount = 1) {
   const resultRowList = []
   const pageSize = normalizeCountValue(baseQueryParams.pageSize) || 200
-  const maxPageCount = 20
   for (let currentPageNumber = 1; currentPageNumber <= maxPageCount; currentPageNumber += 1)
   {
     const response = await requestMethod({

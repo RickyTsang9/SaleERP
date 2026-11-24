@@ -14,12 +14,12 @@
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="purchaseOrderStatItems" :columns="4" />
+    <erp-stat-strip :items="purchaseOrderStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="82px">
         <el-form-item label="采购单号" prop="orderNo">
-          <el-input v-model="queryParams.orderNo" placeholder="请输入采购单号" clearable style="width: 195px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.orderNo" placeholder="请输入采购单号" clearable style="width: 175px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="供应商" prop="supplierId">
           <el-select
@@ -32,20 +32,22 @@
             remote-show-suffix
             :remote-method="loadSupplierOptionList"
             :loading="supplierListLoading"
-            style="width: 210px"
+            style="width: 190px"
           >
             <el-option v-for="supplier in supplierSelectOptionList" :key="supplier.supplierId" :label="supplier.supplierName" :value="supplier.supplierId" />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" placeholder="全部状态" clearable style="width: 145px">
-            <el-option
-              v-for="purchaseOrderStatusOption in purchaseOrderStatusOptionList"
-              :key="purchaseOrderStatusOption.value"
-              :label="purchaseOrderStatusOption.label"
-              :value="purchaseOrderStatusOption.value"
-            />
-          </el-select>
+        <el-form-item label="采购日期">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -60,10 +62,11 @@
           <erp-status-tabs :model-value="queryParams.status ?? ''" :items="purchaseStatusTabItems" @change="handleQuickStatus" />
         </div>
         <div class="erp-toolbar-right">
-          <el-button size="small" type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
-          <el-button size="small" type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
-          <el-button size="small" type="primary" plain icon="Connection" :disabled="ids.length !== 1" @click="handlePurchaseOrderChain" v-hasPermi="['business:purchaseOrder:query']">链路追踪</el-button>
-          <el-button size="small" type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
+          <el-button size="small" type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate()" v-hasPermi="['business:purchaseOrder:edit']">修改</el-button>
+          <el-button size="small" type="info" plain icon="Upload" :disabled="!canSubmitSelected" @click="handleSubmitOrder()" v-hasPermi="['business:purchaseOrder:edit']">提交</el-button>
+          <el-button size="small" type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit()" v-hasPermi="['business:purchaseOrder:audit']">审核</el-button>
+          <el-button size="small" type="primary" plain icon="Connection" :disabled="ids.length !== 1" @click="handlePurchaseOrderChain()" v-hasPermi="['business:purchaseOrder:query']">链路追踪</el-button>
+          <el-button size="small" type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete()" v-hasPermi="['business:purchaseOrder:remove']">删除</el-button>
           <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
         </div>
       </div>
@@ -121,8 +124,10 @@
                     <el-dropdown-item v-if="scope.row.status === '0'" v-hasPermi="['business:purchaseOrder:audit']" @click="handleRejectOrder(scope.row)">审核驳回</el-dropdown-item>
                     <el-dropdown-item v-if="scope.row.status === '1' && Number(scope.row.inboundQuantity || 0) <= 0" v-hasPermi="['business:purchaseOrder:audit']" @click="handleReverseAuditOrder(scope.row)">反审核</el-dropdown-item>
                     <el-dropdown-item v-if="scope.row.status === '2'" v-hasPermi="['business:purchaseOrder:audit']" @click="handleForceCloseOrder(scope.row)">短装结案</el-dropdown-item>
-                    <el-dropdown-item v-if="canViewLinkedInbound(scope.row.status)" v-hasPermi="['business:inbound:list']" @click="handleViewInbound(scope.row)">查看入库</el-dropdown-item>
+                    <el-dropdown-item v-if="canViewLinkedInbound(scope.row.status)" v-hasPermi="['business:inbound:list']" @click="handleViewInbound(scope.row)">{{ Number(scope.row.remainQuantity || 0) > 0 && scope.row.status !== '3' ? '收货入库' : '查看入库' }}</el-dropdown-item>
                     <el-dropdown-item v-if="canViewLinkedPayable(scope.row.status)" v-hasPermi="['business:payable:list']" @click="handleViewPayable(scope.row)">查看应付</el-dropdown-item>
+                    <el-dropdown-item v-if="canViewLinkedPayable(scope.row.status)" v-hasPermi="['business:payment:add']" @click="handleCreatePayment(scope.row)">登记付款</el-dropdown-item>
+                    <el-dropdown-item v-if="canCreatePurchaseInvoice(scope.row)" v-hasPermi="['business:invoice:add']" @click="handleCreatePurchaseInvoice(scope.row)">登记进项票</el-dropdown-item>
                     <el-dropdown-item v-hasPermi="['business:supplier:list']" @click="handleViewSupplier(scope.row)">供应商资料</el-dropdown-item>
                     <el-dropdown-item v-if="canCancelPurchaseOrderStatus(scope.row.status)" v-hasPermi="['business:purchaseOrder:edit']" @click="handleCancel(scope.row)">作废订单</el-dropdown-item>
                     <el-dropdown-item v-if="isEditablePurchaseOrderStatus(scope.row.status)" v-hasPermi="['business:purchaseOrder:remove']" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
@@ -226,21 +231,27 @@
                 :remote-method="loadProductOptionList"
                 :loading="productListLoading"
                 style="width: 100%"
+                @change="val => handlePurchaseProductSelect(scope.row, val)"
               >
                 <el-option v-for="product in productSelectOptionList" :key="product.productId" :label="product.productName" :value="product.productId" />
               </el-select>
               <span v-else>{{ getProductName(scope.row.productId) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="数量" prop="quantity" width="150">
+          <el-table-column label="数量" prop="quantity" width="145">
             <template #default="scope">
-              <el-input-number v-if="isPurchaseOrderEditable()" v-model="scope.row.quantity" :min="1" @change="calculateAmount(scope.row)" />
+              <el-input-number v-if="isPurchaseOrderEditable()" v-model="scope.row.quantity" :min="1" style="width: 125px" @change="calculateAmount(scope.row)" />
               <span v-else>{{ scope.row.quantity }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="单价" prop="price" width="170">
+          <el-table-column label="单价" prop="price" width="175">
             <template #default="scope">
-              <el-input-number v-if="isPurchaseOrderEditable()" v-model="scope.row.price" :min="0" :precision="2" @change="calculateAmount(scope.row)" />
+              <template v-if="isPurchaseOrderEditable()">
+                <el-input-number v-model="scope.row.price" :min="0" :precision="2" style="width: 145px" @change="calculateAmount(scope.row)" />
+                <div v-if="scope.row.priceSourceLabel" style="font-size: 11px; color: var(--el-color-success); line-height: 1.2; margin-top: 2px;">
+                  {{ scope.row.priceSourceLabel }}
+                </div>
+              </template>
               <span v-else>{{ scope.row.price }}</span>
             </template>
           </el-table-column>
@@ -269,55 +280,6 @@
         <div class="dialog-footer">
           <el-button type="primary" @click="handlePurchaseOrderDialogPrimaryAction">{{ isPurchaseOrderEditable() ? "确 定" : "关 闭" }}</el-button>
           <el-button v-if="isPurchaseOrderEditable()" @click="cancel">取 消</el-button>
-        </div>
-      </template>
-    </el-dialog>
-
-    <el-dialog title="打印预览" v-model="printOpen" width="800px" append-to-body>
-      <div id="printBox" class="print-container" style="padding: 20px; font-family: 'SimSun', '宋体', serif;">
-        <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px; letter-spacing: 2px;">采 购 订 单</h2>
-        <el-row style="margin-bottom: 15px; font-size: 14px;">
-          <el-col :span="12"><strong>采购单号：</strong>{{ form.orderNo }}</el-col>
-          <el-col :span="12"><strong>采购日期：</strong>{{ parseTime(form.purchaseDate, '{y}-{m}-{d}') }}</el-col>
-        </el-row>
-        <el-row style="margin-bottom: 20px; font-size: 14px;">
-          <el-col :span="12"><strong>供应商：</strong>{{ getSupplierName(form.supplierId) }}</el-col>
-          <el-col :span="12"><strong>单据状态：</strong>{{ getPurchaseOrderStatusName(form.status) }}</el-col>
-        </el-row>
-        <table border="1" cellspacing="0" cellpadding="8" style="width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; border-color: #333;">
-          <thead>
-            <tr style="background-color: #f5f5f5;">
-              <th width="10%">序号</th>
-              <th width="35%">商品名称</th>
-              <th width="15%">数量</th>
-              <th width="20%">单价(元)</th>
-              <th width="20%">金额(元)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(purchaseOrderItem, purchaseOrderItemIndex) in wmsPurchaseOrderItemList" :key="purchaseOrderItemIndex">
-              <td>{{ purchaseOrderItemIndex + 1 }}</td>
-              <td>{{ getProductName(purchaseOrderItem.productId) }}</td>
-              <td>{{ purchaseOrderItem.quantity }}</td>
-              <td>{{ purchaseOrderItem.price }}</td>
-              <td>{{ purchaseOrderItem.amount }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <el-row style="margin-top: 15px; font-size: 14px;">
-          <el-col :span="24" style="text-align: right; padding-right: 10px;">
-            <strong>总金额：<span style="font-size: 18px;">¥ {{ form.totalAmount || '0.00' }}</span></strong>
-          </el-col>
-        </el-row>
-        <el-row style="margin-top: 30px; font-size: 14px;">
-          <el-col :span="8"><strong>制单人：</strong>{{ form.createBy || '系统管理员' }}</el-col>
-          <el-col :span="16"><strong>备注：</strong>{{ form.remark || '无' }}</el-col>
-        </el-row>
-      </div>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button type="primary" v-print="'#printBox'">确 认 打 印</el-button>
-          <el-button @click="printOpen = false">关 闭</el-button>
         </div>
       </template>
     </el-dialog>
@@ -478,10 +440,11 @@
 
 <script setup name="PurchaseOrder">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
-import { listPurchaseOrder, getPurchaseOrder, delPurchaseOrder, addPurchaseOrder, updatePurchaseOrder, submitPurchaseOrder, auditPurchaseOrder, rejectPurchaseOrder, reverseAuditPurchaseOrder, forceClosePurchaseOrder, cancelPurchaseOrder, getPurchaseOrderChain } from "@/api/business/purchaseOrder"
+import { listPurchaseOrder, getPurchaseOrder, delPurchaseOrder, addPurchaseOrder, updatePurchaseOrder, submitPurchaseOrder, auditPurchaseOrder, batchSubmitPurchaseOrder, batchAuditPurchaseOrder, rejectPurchaseOrder, reverseAuditPurchaseOrder, forceClosePurchaseOrder, cancelPurchaseOrder, getPurchaseOrderChain, suggestPurchasePrice } from "@/api/business/purchaseOrder"
 import { listSupplier, getSupplier } from "@/api/business/supplier"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -496,7 +459,7 @@ const checkedPurchaseOrderItemIndexList = ref([])
 const total = ref(0)
 const title = ref("")
 const isView = ref(false)
-const printOpen = ref(false)
+const dateRange = ref([])
 const printDialogRef = ref(null)
 const purchaseOrderChainOpen = ref(false)
 const purchaseOrderChainLoading = ref(false)
@@ -555,13 +518,20 @@ const purchaseOrderStatItems = computed(() => {
   const pendingAudit = rows.filter(r => r.status === "0").length
   const receiving = rows.filter(r => r.status === "1" || r.status === "2").length
   const pageAmount = rows.reduce((s, r) => s + Number(r.totalAmount || 0), 0)
+  const curStatus = queryParams.value.status ?? ""
   return [
-    { label: "采购单总数", value: total.value, suffix: "单", hint: "匹配当前筛选的全部订单", icon: "ShoppingBag", tone: "emerald" },
-    { label: "本页待审核", value: pendingAudit, suffix: "单", hint: "审核后自动生成应付账款", icon: "Stamp", tone: "amber" },
-    { label: "本页待/部分入库", value: receiving, suffix: "单", hint: "可下推采购入库作业", icon: "Box", tone: "blue" },
-    { label: "本页采购总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "当前页单据金额合计", icon: "Money", tone: "indigo" }
+    { key: "all", statusVal: "", label: "采购单总数", value: total.value, suffix: "单", hint: "点击查看全部订单", icon: "ShoppingBag", tone: "emerald", clickable: true, active: curStatus === "" },
+    { key: "pending", statusVal: "0", label: "本页待审核", value: pendingAudit, suffix: "单", hint: "点击筛选待审核订单", icon: "Stamp", tone: "amber", clickable: true, active: curStatus === "0" },
+    { key: "receiving", statusVal: "1", label: "本页待/部分入库", value: receiving, suffix: "单", hint: "点击筛选待收货采购单", icon: "Box", tone: "blue", clickable: true, active: curStatus === "1" },
+    { key: "amt", label: "本页采购总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "当前页单据金额合计", icon: "Money", tone: "indigo" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.statusVal !== undefined) {
+    handleQuickStatus(item.statusVal)
+  }
+}
 
 function handleQuickStatus(val) {
   queryParams.value.status = val === "" ? undefined : val
@@ -570,9 +540,11 @@ function handleQuickStatus(val) {
 
 const supplierSelectOptionList = computed(() => buildSupplierSelectOptionList())
 const productSelectOptionList = computed(() => buildProductSelectOptionList())
-const canUpdateSelected = computed(() => ids.value.length === 1 && purchaseOrderList.value.some(purchaseOrder => purchaseOrder.purchaseOrderId === ids.value[0] && isEditablePurchaseOrderStatus(purchaseOrder.status)))
-const canAuditSelected = computed(() => ids.value.length === 1 && purchaseOrderList.value.some(purchaseOrder => purchaseOrder.purchaseOrderId === ids.value[0] && isPendingPurchaseOrderStatus(purchaseOrder.status)))
-const canDeleteSelected = computed(() => ids.value.length > 0 && purchaseOrderList.value.filter(purchaseOrder => ids.value.includes(purchaseOrder.purchaseOrderId)).every(purchaseOrder => isEditablePurchaseOrderStatus(purchaseOrder.status)))
+const selectedOrderRows = computed(() => purchaseOrderList.value.filter(po => ids.value.includes(po.purchaseOrderId)))
+const canUpdateSelected = computed(() => selectedOrderRows.value.length === 1 && isEditablePurchaseOrderStatus(selectedOrderRows.value[0].status))
+const canSubmitSelected = computed(() => selectedOrderRows.value.length > 0 && selectedOrderRows.value.every(po => po.status === "draft"))
+const canAuditSelected = computed(() => selectedOrderRows.value.length > 0 && selectedOrderRows.value.every(po => isPendingPurchaseOrderStatus(po.status)))
+const canDeleteSelected = computed(() => selectedOrderRows.value.length > 0 && selectedOrderRows.value.every(po => isEditablePurchaseOrderStatus(po.status)))
 
 // 从路由参数恢复筛选条件，方便首页和其他业务页跳转后直接定位采购订单。
 function initializeQueryParamsFromRoute() {
@@ -804,6 +776,10 @@ function canViewLinkedInbound(statusValue) {
   return ["1", "2", "3"].includes(statusValue)
 }
 
+function canCreatePurchaseInvoice(row) {
+  return !!row && ["1", "2", "3"].includes(row.status) && row.invoiceStatus !== "invoiced"
+}
+
 // 判断当前采购订单弹窗是否允许编辑。
 function isPurchaseOrderEditable() {
   return !isView.value
@@ -822,7 +798,7 @@ function handlePurchaseOrderDialogPrimaryAction() {
 async function getList() {
   loading.value = true
   try {
-    const response = await listPurchaseOrder(queryParams.value)
+    const response = await listPurchaseOrder(proxy.addDateRange(queryParams.value, dateRange.value))
     purchaseOrderList.value = response.rows || []
     total.value = response.total || 0
     await ensurePurchaseOrderReferenceOptionsLoaded(purchaseOrderList.value)
@@ -876,8 +852,10 @@ function handleQuery() {
 
 // 重置查询条件并重新拉取采购订单列表。
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.purchaseOrderId = undefined
+  queryParams.value.status = undefined
   handleQuery()
 }
 
@@ -1006,6 +984,30 @@ function handleViewPayable(row) {
   })
 }
 
+function handleCreatePayment(row) {
+  if (!row?.purchaseOrderId) return
+  proxy.$router.push({
+    path: "/finance/payable",
+    query: {
+      purchaseOrderId: row.purchaseOrderId,
+      orderNo: row.orderNo,
+      autoOpenPayment: "1"
+    }
+  })
+}
+
+function handleCreatePurchaseInvoice(row) {
+  if (!row?.purchaseOrderId) return
+  proxy.$router.push({
+    path: "/finance/invoice",
+    query: {
+      mode: "create",
+      invoiceDirection: "purchase",
+      sourceOrderId: row.purchaseOrderId
+    }
+  })
+}
+
 // 跳转到供应商资料页，并按来源供应商自动带出查询条件，方便采购补看主数据。
 function handleViewSupplier(row) {
   const purchaseOrderRow = row || purchaseOrderList.value.find(purchaseOrder => purchaseOrder.purchaseOrderId === ids.value[0])
@@ -1091,9 +1093,34 @@ function handleAddPurchaseOrderItem() {
     productId: undefined,
     quantity: 1,
     price: 0,
-    amount: "0.00"
+    amount: "0.00",
+    priceSourceLabel: ""
   })
   calculateTotal()
+}
+
+async function handlePurchaseProductSelect(row, productId) {
+  row.priceSourceLabel = ""
+  if (!productId) {
+    calculateAmount(row)
+    return
+  }
+  try {
+    const res = await suggestPurchasePrice(form.value.supplierId, productId)
+    const pData = res?.data
+    if (pData) {
+      if (pData.suggestedPrice !== undefined && pData.suggestedPrice !== null) {
+        row.price = Number(pData.suggestedPrice)
+      }
+      row.priceSourceLabel = pData.priceSource || pData.priceSourceLabel || ""
+    }
+  } catch (e) {
+    const prod = productList.value.find(p => p.productId === productId)
+    if (prod && prod.costPrice != null) {
+      row.price = Number(prod.costPrice || 0)
+    }
+  }
+  calculateAmount(row)
 }
 
 // 删除选中的采购订单明细行。
@@ -1192,8 +1219,17 @@ function getTargetPurchaseOrder(row, actionText) {
   return targetPurchaseOrder
 }
 
-// 审核采购订单，审核通过后由系统自动生成应付记录。
+// 审核采购订单，支持单条与多选批量审核。
 function handleAudit(row) {
+  if (!row?.purchaseOrderId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量审核选中的 ${ids.value.length} 笔采购订单？审核后将自动生成应付账款。`).then(() => {
+      return batchAuditPurchaseOrder(ids.value)
+    }).then(res => {
+      getList()
+      proxy.$modal.msgSuccess(res.msg || "批量审核完成")
+    }).catch(() => {})
+    return
+  }
   const targetPurchaseOrder = getTargetPurchaseOrder(row, "审核")
   if (!targetPurchaseOrder) {
     return
@@ -1207,8 +1243,21 @@ function handleAudit(row) {
 }
 
 function handleSubmitOrder(row) {
-  proxy.$modal.confirm(`确认提交采购订单"${row.orderNo}"进入待审核？`).then(() => {
-    return submitPurchaseOrder(row.purchaseOrderId)
+  if (!row?.purchaseOrderId && ids.value.length > 1) {
+    proxy.$modal.confirm(`确认批量提交选中的 ${ids.value.length} 笔采购订单进入待审核？`).then(() => {
+      return batchSubmitPurchaseOrder(ids.value)
+    }).then(res => {
+      getList()
+      proxy.$modal.msgSuccess(res.msg || "批量提交完成")
+    }).catch(() => {})
+    return
+  }
+  const targetPurchaseOrder = getTargetPurchaseOrder(row, "提交")
+  if (!targetPurchaseOrder) {
+    return
+  }
+  proxy.$modal.confirm(`确认提交采购订单"${targetPurchaseOrder.orderNo}"进入待审核？`).then(() => {
+    return submitPurchaseOrder(targetPurchaseOrder.purchaseOrderId)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("提交成功")

@@ -1,12 +1,12 @@
 <template>
   <div class="app-container erp-page mobile-wms-page">
     <erp-page-header
-      eyebrow="仓储现场移动作业"
+      eyebrow="库存管理 · 移动作业"
       title="移动仓配 PDA 作业台"
-      subtitle="专为无线扫码枪与移动端触屏打造：扫码收货点验、FEFO 效期拣货指引与现场盲盘一键协同。"
+      subtitle="适配手持终端与无线扫码枪：支持扫码收货上架、近效期优先拣货与现场连续盲盘。"
       icon="Iphone"
       tone="indigo"
-      badge="无线扫码枪就绪"
+      :badge="`待作业 ${draftInboundList.length + draftOutboundList.length + draftCheckList.length} 单`"
     >
       <template #actions>
         <el-switch v-model="narrowPreview" active-text="PDA 手持窄屏预览" />

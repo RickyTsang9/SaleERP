@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="基础主数据 · CRM"
+      eyebrow="基础资料 · 客户管理"
       title="客户资料管理"
-      subtitle="维护客户档案、授信额度、等级与结算偏好，一键洞察客户360°经营画像与跟进动态。"
+      subtitle="维护客户档案、授信额度、账期天数、客户等级与结算方式，查看往来统计与跟进记录。"
       icon="User"
       tone="blue"
       :badge="`共 ${total} 家客户`"
@@ -89,6 +89,11 @@
         <el-table-column label="授信额度" align="right" prop="creditLimit" min-width="115">
           <template #default="scope">
             <span class="erp-amount">¥{{ formatMoney(scope.row.creditLimit) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="账期天数" align="center" prop="creditDays" width="90">
+          <template #default="scope">
+            <span>{{ scope.row.creditDays != null ? `${scope.row.creditDays} 天` : (scope.row.paymentMethod === 'cash' ? '0 天' : '30 天') }}</span>
           </template>
         </el-table-column>
         <el-table-column label="付款方式" align="center" prop="paymentMethod" min-width="96">
@@ -189,7 +194,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="付款方式" prop="paymentMethod">
-              <el-select v-model="form.paymentMethod" placeholder="请选择付款方式" style="width: 100%">
+              <el-select v-model="form.paymentMethod" placeholder="请选择付款方式" style="width: 100%" @change="handlePaymentMethodChange">
                 <el-option
                   v-for="option in paymentMethodOptions"
                   :key="option.value"
@@ -200,16 +205,25 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="客户等级" prop="customerLevel">
-          <el-select v-model="form.customerLevel" placeholder="请选择客户等级" style="width: 100%">
-            <el-option
-              v-for="option in customerLevelOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </el-form-item>
+        <el-row>
+          <el-col :span="12">
+            <el-form-item label="账期天数" prop="creditDays">
+              <el-input-number v-model="form.creditDays" :min="0" :max="365" :precision="0" controls-position="right" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="客户等级" prop="customerLevel">
+              <el-select v-model="form.customerLevel" placeholder="请选择客户等级" style="width: 100%">
+                <el-option
+                  v-for="option in customerLevelOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
         </el-form-item>
@@ -472,12 +486,21 @@ function reset() {
     contactEmail: undefined,
     address: undefined,
     creditLimit: 0,
+    creditDays: 0,
     paymentMethod: "cash",
     customerLevel: "normal",
     status: "0",
     remark: undefined
   }
   proxy.resetForm("customerRef")
+}
+
+function handlePaymentMethodChange(val) {
+  if (val === "cash") {
+    form.value.creditDays = 0
+  } else if (!form.value.creditDays || form.value.creditDays === 0) {
+    form.value.creditDays = 30
+  }
 }
 
 function formatPaymentMethod(paymentMethod) {

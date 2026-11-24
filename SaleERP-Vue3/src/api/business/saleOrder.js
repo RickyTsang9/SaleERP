@@ -129,3 +129,27 @@ export function suggestSalePrice(customerId, productId) {
     params: { customerId, productId }
   })
 }
+
+export function batchSubmitSaleOrder(ids) {
+  return request({
+    url: '/business/saleOrder/batchSubmit',
+    method: 'post',
+    data: ids
+  })
+}
+
+export function batchManagerAuditSaleOrder(ids, auditComment = '') {
+  return request({
+    url: '/business/saleOrder/batchManagerAudit',
+    method: 'post',
+    data: { ids, auditComment }
+  })
+}
+
+export function batchFinanceAuditSaleOrder(ids, auditComment = '') {
+  return request({
+    url: '/business/saleOrder/batchFinanceAudit',
+    method: 'post',
+    data: { ids, auditComment }
+  })
+}

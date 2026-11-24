@@ -7,7 +7,7 @@
             <div class="product-ranking-title-group">
               <span class="product-ranking-title">商品经营排行分析</span>
               <el-tag size="small" type="primary" effect="plain">共 {{ rankingList.length }} 款商品</el-tag>
-              <span class="product-ranking-subtitle">按销量、销售额、预估毛利、退货率与库存周转综合洞察单品表现</span>
+              <span class="product-ranking-subtitle">汇总单品销量、销售额、预估毛利、退货率与库存周转表现</span>
             </div>
             <div class="product-ranking-actions">
               <el-radio-group v-model="sortBy" size="small" @change="loadRankingList">
@@ -26,6 +26,7 @@
                 @keyup.enter="loadRankingList"
                 @clear="loadRankingList"
               />
+              <el-button size="small" plain icon="Download" @click="handleExportProductRanking">导出排行</el-button>
               <el-button size="small" icon="Refresh" :loading="loading" @click="loadRankingList">刷新</el-button>
             </div>
           </div>
@@ -184,6 +185,7 @@ import { listProductRanking } from "@/api/business/report"
 import { getProductProfile } from "@/api/business/product"
 import { checkPermi } from "@/utils/permission"
 
+const { proxy } = getCurrentInstance()
 const loading = ref(false)
 const sortBy = ref("saleAmount")
 const keyword = ref("")
@@ -293,6 +295,13 @@ async function loadRankingList() {
   } finally {
     loading.value = false
   }
+}
+
+function handleExportProductRanking() {
+  proxy.download("business/report/productRankingExport", {
+    sortBy: sortBy.value,
+    keyword: keyword.value ? keyword.value.trim() : undefined
+  }, `product_ranking_${Date.now()}.xlsx`)
 }
 
 async function openProductProfile(row) {

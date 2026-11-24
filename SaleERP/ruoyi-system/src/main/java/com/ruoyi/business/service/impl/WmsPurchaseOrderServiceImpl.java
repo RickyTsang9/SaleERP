@@ -972,4 +972,212 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         }
         return "未生成";
     }
+
+    @Override
+    public Map<String, Object> suggestPurchasePrice(Long supplierId, Long productId)
+    {
+        Map<String, Object> result = new HashMap<>();
+        if (productId == null)
+        {
+            return result;
+        }
+        BigDecimal lastSupplierPrice = null;
+        BigDecimal lastInboundPrice = null;
+        BigDecimal lowestPoPrice = null;
+        BigDecimal currentCostPrice = null;
+        if (jdbcTemplate != null)
+        {
+            if (supplierId != null)
+            {
+                List<BigDecimal> supPrices = jdbcTemplate.queryForList(
+                    "SELECT poi.price FROM wms_purchase_order_item poi "
+                    + "JOIN wms_purchase_order po ON po.purchase_order_id = poi.purchase_order_id "
+                    + "WHERE po.supplier_id = ? AND poi.product_id = ? AND po.status IN ('1','2','3') AND poi.price > 0 "
+                    + "ORDER BY po.purchase_order_id DESC LIMIT 1",
+                    BigDecimal.class, supplierId, productId
+                );
+                if (!supPrices.isEmpty())
+                {
+                    lastSupplierPrice = supPrices.get(0);
+                }
+            }
+            List<BigDecimal> inPrices = jdbcTemplate.queryForList(
+                "SELECT ii.price FROM wms_inbound_item ii "
+                + "JOIN wms_inbound i ON i.inbound_id = ii.inbound_id "
+                + "WHERE ii.product_id = ? AND i.status = 'audited' AND ii.price > 0 "
+                + "ORDER BY i.inbound_id DESC LIMIT 1",
+                BigDecimal.class, productId
+            );
+            if (!inPrices.isEmpty())
+            {
+                lastInboundPrice = inPrices.get(0);
+            }
+            List<BigDecimal> minPrices = jdbcTemplate.queryForList(
+                "SELECT MIN(poi.price) FROM wms_purchase_order_item poi "
+                + "JOIN wms_purchase_order po ON po.purchase_order_id = poi.purchase_order_id "
+                + "WHERE poi.product_id = ? AND po.status IN ('1','2','3') AND poi.price > 0",
+                BigDecimal.class, productId
+            );
+            if (!minPrices.isEmpty())
+            {
+                lowestPoPrice = minPrices.get(0);
+            }
+            List<BigDecimal> costPrices = jdbcTemplate.queryForList(
+                "SELECT cost_price FROM md_product WHERE product_id = ?",
+                BigDecimal.class, productId
+            );
+            if (!costPrices.isEmpty() && costPrices.get(0) != null)
+            {
+                currentCostPrice = costPrices.get(0);
+            }
+        }
+        BigDecimal suggestedPrice = BigDecimal.ZERO;
+        String priceSource = "暂无历史进价";
+        if (lastSupplierPrice != null && lastSupplierPrice.compareTo(BigDecimal.ZERO) > 0)
+        {
+            suggestedPrice = lastSupplierPrice;
+            priceSource = "该供应商最近成交价";
+        }
+        else if (lastInboundPrice != null && lastInboundPrice.compareTo(BigDecimal.ZERO) > 0)
+        {
+            suggestedPrice = lastInboundPrice;
+            priceSource = "最近审核入库价";
+        }
+        else if (currentCostPrice != null && currentCostPrice.compareTo(BigDecimal.ZERO) > 0)
+        {
+            suggestedPrice = currentCostPrice.setScale(2, RoundingMode.HALF_UP);
+            priceSource = "当前移动加权成本价";
+        }
+        result.put("suggestedPrice", suggestedPrice);
+        result.put("priceSource", priceSource);
+        result.put("lastSupplierPrice", lastSupplierPrice);
+        result.put("lastInboundPrice", lastInboundPrice);
+        result.put("lowestPoPrice", lowestPoPrice);
+        result.put("currentCostPrice", currentCostPrice);
+        return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> createReplenishPurchaseOrders(Long defaultSupplierId, List<Map<String, Object>> items, String operator)
+    {
+        if (items == null || items.isEmpty())
+        {
+            throw new ServiceException("请至少选择一条需要补货的商品");
+        }
+        Long fallbackSupplierId = defaultSupplierId;
+        if (fallbackSupplierId == null && jdbcTemplate != null)
+        {
+            List<Long> activeSups = jdbcTemplate.queryForList(
+                "SELECT supplier_id FROM md_supplier WHERE status = '0' AND del_flag = '0' ORDER BY supplier_id ASC LIMIT 1",
+                Long.class
+            );
+            if (!activeSups.isEmpty())
+            {
+                fallbackSupplierId = activeSups.get(0);
+            }
+        }
+        Map<Long, List<WmsPurchaseOrderItem>> groupedBySupplier = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> row : items)
+        {
+            if (row == null || row.get("productId") == null)
+            {
+                continue;
+            }
+            Long productId = Long.valueOf(String.valueOf(row.get("productId")));
+            Long targetSupplierId = row.get("supplierId") != null
+                ? Long.valueOf(String.valueOf(row.get("supplierId")))
+                : defaultSupplierId;
+            if (targetSupplierId == null && jdbcTemplate != null)
+            {
+                List<Long> lastSups = jdbcTemplate.queryForList(
+                    "SELECT po.supplier_id FROM wms_purchase_order_item poi "
+                    + "JOIN wms_purchase_order po ON po.purchase_order_id = poi.purchase_order_id "
+                    + "WHERE poi.product_id = ? AND po.status IN ('1','2','3') "
+                    + "ORDER BY po.purchase_order_id DESC LIMIT 1",
+                    Long.class, productId
+                );
+                if (!lastSups.isEmpty())
+                {
+                    targetSupplierId = lastSups.get(0);
+                }
+            }
+            if (targetSupplierId == null)
+            {
+                targetSupplierId = fallbackSupplierId;
+            }
+            if (targetSupplierId == null)
+            {
+                throw new ServiceException("未找到可用启用供应商，请先指定补货供应商");
+            }
+            BigDecimal reqQty = null;
+            if (row.get("quantity") != null && StringUtils.isNotEmpty(String.valueOf(row.get("quantity"))))
+            {
+                reqQty = new BigDecimal(String.valueOf(row.get("quantity")));
+            }
+            if (reqQty == null || reqQty.compareTo(BigDecimal.ZERO) <= 0)
+            {
+                reqQty = new BigDecimal("10");
+                if (jdbcTemplate != null)
+                {
+                    Map<String, Object> stockStat = jdbcTemplate.queryForMap(
+                        "SELECT IFNULL(MAX(warning_min_qty), 0) AS min_qty, "
+                        + "IFNULL(SUM(quantity - IFNULL(locked_quantity, 0) - IFNULL(frozen_quantity, 0)), 0) AS net_avail "
+                        + "FROM wms_stock WHERE product_id = ?",
+                        productId
+                    );
+                    BigDecimal minQty = new BigDecimal(String.valueOf(stockStat.get("min_qty")));
+                    BigDecimal netAvail = new BigDecimal(String.valueOf(stockStat.get("net_avail")));
+                    BigDecimal inTransit = jdbcTemplate.queryForObject(
+                        "SELECT IFNULL(SUM(GREATEST(0, poi.quantity - IFNULL(ib.rec_qty, 0))), 0) "
+                        + "FROM wms_purchase_order_item poi JOIN wms_purchase_order po ON po.purchase_order_id = poi.purchase_order_id "
+                        + "LEFT JOIN (SELECT ii.purchase_order_item_id, SUM(ii.quantity) AS rec_qty FROM wms_inbound_item ii "
+                        + "JOIN wms_inbound i ON i.inbound_id = ii.inbound_id WHERE i.status = 'audited' GROUP BY ii.purchase_order_item_id) ib "
+                        + "ON ib.purchase_order_item_id = poi.purchase_order_item_id "
+                        + "WHERE poi.product_id = ? AND po.status IN ('0','1','2')",
+                        BigDecimal.class, productId
+                    );
+                    BigDecimal shortage = minQty.subtract(netAvail).subtract(inTransit == null ? BigDecimal.ZERO : inTransit);
+                    if (shortage.compareTo(BigDecimal.ZERO) > 0)
+                    {
+                        reqQty = shortage;
+                    }
+                }
+            }
+            Map<String, Object> priceInfo = suggestPurchasePrice(targetSupplierId, productId);
+            BigDecimal unitPrice = row.get("price") != null && StringUtils.isNotEmpty(String.valueOf(row.get("price")))
+                ? new BigDecimal(String.valueOf(row.get("price")))
+                : (BigDecimal) priceInfo.getOrDefault("suggestedPrice", BigDecimal.ZERO);
+
+            WmsPurchaseOrderItem poItem = new WmsPurchaseOrderItem();
+            poItem.setProductId(productId);
+            poItem.setQuantity(reqQty);
+            poItem.setPrice(unitPrice == null ? BigDecimal.ZERO : unitPrice);
+            poItem.setAmount(poItem.getQuantity().multiply(poItem.getPrice()).setScale(2, RoundingMode.HALF_UP));
+            poItem.setRemark("缺货预警自动补货");
+            groupedBySupplier.computeIfAbsent(targetSupplierId, k -> new java.util.ArrayList<>()).add(poItem);
+        }
+        List<Long> createdIds = new java.util.ArrayList<>();
+        List<String> createdNos = new java.util.ArrayList<>();
+        int seq = 1;
+        for (Map.Entry<Long, List<WmsPurchaseOrderItem>> entry : groupedBySupplier.entrySet())
+        {
+            WmsPurchaseOrder po = new WmsPurchaseOrder();
+            po.setOrderNo("PO" + DateUtils.dateTimeNow() + String.format("%02d", seq++));
+            po.setSupplierId(entry.getKey());
+            po.setPurchaseDate(DateUtils.getNowDate());
+            po.setStatus(STATUS_DRAFT);
+            po.setCreateBy(operator);
+            po.setRemark("由库存缺货预警一键生成的补货草稿单");
+            po.setWmsPurchaseOrderItemList(entry.getValue());
+            insertWmsPurchaseOrder(po);
+            createdIds.add(po.getPurchaseOrderId());
+            createdNos.add(po.getOrderNo());
+        }
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("createdCount", createdIds.size());
+        summary.put("purchaseOrderIds", createdIds);
+        summary.put("orderNos", createdNos);
+        return summary;
+    }
 }

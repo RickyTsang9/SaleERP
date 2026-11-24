@@ -82,12 +82,28 @@ public class WmsInboundController extends BaseController
         return toAjax(wmsInboundService.submitWmsInbound(inboundId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:inbound:edit')")
+    @Log(title = "批量提交入库单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchSubmit")
+    public AjaxResult batchSubmit(@RequestBody List<Long> inboundIds)
+    {
+        return BatchActionHelper.execute(inboundIds, "提交", wmsInboundService::submitWmsInbound);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:inbound:audit')")
     @Log(title = "入库单", businessType = BusinessType.UPDATE)
     @PostMapping("/audit/{inboundId}")
     public AjaxResult audit(@PathVariable Long inboundId)
     {
         return toAjax(wmsInboundService.auditWmsInbound(inboundId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:inbound:audit')")
+    @Log(title = "批量审核入库单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchAudit")
+    public AjaxResult batchAudit(@RequestBody List<Long> inboundIds)
+    {
+        return BatchActionHelper.execute(inboundIds, "审核", wmsInboundService::auditWmsInbound);
     }
 
     @PreAuthorize("@ss.hasPermi('business:inbound:audit')")

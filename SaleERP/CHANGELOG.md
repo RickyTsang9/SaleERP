@@ -1,5 +1,19 @@
 # 更新日志
 
+## 2026-11-25
+
+### 全系统功能与性能深度优化路线图落地（OPT-01 ~ OPT-16、OPT-18 ~ OPT-23）
+
+- **数据库精度、客户账期与索引全面升级（`sql/optimize_roadmap_20261124.sql`）**：
+  - `md_customer` 新增授信账期天数 `credit_days`；`md_product.cost_price` 与 `wms_sale_order_item.cost_price_snapshot` 升级为 `DECIMAL(18,4)` 高精度核算；`wms_stock_log` 新增持久化 `bill_no` 业务单号列并全量回填，修正历史出库流水售价记账为真实成本快照。
+  - 补齐 20+ 项高频复合索引与唯一约束（涵盖库存流水、资金流水、调拨/销售明细、条码检索与采购单号唯一约束）并清理冗余单列索引；激活客户跟进到期提醒 Quartz 定时任务（`CrmCustomerFollowRemindTask`）。
+- **业财核算、信用风控、智能补货与内部对冲**：
+  - 销售出库审核按单位成本快照写入库存流水；入库/采退/销退支持 4 位小数移动加权平均成本重算与零价赠品成本摊薄；短装结案销售单在报表中按实发数量与成本快照核算毛利。
+  - 所有配置正信用额度的客户（含现结）统一纳入信用占用管控；财务审核自动拦截逾期未结清应收客户（支持填写含「特批/放行」原因豁免）并按 `creditDays` 生成应收账期；出库审核对超期 30 天以上严重逾期执行二次拦截。
+  - 新增采购智能建议进价（`GET /business/purchaseOrder/suggestPrice`）与缺货预警扣除在途量一键分组生单（`POST /business/purchaseOrder/createFromReplenish`）；新增同一往来方应收/应付正负红字台账防死锁内部互抵（`POST /business/receivable/offset`、`/payable/offset`）；客户跟进新增自动闭环同客户旧跟进与负责人待办隔离。
+- **批量审批、流式导出与高并发 SQL 优化**：
+  - 为 8 大核心单据控制器统一补齐 `/batchSubmit` 与 `/batchAudit`，盘点与入库明细补齐 `/batch` 批量保存；资金账户/流水与经营报表（对账汇总、畅销排行、税票台账、销售明细）补齐 `SXSSFWorkbook` 流式导出；全量业务 Mapper 补齐日期区间与来源单号筛选，盘点初始化与合规校验改为批处理 SQL，首页看板增加 15 秒按用户权限隔离缓存；新增 `OptimizationRoadmapTest`（全量 30/30 单元测试通过）。
+
 ## 2026-11-23
 
 ### 全站用户视角巡检修复

@@ -77,3 +77,19 @@ export function delInventoryCheck(checkId) {
     method: 'delete'
   })
 }
+
+export function batchSubmitInventoryCheck(ids) {
+  return request({
+    url: '/business/inventoryCheck/batchSubmit',
+    method: 'post',
+    data: ids
+  })
+}
+
+export function batchAuditInventoryCheck(ids) {
+  return request({
+    url: '/business/inventoryCheck/batchAudit',
+    method: 'post',
+    data: ids
+  })
+}

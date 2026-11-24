@@ -32,7 +32,7 @@
         </span>
         <div class="brand-text">
           <h1 class="sidebar-title">SaleERP</h1>
-          <span class="sidebar-subtitle">智慧经销云平台</span>
+          <span class="sidebar-subtitle">进销存管理系统</span>
         </div>
       </router-link>
     </transition>

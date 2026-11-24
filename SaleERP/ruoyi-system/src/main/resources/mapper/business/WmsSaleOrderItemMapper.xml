@@ -13,43 +13,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="quantity"        column="quantity" />
         <result property="price"           column="price" />
         <result property="amount"          column="amount" />
+        <result property="costPriceSnapshot" column="cost_price_snapshot" />
         <result property="outboundQuantity" column="outbound_quantity" />
         <result property="remainQuantity"   column="remain_quantity" />
     </resultMap>
 
     <sql id="selectWmsSaleOrderItemVo">
-        select item.sale_order_item_id, item.sale_order_id, item.product_id, item.location_id, item.batch_no, item.quantity, item.price, item.amount,
-               ifnull((
-                   select sum(outbound_item.quantity)
-                   from wms_outbound outbound
-                   left join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
-                   where outbound.status = 'audited'
-                     and (
-                         outbound.sale_order_id = item.sale_order_id
-                         or (
-                             outbound.sale_order_id is null
-                             and outbound.source_order_no = (
-                                 select sale_order.order_no
-                                 from wms_sale_order sale_order
-                                 where sale_order.sale_order_id = item.sale_order_id
-                             )
-                         )
-                     )
-                     and (
-                         outbound_item.sale_order_item_id = item.sale_order_item_id
-                         or (
-                             outbound_item.sale_order_item_id is null
-                             and outbound_item.product_id = item.product_id
-                             and (
-                                 (outbound_item.location_id is null and item.location_id is null)
-                                 or outbound_item.location_id = item.location_id
-                             )
-                             and ifnull(outbound_item.batch_no, '') = ifnull(item.batch_no, '')
-                         )
-                     )
-               ), 0) as outbound_quantity,
-               greatest(
-                   ifnull(item.quantity, 0) - ifnull((
+        select base_item.*,
+               greatest(ifnull(base_item.quantity, 0) - base_item.outbound_quantity, 0) as remain_quantity
+        from (
+            select item.sale_order_item_id, item.sale_order_id, item.product_id, item.location_id, item.batch_no,
+                   item.quantity, item.price, item.amount, item.cost_price_snapshot,
+                   ifnull((
                        select sum(outbound_item.quantity)
                        from wms_outbound outbound
                        left join wms_outbound_item outbound_item on outbound_item.outbound_id = outbound.outbound_id
@@ -77,34 +52,33 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                                  and ifnull(outbound_item.batch_no, '') = ifnull(item.batch_no, '')
                              )
                          )
-                   ), 0),
-                   0
-               ) as remain_quantity
-        from wms_sale_order_item item
+                   ), 0) as outbound_quantity
+            from wms_sale_order_item item
+        ) base_item
     </sql>
 
     <select id="selectWmsSaleOrderItemById" parameterType="Long" resultMap="WmsSaleOrderItemResult">
         <include refid="selectWmsSaleOrderItemVo"/>
-        where sale_order_item_id = #{saleOrderItemId}
+        where base_item.sale_order_item_id = #{saleOrderItemId}
     </select>
 
     <select id="selectWmsSaleOrderItemList" parameterType="WmsSaleOrderItem" resultMap="WmsSaleOrderItemResult">
         <include refid="selectWmsSaleOrderItemVo"/>
         <where>
             <if test="saleOrderId != null">
-                and item.sale_order_id = #{saleOrderId}
+                and base_item.sale_order_id = #{saleOrderId}
             </if>
             <if test="productId != null">
-                and item.product_id = #{productId}
+                and base_item.product_id = #{productId}
             </if>
         </where>
-        order by item.sale_order_item_id desc
+        order by base_item.sale_order_item_id desc
     </select>
 
     <select id="selectWmsSaleOrderItemsByOrderId" parameterType="Long" resultMap="WmsSaleOrderItemResult">
         <include refid="selectWmsSaleOrderItemVo"/>
-        where item.sale_order_id = #{saleOrderId}
-        order by item.sale_order_item_id asc
+        where base_item.sale_order_id = #{saleOrderId}
+        order by base_item.sale_order_item_id asc
     </select>
 
     <insert id="insertWmsSaleOrderItem" parameterType="WmsSaleOrderItem" useGeneratedKeys="true" keyProperty="saleOrderItemId">
@@ -117,6 +91,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="quantity != null">quantity,</if>
             <if test="price != null">price,</if>
             <if test="amount != null">amount,</if>
+            <if test="costPriceSnapshot != null">cost_price_snapshot,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="saleOrderId != null">#{saleOrderId},</if>
@@ -126,6 +101,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="quantity != null">#{quantity},</if>
             <if test="price != null">#{price},</if>
             <if test="amount != null">#{amount},</if>
+            <if test="costPriceSnapshot != null">#{costPriceSnapshot},</if>
         </trim>
     </insert>
 
@@ -139,6 +115,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="quantity != null">quantity = #{quantity},</if>
             <if test="price != null">price = #{price},</if>
             <if test="amount != null">amount = #{amount},</if>
+            <if test="costPriceSnapshot != null">cost_price_snapshot = #{costPriceSnapshot},</if>
         </set>
         where sale_order_item_id = #{saleOrderItemId}
     </update>

@@ -58,4 +58,9 @@ public interface IFinPayableService
      * @return 结果
      */
     public int deleteFinPayableByPayableId(Long payableId);
+
+    /**
+     * 同一供应商正向待付单与红字负额待退单内部对冲核销（不产生银行现金流水）
+     */
+    public java.math.BigDecimal offsetPayable(Long positivePayableId, Long negativePayableId, String remark, String operator);
 }

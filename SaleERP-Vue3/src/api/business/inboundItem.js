@@ -37,3 +37,11 @@ export function delInboundItem(inboundItemId) {
     method: 'delete'
   })
 }
+
+export function batchUpdateInboundItem(items) {
+  return request({
+    url: '/business/inboundItem/batch',
+    method: 'put',
+    data: items
+  })
+}

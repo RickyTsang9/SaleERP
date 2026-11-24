@@ -74,3 +74,19 @@ export function delOutbound(outboundId) {
     method: 'delete'
   })
 }
+
+export function batchSubmitOutbound(ids) {
+  return request({
+    url: '/business/outbound/batchSubmit',
+    method: 'post',
+    data: ids
+  })
+}
+
+export function batchAuditOutbound(ids) {
+  return request({
+    url: '/business/outbound/batchAudit',
+    method: 'post',
+    data: ids
+  })
+}

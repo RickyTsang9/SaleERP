@@ -76,12 +76,32 @@ public class FinAccountController extends BaseController
     }
 
     @PreAuthorize("@ss.hasPermi('business:account:list')")
+    @Log(title = "资金结算账户", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    public void export(javax.servlet.http.HttpServletResponse response, FinAccount finAccount)
+    {
+        List<FinAccount> list = finAccountPeriodService.selectFinAccountList(finAccount);
+        com.ruoyi.common.utils.poi.ExcelUtil<FinAccount> util = new com.ruoyi.common.utils.poi.ExcelUtil<FinAccount>(FinAccount.class);
+        util.exportExcel(response, list, "资金结算账户数据");
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:account:list')")
     @GetMapping("/journal/list")
     public TableDataInfo journalList(FinAccountJournal query)
     {
         startPage();
         List<FinAccountJournal> list = finAccountPeriodService.selectFinAccountJournalList(query);
         return getDataTable(list);
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:account:list')")
+    @Log(title = "资金收支流水", businessType = BusinessType.EXPORT)
+    @PostMapping("/journal/export")
+    public void exportJournal(javax.servlet.http.HttpServletResponse response, FinAccountJournal query)
+    {
+        List<FinAccountJournal> list = finAccountPeriodService.selectFinAccountJournalList(query);
+        com.ruoyi.common.utils.poi.ExcelUtil<FinAccountJournal> util = new com.ruoyi.common.utils.poi.ExcelUtil<FinAccountJournal>(FinAccountJournal.class);
+        util.exportExcel(response, list, "资金收支流水数据");
     }
 
     @PreAuthorize("@ss.hasPermi('business:account:edit')")

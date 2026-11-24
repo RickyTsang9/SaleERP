@@ -34,4 +34,9 @@ public interface IFinReceivableService
      * 批量删除应收台账
      */
     public int deleteFinReceivableByIds(Long[] receivableIds);
+
+    /**
+     * 同一客户正向待收单与红字负额待退单内部对冲核销（不产生银行现金流水）
+     */
+    public java.math.BigDecimal offsetReceivable(Long positiveReceivableId, Long negativeReceivableId, String remark, String operator);
 }

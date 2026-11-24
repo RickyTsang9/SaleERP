@@ -66,3 +66,19 @@ export function delPurchaseReturn(purchaseReturnId) {
     method: 'delete'
   })
 }
+
+export function batchSubmitPurchaseReturn(ids) {
+  return request({
+    url: '/business/purchaseReturn/batchSubmit',
+    method: 'post',
+    data: ids
+  })
+}
+
+export function batchAuditPurchaseReturn(ids) {
+  return request({
+    url: '/business/purchaseReturn/batchAudit',
+    method: 'post',
+    data: ids
+  })
+}

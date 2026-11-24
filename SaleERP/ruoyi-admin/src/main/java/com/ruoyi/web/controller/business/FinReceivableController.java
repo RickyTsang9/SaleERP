@@ -93,6 +93,19 @@ public class FinReceivableController extends BaseController
         return toAjax(finReceivableService.updateFinReceivable(finReceivable));
     }
 
+    @PreAuthorize("@ss.hasAnyPermi('business:receivable:edit,business:receipt:add')")
+    @Log(title = "应收红字对冲核销", businessType = BusinessType.UPDATE)
+    @RepeatSubmit
+    @PostMapping("/offset")
+    public AjaxResult offset(@RequestBody java.util.Map<String, Object> body)
+    {
+        Long positiveReceivableId = body == null || body.get("positiveReceivableId") == null ? null : Long.valueOf(String.valueOf(body.get("positiveReceivableId")));
+        Long negativeReceivableId = body == null || body.get("negativeReceivableId") == null ? null : Long.valueOf(String.valueOf(body.get("negativeReceivableId")));
+        String remark = body == null || body.get("remark") == null ? null : String.valueOf(body.get("remark"));
+        java.math.BigDecimal offsetAmount = finReceivableService.offsetReceivable(positiveReceivableId, negativeReceivableId, remark, getUsername());
+        return AjaxResult.success("红字对冲成功，本次核销金额 ¥" + offsetAmount, offsetAmount);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:receivable:remove')")
     @Log(title = "应收台账", businessType = BusinessType.DELETE)
     @DeleteMapping("/{receivableIds}")

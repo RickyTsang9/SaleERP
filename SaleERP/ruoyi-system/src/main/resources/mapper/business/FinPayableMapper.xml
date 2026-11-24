@@ -64,6 +64,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                     </when>
                 </choose>
             </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and fin_payable.due_date &gt;= #{params.beginTime}
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and fin_payable.due_date &lt;= concat(#{params.endTime}, ' 23:59:59')
+            </if>
             ${params.dataScope}
         </where>
         order by fin_payable.payable_id desc

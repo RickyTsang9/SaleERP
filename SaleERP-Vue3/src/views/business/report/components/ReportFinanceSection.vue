@@ -11,6 +11,7 @@
             <el-form-item>
               <el-button type="primary" icon="Search" @click="handleReconciliationQuery">查询</el-button>
               <el-button icon="Refresh" @click="handleReconciliationReset">重置</el-button>
+              <el-button plain icon="Download" @click="handleReconciliationExport">导出对账汇总</el-button>
             </el-form-item>
           </el-form>
           <el-table :data="reconciliationList" border v-loading="reconciliationLoading">
@@ -78,6 +79,7 @@
             <el-form-item>
               <el-button type="primary" icon="Search" @click="handleInvoiceTaxQuery">查询</el-button>
               <el-button icon="Refresh" @click="handleInvoiceTaxReset">重置</el-button>
+              <el-button plain icon="Download" @click="handleInvoiceTaxExport">导出税票汇总</el-button>
             </el-form-item>
           </el-form>
           <el-table :data="invoiceTaxList" border v-loading="invoiceTaxLoading">
@@ -171,6 +173,7 @@
 import { useRouter } from "vue-router"
 import ReconciliationStatementDialog from "./ReconciliationStatementDialog.vue"
 
+const { proxy } = getCurrentInstance()
 const router = useRouter()
 const statementDialogRef = ref(null)
 
@@ -179,7 +182,7 @@ function handleOpenStatement(reconciliationRow) {
 }
 
 // 经营看板财务区块只负责对账、税票和资金预测展示，具体查询与跳转仍由父页编排。
-defineProps({
+const props = defineProps({
   reconciliationQueryParams: {
     type: Object,
     required: true
@@ -271,6 +274,19 @@ function handleInvoiceTaxReset() {
 // 触发资金预测刷新，父页负责联动资金压力窗口。
 function handleCashFlowRefresh() {
   emit("cash-flow-refresh")
+}
+
+function handleReconciliationExport() {
+  proxy.download("business/report/reconciliationExport", {
+    targetName: props.reconciliationQueryParams?.targetName
+  }, `reconciliation_summary_${Date.now()}.xlsx`)
+}
+
+function handleInvoiceTaxExport() {
+  proxy.download("business/report/invoiceTaxExport", {
+    startDate: props.invoiceTaxQueryParams?.startDate,
+    endDate: props.invoiceTaxQueryParams?.endDate
+  }, `invoice_tax_summary_${Date.now()}.xlsx`)
 }
 </script>
 

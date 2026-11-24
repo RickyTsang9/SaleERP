@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="销售履约中心"
+      eyebrow="销售管理 · 销售订单"
       title="销售订单管理"
-      subtitle="支持 FEFO 智能选批、历史价与毛利防线提醒、两级审批自动锁库防超卖及全链路业财追踪。"
+      subtitle="管理销售开单、近效期优先选批、参考价与成本提醒、两级审批锁库及发货回款进度。"
       icon="ShoppingCart"
       tone="indigo"
       :badge="`共 ${total} 笔订单`"
@@ -15,7 +15,7 @@
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="saleOrderStatItems" :columns="4" />
+    <erp-stat-strip :items="saleOrderStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true">
@@ -31,6 +31,18 @@
           <el-select v-model="queryParams.paymentStatus" placeholder="付款状态" clearable style="width: 120px">
             <el-option v-for="paymentStatusOption in saleOrderPaymentStatusOptionList" :key="paymentStatusOption.value" :label="paymentStatusOption.label" :value="paymentStatusOption.value" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="下单日期">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -51,9 +63,9 @@
 
       <div class="erp-toolbar-actions">
         <el-button size="small" type="success" plain icon="Edit" :disabled="single || !canEditSelectedSaleOrder" @click="handleUpdate" v-hasPermi="['business:saleOrder:edit']">修改</el-button>
-        <el-button size="small" type="warning" plain :disabled="single || selectedStatus !== 'draft'" @click="handleSubmit" v-hasPermi="['business:saleOrder:submit']">提交</el-button>
-        <el-button size="small" type="primary" plain :disabled="single || selectedStatus !== 'submitted'" @click="handleManagerAudit" v-hasPermi="['business:saleOrder:managerAudit']">经理审核</el-button>
-        <el-button size="small" type="success" plain :disabled="single || selectedStatus !== 'manager_approved'" @click="handleFinanceAudit" v-hasPermi="['business:saleOrder:financeAudit']">财务审核</el-button>
+        <el-button size="small" type="warning" plain :disabled="!canBatchSubmit" @click="handleSubmit" v-hasPermi="['business:saleOrder:submit']">提交</el-button>
+        <el-button size="small" type="primary" plain :disabled="!canBatchManagerAudit" @click="handleManagerAudit" v-hasPermi="['business:saleOrder:managerAudit']">经理审核</el-button>
+        <el-button size="small" type="success" plain :disabled="!canBatchFinanceAudit" @click="handleFinanceAudit" v-hasPermi="['business:saleOrder:financeAudit']">财务审核</el-button>
         <el-button size="small" type="danger" plain :disabled="single || selectedStatus !== 'manager_approved'" @click="handleManagerRollback" v-hasPermi="['business:saleOrder:managerAudit']">经理回退</el-button>
         <el-button size="small" type="danger" plain :disabled="single || selectedStatus !== 'audited'" @click="handleFinanceRollback" v-hasPermi="['business:saleOrder:financeAudit']">财务回退</el-button>
         <el-button size="small" type="info" plain :disabled="single || !canCancelSelectedSaleOrder" @click="handleCancel" v-hasPermi="['business:saleOrder:edit']">作废</el-button>
@@ -128,6 +140,7 @@
                     <el-dropdown-item v-if="canViewReceivable(scope.row)" v-hasPermi="['business:receivable:list']" @click="handleViewReceivable(scope.row)">查看应收</el-dropdown-item>
                     <el-dropdown-item v-if="canCreateReceipt(scope.row)" v-hasPermi="['business:receipt:add']" @click="handleCreateReceipt(scope.row)">登记回款</el-dropdown-item>
                     <el-dropdown-item v-if="canViewReceipt(scope.row)" v-hasPermi="['business:receipt:list']" @click="handleViewReceipt(scope.row)">查看回款</el-dropdown-item>
+                    <el-dropdown-item v-if="canCreateSaleInvoice(scope.row)" v-hasPermi="['business:invoice:add']" @click="handleCreateSaleInvoice(scope.row)">登记销项票</el-dropdown-item>
                     <el-dropdown-item v-if="canEditSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:edit']" @click="handleUpdate(scope.row)">修改订单</el-dropdown-item>
                     <el-dropdown-item v-if="canDeleteSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:remove']" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
                   </el-dropdown-menu>
@@ -147,7 +160,7 @@
       />
     </section>
 
-    <el-dialog :title="title" v-model="open" width="860px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="960px" append-to-body>
       <el-form ref="saleOrderRef" :model="form" :rules="rules" label-width="110px">
         <el-row>
           <el-col :span="12">
@@ -220,36 +233,54 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <template v-if="!form.saleOrderId">
-          <el-divider content-position="left">订单商品明细（可选，支持表头与明细一体化建单）</el-divider>
+        <template v-if="!form.saleOrderId || isDraftSaleOrderStatus(form.status)">
+          <el-divider content-position="left">订单商品明细（支持表头与明细一体化维护）</el-divider>
           <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center">
             <el-button type="primary" plain size="small" icon="Plus" @click="handleAddInlineOrderItem">添加商品行</el-button>
             <span class="erp-cell-sub">合计 {{ draftInlineSummary.qty.toFixed(2) }} 件 · ¥{{ draftInlineSummary.amount.toFixed(2) }}</span>
           </div>
           <el-table :data="inlineOrderItems" size="small" border>
-            <el-table-column label="商品" min-width="220">
+            <el-table-column label="商品" min-width="200">
               <template #default="scope">
                 <el-select v-model="scope.row.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 100%" @change="val => handleInlineOrderProductChange(scope.row, val)">
                   <el-option v-for="product in productSelectOptionList" :key="product.productId" :label="`${product.productName}（¥${product.salePrice || 0}）`" :value="product.productId" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="数量" width="130" align="center">
+            <el-table-column label="库位" width="145">
               <template #default="scope">
-                <el-input-number v-model="scope.row.quantity" :min="0.01" :precision="2" size="small" controls-position="right" style="width: 112px" @change="recalcInlineOrderTotals" />
+                <el-select v-model="scope.row.locationId" placeholder="自动/可选" clearable filterable size="small" style="width: 100%">
+                  <el-option v-for="location in locationSelectOptionList" :key="location.locationId" :label="location.locationName" :value="location.locationId" />
+                </el-select>
               </template>
             </el-table-column>
-            <el-table-column label="单价(元)" width="135" align="center">
+            <el-table-column label="批次号" width="125">
+              <template #default="scope">
+                <el-input v-model="scope.row.batchNo" placeholder="自动/可选" size="small" />
+              </template>
+            </el-table-column>
+            <el-table-column label="数量" width="120" align="center">
+              <template #default="scope">
+                <el-input-number v-model="scope.row.quantity" :min="0.01" :precision="2" size="small" controls-position="right" style="width: 104px" @change="recalcInlineOrderTotals" />
+              </template>
+            </el-table-column>
+            <el-table-column label="单价(元)" width="145" align="center">
               <template #default="scope">
                 <el-input-number v-model="scope.row.price" :min="0" :precision="2" size="small" controls-position="right" style="width: 118px" @change="recalcInlineOrderTotals" />
+                <div v-if="scope.row.costPrice && Number(scope.row.price || 0) < Number(scope.row.costPrice)" style="font-size: 11px; color: var(--el-color-danger); line-height: 1.2; margin-top: 2px;">
+                  低于成本 ¥{{ scope.row.costPrice }}
+                </div>
+                <div v-else-if="scope.row.priceSourceLabel" style="font-size: 11px; color: var(--el-color-success); line-height: 1.2; margin-top: 2px;">
+                  {{ scope.row.priceSourceLabel }}
+                </div>
               </template>
             </el-table-column>
-            <el-table-column label="小计(元)" width="115" align="right">
+            <el-table-column label="小计(元)" width="105" align="right">
               <template #default="scope">
                 <span>¥{{ (Number(scope.row.quantity || 0) * Number(scope.row.price || 0)).toFixed(2) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="70" align="center">
+            <el-table-column label="操作" width="60" align="center">
               <template #default="scope">
                 <el-button link type="danger" icon="Delete" @click="handleRemoveInlineOrderItem(scope.$index)" />
               </template>
@@ -294,6 +325,9 @@
             @click="handleDeleteSaleOrderItem"
             v-hasPermi="['business:saleOrder:remove']"
           >删除明细</el-button>
+        </el-col>
+        <el-col :span="1.5">
+          <el-button plain icon="Download" @click="handleExportSaleOrderItems" v-hasPermi="['business:saleOrder:export']">导出明细</el-button>
         </el-col>
       </el-row>
       <el-table v-loading="saleOrderItemLoading" :data="saleOrderItemList" @selection-change="handleSaleOrderItemSelectionChange">
@@ -658,60 +692,6 @@
       </el-tabs>
     </el-dialog>
 
-    <!-- 打印预览对话框 -->
-    <el-dialog title="打印预览" v-model="printOpen" width="800px" append-to-body>
-      <div id="printBox" class="print-container" style="padding: 20px; font-family: 'SimSun', '宋体', serif;">
-        <h2 style="text-align: center; font-size: 24px; margin-bottom: 20px; letter-spacing: 2px;">销 售 订 单</h2>
-        <el-row style="margin-bottom: 15px; font-size: 14px;">
-          <el-col :span="12"><strong>销售单号：</strong>{{ printData.saleOrder.orderNo }}</el-col>
-          <el-col :span="12"><strong>销售日期：</strong>{{ parseTime(printData.saleOrder.createTime, '{y}-{m}-{d}') }}</el-col>
-        </el-row>
-        <el-row style="margin-bottom: 20px; font-size: 14px;">
-          <el-col :span="12"><strong>客户：</strong>{{ getCustomerName(printData.saleOrder.customerId) }}</el-col>
-          <el-col :span="12"><strong>仓库：</strong>{{ getWarehouseName(printData.saleOrder.warehouseId) }}</el-col>
-        </el-row>
-
-        <table border="1" cellspacing="0" cellpadding="8" style="width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; border-color: #333;">
-          <thead>
-            <tr style="background-color: #f5f5f5;">
-              <th width="10%">序号</th>
-              <th width="30%">商品</th>
-              <th width="20%">库位</th>
-              <th width="10%">数量</th>
-              <th width="15%">单价(元)</th>
-              <th width="15%">金额(元)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in printData.itemList" :key="index">
-              <td>{{ index + 1 }}</td>
-              <td>{{ getProductName(item.productId) }}</td>
-              <td>{{ getLocationName(item.locationId) }}</td>
-              <td>{{ item.quantity }}</td>
-              <td>{{ item.price }}</td>
-              <td>{{ item.amount }}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <el-row style="margin-top: 15px; font-size: 14px;">
-          <el-col :span="24" style="text-align: right; padding-right: 10px;">
-            <strong>总数量：{{ printData.saleOrder.totalQty || '0' }} &nbsp;&nbsp;&nbsp; 总金额：<span style="font-size: 18px;">¥ {{ printData.saleOrder.totalAmount || '0.00' }}</span></strong>
-          </el-col>
-        </el-row>
-        <el-row style="margin-top: 30px; font-size: 14px;">
-          <el-col :span="8"><strong>制单人：</strong>{{ printData.saleOrder.createBy || '系统管理员' }}</el-col>
-          <el-col :span="16"><strong>备注：</strong>{{ printData.saleOrder.remark || '无' }}</el-col>
-        </el-row>
-      </div>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button type="primary" v-print="'#printBox'">确 认 打 印</el-button>
-          <el-button @click="printOpen = false">关 闭</el-button>
-        </div>
-      </template>
-    </el-dialog>
-
     <document-print-dialog ref="printDialogRef" />
   </div>
 </template>
@@ -719,7 +699,7 @@
 <script setup name="SaleOrder">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { getToken } from "@/utils/auth"
-import { listSaleOrder, getSaleOrder, addSaleOrder, updateSaleOrder, delSaleOrder, submitSaleOrder, managerAuditSaleOrder, managerRollbackSaleOrder, financeAuditSaleOrder, financeRollbackSaleOrder, cancelSaleOrder, forceCloseSaleOrder, getSaleOrderPrintTemplate, listSaleOrderStatusHistory, getSaleOrderChain, suggestSalePrice } from "@/api/business/saleOrder"
+import { listSaleOrder, getSaleOrder, addSaleOrder, updateSaleOrder, delSaleOrder, submitSaleOrder, managerAuditSaleOrder, managerRollbackSaleOrder, financeAuditSaleOrder, financeRollbackSaleOrder, batchSubmitSaleOrder, batchManagerAuditSaleOrder, batchFinanceAuditSaleOrder, cancelSaleOrder, forceCloseSaleOrder, getSaleOrderPrintTemplate, listSaleOrderStatusHistory, getSaleOrderChain, suggestSalePrice } from "@/api/business/saleOrder"
 import { listSaleOrderItem, getSaleOrderItem, addSaleOrderItem, updateSaleOrderItem, delSaleOrderItem } from "@/api/business/saleOrderItem"
 import { recommendStockBatch } from "@/api/business/stock"
 import { listCustomer, getCustomer } from "@/api/business/customer"
@@ -728,6 +708,7 @@ import { listProduct, getProduct } from "@/api/business/product"
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
 import { buildDocumentSelectionState, getSingleSelectedDocumentId } from "@/utils/documentPage"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -777,11 +758,7 @@ const saleOrderChainData = ref({
   receiptList: [],
   statusHistoryList: []
 })
-const printOpen = ref(false)
-const printData = ref({
-  saleOrder: {},
-  itemList: []
-})
+const dateRange = ref([])
 const upload = reactive({
   open: false,
   title: "",
@@ -862,13 +839,24 @@ const saleOrderStatItems = computed(() => {
   const pendingApproval = rows.filter(r => r.status === "submitted" || r.status === "manager_approved").length
   const pageTotalAmount = rows.reduce((s, r) => s + Number(r.totalAmount || 0), 0)
   const pageRemain = rows.reduce((s, r) => s + Number(r.remainReceivableAmount || 0), 0)
+  const curStatus = queryParams.value.status ?? ""
   return [
-    { label: "销售订单总数", value: total.value, suffix: "单", hint: "匹配当前筛选的全部订单", icon: "ShoppingCart", tone: "indigo" },
-    { label: "本页待审批", value: pendingApproval, suffix: "单", hint: "待经理 / 财务两级审批", icon: "Stamp", tone: "amber" },
-    { label: "本页销售总额", prefix: "¥", value: pageTotalAmount.toFixed(2), hint: "本页成交订单总金额", icon: "Money", tone: "emerald" },
-    { label: "本页待收尾款", prefix: "¥", value: pageRemain.toFixed(2), hint: "可快捷登记客户回款", icon: "Wallet", tone: "rose" }
+    { key: "all", statusVal: "", label: "销售订单总数", value: total.value, suffix: "单", hint: "点击查看全部订单", icon: "ShoppingCart", tone: "indigo", clickable: true, active: curStatus === "" },
+    { key: "pending", statusVal: "submitted", label: "本页待审批", value: pendingApproval, suffix: "单", hint: "点击筛选待经理审订单", icon: "Stamp", tone: "amber", clickable: true, active: curStatus === "submitted" },
+    { key: "audited", statusVal: "audited", label: "本页销售总额", prefix: "¥", value: pageTotalAmount.toFixed(2), hint: "点击筛选已终审订单", icon: "Money", tone: "emerald", clickable: true, active: curStatus === "audited" },
+    { key: "unpaid", label: "本页待收尾款", prefix: "¥", value: pageRemain.toFixed(2), hint: "可快捷登记客户回款", icon: "Wallet", tone: "rose" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.statusVal !== undefined) {
+    handleQuickStatus(item.statusVal)
+  }
+}
+
+const canBatchSubmit = computed(() => ids.value.length > 0 && selectedStatus.value === "draft")
+const canBatchManagerAudit = computed(() => ids.value.length > 0 && selectedStatus.value === "submitted")
+const canBatchFinanceAudit = computed(() => ids.value.length > 0 && selectedStatus.value === "manager_approved")
 
 function handleQuickStatus(val) {
   queryParams.value.status = val === "" ? undefined : val
@@ -1099,7 +1087,8 @@ function buildWarehouseSelectOptionList() {
 
 // 组合商品下拉选项，兼容历史销售订单明细中主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, [saleOrderItemForm.value.productId], "productId", "productName", () => "商品资料缺失")
+  const inlineProdIds = (inlineOrderItems.value || []).map(it => it.productId)
+  return buildSelectOptionList(productList.value, [saleOrderItemForm.value.productId, ...inlineProdIds], "productId", "productName", () => "商品资料缺失")
 }
 
 // 组合库位下拉选项，兼容历史销售订单明细中主数据缺失时的兜底回显。
@@ -1108,7 +1097,8 @@ function buildLocationSelectOptionList() {
   const filtered = targetWarehouseId
     ? locationList.value.filter(loc => (!loc.warehouseId || Number(loc.warehouseId) === Number(targetWarehouseId)) && loc.status !== "1")
     : locationList.value.filter(loc => loc.status !== "1")
-  return buildSelectOptionList(filtered, [saleOrderItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
+  const inlineLocIds = (inlineOrderItems.value || []).map(it => it.locationId)
+  return buildSelectOptionList(filtered, [saleOrderItemForm.value.locationId, ...inlineLocIds], "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据客户编号返回客户名称，减少页面出现内部编号带来的识别成本。
@@ -1282,6 +1272,22 @@ function canCreateReceipt(saleOrderRow) {
   return canViewReceivable(saleOrderRow) && Number(saleOrderRow.remainReceivableAmount || 0) > 0
 }
 
+function canCreateSaleInvoice(saleOrderRow) {
+  return !!saleOrderRow && (saleOrderRow.status === "audited" || saleOrderRow.status === "closed") && saleOrderRow.invoiceStatus !== "invoiced"
+}
+
+function handleCreateSaleInvoice(row) {
+  if (!row?.saleOrderId) return
+  proxy.$router.push({
+    path: "/finance/invoice",
+    query: {
+      mode: "create",
+      invoiceDirection: "sale",
+      sourceOrderId: row.saleOrderId
+    }
+  })
+}
+
 // 判断当前销售单是否允许进入销售出库，未出库完成时允许继续出库，已出库完成时保留查看入口。
 function canViewOutbound(saleOrderRow) {
   return !!saleOrderRow && ((saleOrderRow.status === "audited" && (hasPendingOutboundQuantity(saleOrderRow) || hasCreatedOutboundRecord(saleOrderRow))) || (saleOrderRow.status === "closed" && hasCreatedOutboundRecord(saleOrderRow)))
@@ -1310,7 +1316,7 @@ function formatSaleOrderAmount(amountValue) {
 
 function getList() {
   loading.value = true
-  listSaleOrder(queryParams.value).then(response => {
+  listSaleOrder(proxy.addDateRange(queryParams.value, dateRange.value)).then(response => {
     saleOrderList.value = response.rows
     total.value = response.total
     ensureSaleOrderReferenceOptionsLoaded(response.rows)
@@ -1371,6 +1377,7 @@ function handleQuery() {
 }
 
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.saleOrderId = undefined
   queryParams.value.customerId = undefined
@@ -1398,10 +1405,28 @@ function handleAdd() {
 function handleUpdate(row) {
   reset()
   const saleOrderId = row.saleOrderId || ids.value[0]
-  getSaleOrder(saleOrderId).then(response => {
+  Promise.all([
+    getSaleOrder(saleOrderId),
+    listSaleOrderItem({ pageNum: 1, pageSize: 1000, saleOrderId })
+  ]).then(async ([response, itemRes]) => {
     form.value = response.data
-    ensureCustomerOptionLoaded(form.value.customerId)
-    ensureWarehouseOptionLoaded(form.value.warehouseId)
+    const items = itemRes.rows || []
+    await Promise.all([
+      ensureCustomerOptionLoaded(form.value.customerId),
+      ensureWarehouseOptionLoaded(form.value.warehouseId),
+      ensureSaleOrderItemReferenceOptionsLoaded(items)
+    ])
+    loadLocationOptionList()
+    inlineOrderItems.value = items.map(it => ({
+      saleOrderItemId: it.saleOrderItemId,
+      productId: it.productId,
+      locationId: it.locationId,
+      batchNo: it.batchNo,
+      quantity: Number(it.quantity || 1),
+      price: Number(it.price || 0),
+      priceSourceLabel: "",
+      costPrice: null
+    }))
     open.value = true
     title.value = "修改销售订单"
   })
@@ -1598,7 +1623,7 @@ const draftInlineSummary = computed(() => {
 })
 
 function handleAddInlineOrderItem() {
-  inlineOrderItems.value.push({ productId: undefined, quantity: 1, price: 0 })
+  inlineOrderItems.value.push({ productId: undefined, locationId: undefined, batchNo: undefined, quantity: 1, price: 0, priceSourceLabel: "", costPrice: null })
 }
 
 function handleRemoveInlineOrderItem(idx) {
@@ -1606,38 +1631,84 @@ function handleRemoveInlineOrderItem(idx) {
   recalcInlineOrderTotals()
 }
 
-function handleInlineOrderProductChange(row, productId) {
+async function handleInlineOrderProductChange(row, productId) {
+  row.priceSourceLabel = ""
+  row.costPrice = null
+  if (!productId) {
+    recalcInlineOrderTotals()
+    return
+  }
   const prod = productList.value.find(p => p.productId === productId)
   if (prod) {
     row.price = Number(prod.salePrice || 0)
   }
   recalcInlineOrderTotals()
+  try {
+    const [priceRes, batchRes] = await Promise.all([
+      suggestSalePrice(form.value.customerId, productId).catch(() => null),
+      form.value.warehouseId ? recommendStockBatch(form.value.warehouseId, productId).catch(() => null) : Promise.resolve(null)
+    ])
+    if (priceRes?.data) {
+      const pData = priceRes.data
+      if (pData.suggestedPrice !== undefined && pData.suggestedPrice !== null) {
+        row.price = Number(pData.suggestedPrice)
+      }
+      const labelMap = {
+        agreed_price: "协议价",
+        last_audited_price: "历史成交价",
+        customer_level_discount: "等级折扣价",
+        standard_sale_price: "标准售价"
+      }
+      row.priceSourceLabel = labelMap[pData.priceSource] || pData.priceSourceLabel || ""
+      row.costPrice = pData.costPrice !== undefined && pData.costPrice !== null ? Number(pData.costPrice) : null
+    }
+    const batches = batchRes?.data || []
+    if (batches.length > 0 && !row.locationId) {
+      row.locationId = batches[0].locationId
+      row.batchNo = batches[0].batchNo
+      ensureLocationOptionLoaded(batches[0].locationId)
+    }
+    recalcInlineOrderTotals()
+  } catch (e) {
+    // ignore
+  }
 }
 
 function recalcInlineOrderTotals() {
-  if (!form.value.saleOrderId) {
+  if (!form.value.saleOrderId || isDraftSaleOrderStatus(form.value.status)) {
     form.value.totalQty = Number(draftInlineSummary.value.qty.toFixed(2))
     form.value.totalAmount = Number(draftInlineSummary.value.amount.toFixed(2))
   }
 }
 
+function handleExportSaleOrderItems() {
+  if (!currentSaleOrderId.value) return
+  proxy.download("business/saleOrderItem/export", {
+    saleOrderId: currentSaleOrderId.value
+  }, `saleOrderItem_${currentSaleOrderId.value}_${new Date().getTime()}.xlsx`)
+}
+
 function submitForm() {
   proxy.$refs["saleOrderRef"].validate(valid => {
     if (valid) {
+      const validItems = (inlineOrderItems.value || [])
+        .filter(it => it.productId && Number(it.quantity || 0) > 0)
+        .map(it => ({
+          saleOrderItemId: it.saleOrderItemId,
+          productId: it.productId,
+          locationId: it.locationId,
+          batchNo: it.batchNo,
+          quantity: Number(it.quantity),
+          price: Number(it.price || 0)
+        }))
       if (form.value.saleOrderId !== undefined) {
-        updateSaleOrder(form.value).then(() => {
+        updateSaleOrder({ ...form.value, items: validItems }).then(() => {
           proxy.$modal.msgSuccess("修改成功")
+          inlineOrderItems.value = []
           open.value = false
           getList()
         })
       } else {
-        const validItems = (inlineOrderItems.value || [])
-          .filter(it => it.productId && Number(it.quantity || 0) > 0)
-          .map(it => ({
-            productId: it.productId,
-            quantity: Number(it.quantity),
-            price: Number(it.price || 0)
-          }))
         addSaleOrder({ ...form.value, items: validItems }).then(() => {
           proxy.$modal.msgSuccess("新增成功")
           inlineOrderItems.value = []
@@ -1655,6 +1726,15 @@ function getSelectedSaleOrderId(actionText) {
 }
 
 function handleSubmit() {
+  if (ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量提交选中的 ${ids.value.length} 笔销售订单？`).then(() => {
+      return batchSubmitSaleOrder(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量提交完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const saleOrderId = getSelectedSaleOrderId("提交")
   if (!saleOrderId) {
     return
@@ -1667,6 +1747,20 @@ function handleSubmit() {
 
 // 经理审核按钮操作
 function handleManagerAudit() {
+  if (ids.value.length > 1) {
+    proxy.$modal.prompt(`将对选中的 ${ids.value.length} 笔销售订单批量经理审核，请输入审核意见：`, "批量经理审核", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      inputPlaceholder: "请输入审核意见（选填）",
+      closeOnClickModal: false
+    }).then(({ value }) => {
+      return batchManagerAuditSaleOrder(ids.value, value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量经理审核完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const saleOrderId = getSelectedSaleOrderId("经理审核")
   if (!saleOrderId) {
     return
@@ -1703,8 +1797,22 @@ function handleManagerRollback() {
   }).catch(() => {})
 }
 
-// 财务审核按钮操作
+// 财务审核按钮操作（支持批量财务审核及客户逾期风控特批放行）
 function handleFinanceAudit() {
+  if (ids.value.length > 1) {
+    proxy.$modal.prompt(`将对选中的 ${ids.value.length} 笔销售订单批量财务审核，请输入审核意见：`, "批量财务审核", {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      inputPlaceholder: "请输入审核意见（选填，含“特批放行”可放行逾期客户）",
+      closeOnClickModal: false
+    }).then(({ value }) => {
+      return batchFinanceAuditSaleOrder(ids.value, value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量财务审核完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const saleOrderId = getSelectedSaleOrderId("财务审核")
   if (!saleOrderId) {
     return
@@ -1715,7 +1823,25 @@ function handleFinanceAudit() {
     inputPlaceholder: "请输入审核意见（选填）",
     closeOnClickModal: false
   }).then(({ value }) => {
-    return financeAuditSaleOrder(saleOrderId, { financeAuditComment: value })
+    return financeAuditSaleOrder(saleOrderId, { financeAuditComment: value }).catch(err => {
+      const errMsg = String(err?.message || err || "")
+      if (errMsg.includes("逾期") || errMsg.includes("特批")) {
+        return proxy.$modal.prompt(
+          `${errMsg}\n\n如需财务主管特批放行，请填写具体放行原因：`,
+          "逾期应收风控拦截 · 特批放行",
+          {
+            confirmButtonText: "确认特批放行",
+            cancelButtonText: "取消审核",
+            inputPlaceholder: "例如：客户已承诺本周五前结清历史欠款",
+            inputValidator: val => (val && String(val).trim().length >= 2) ? true : "请填写特批放行原因",
+            closeOnClickModal: false
+          }
+        ).then(({ value: reason }) => {
+          return financeAuditSaleOrder(saleOrderId, { financeAuditComment: `特批放行：${String(reason).trim()}` })
+        })
+      }
+      return Promise.reject(err)
+    })
   }).then(() => {
     proxy.$modal.msgSuccess("财务审核成功")
     getList()

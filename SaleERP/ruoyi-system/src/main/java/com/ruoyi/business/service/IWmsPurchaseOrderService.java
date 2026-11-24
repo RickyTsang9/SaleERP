@@ -113,4 +113,14 @@ public interface IWmsPurchaseOrderService
      * @return 结果
      */
     public int deleteWmsPurchaseOrderByPurchaseOrderId(Long purchaseOrderId);
+
+    /**
+     * 查询供应商与商品的历史采购建议价
+     */
+    public Map<String, Object> suggestPurchasePrice(Long supplierId, Long productId);
+
+    /**
+     * 根据缺货库存一键生成补货采购草稿单（按供应商自动分单）
+     */
+    public Map<String, Object> createReplenishPurchaseOrders(Long defaultSupplierId, List<Map<String, Object>> items, String operator);
 }

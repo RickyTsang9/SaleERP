@@ -33,6 +33,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="customerId != null "> and f.customer_id = #{customerId}</if>
             <if test="followType != null  and followType != ''"> and f.follow_type = #{followType}</if>
             <if test="status != null  and status != ''"> and f.status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and f.follow_time &gt;= #{params.beginTime}
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and f.follow_time &lt;= concat(#{params.endTime}, ' 23:59:59')
+            </if>
             <if test="todoType != null and todoType != ''">
                 <choose>
                     <when test="todoType == 'processing'">
@@ -116,7 +122,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="followType != null">follow_type = #{followType},</if>
             <if test="followTime != null">follow_time = #{followTime},</if>
             <if test="followContent != null and followContent != ''">follow_content = #{followContent},</if>
-            <if test="nextFollowTime != null">next_follow_time = #{nextFollowTime},</if>
+            <if test="nextFollowTime != null or (followContent != null and status == '1')">next_follow_time = #{nextFollowTime},</if>
             <if test="status != null">status = #{status},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>

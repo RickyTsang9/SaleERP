@@ -170,9 +170,29 @@ public class WmsStockServiceImpl implements IWmsStockService
             }
             else if (row.getOpeningCostPrice() != null && row.getOpeningCostPrice().compareTo(BigDecimal.ZERO) > 0 && mdProductMapper != null)
             {
+                com.ruoyi.business.domain.MdProduct existingProd = mdProductMapper.selectMdProductById(row.getProductId());
+                BigDecimal oldTotalStock = wmsStockMapper.selectTotalProductStockQuantity(row.getProductId());
+                if (oldTotalStock == null || oldTotalStock.compareTo(BigDecimal.ZERO) < 0)
+                {
+                    oldTotalStock = BigDecimal.ZERO;
+                }
+                BigDecimal newCost = row.getOpeningCostPrice();
+                if (existingProd != null && existingProd.getCostPrice() != null
+                    && existingProd.getCostPrice().compareTo(BigDecimal.ZERO) > 0
+                    && oldTotalStock.compareTo(BigDecimal.ZERO) > 0)
+                {
+                    BigDecimal denom = oldTotalStock.add(row.getQuantity());
+                    newCost = oldTotalStock.multiply(existingProd.getCostPrice())
+                        .add(row.getQuantity().multiply(row.getOpeningCostPrice()))
+                        .divide(denom, 4, java.math.RoundingMode.HALF_UP).stripTrailingZeros();
+                    if (newCost.scale() < 2)
+                    {
+                        newCost = newCost.setScale(2, java.math.RoundingMode.HALF_UP);
+                    }
+                }
                 com.ruoyi.business.domain.MdProduct updateCost = new com.ruoyi.business.domain.MdProduct();
                 updateCost.setProductId(row.getProductId());
-                updateCost.setCostPrice(row.getOpeningCostPrice());
+                updateCost.setCostPrice(newCost);
                 updateCost.setUpdateBy(operatorName);
                 mdProductMapper.updateMdProduct(updateCost);
             }

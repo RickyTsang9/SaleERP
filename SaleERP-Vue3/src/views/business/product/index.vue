@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="基础主数据"
+      eyebrow="基础资料 · 商品管理"
       title="商品资料管理"
-      subtitle="统一维护商品编码、规格条码、成本与标准售价，支持批量导入导出及单品经营画像洞察。"
+      subtitle="统一维护商品编码、规格条码、成本与标准售价，支持批量导入导出及单品购销库存统计。"
       icon="Goods"
       tone="indigo"
       :badge="`共 ${total} 款商品`"

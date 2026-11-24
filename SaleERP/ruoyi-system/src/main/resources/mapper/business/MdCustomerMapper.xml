@@ -13,6 +13,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="contactEmail"   column="contact_email"  />
         <result property="address"        column="address"        />
         <result property="creditLimit"    column="credit_limit"   />
+        <result property="creditDays"     column="credit_days"    />
         <result property="paymentMethod"  column="payment_method" />
         <result property="customerLevel"  column="customer_level" />
         <result property="status"         column="status"         />
@@ -26,7 +27,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <sql id="selectMdCustomerVo">
         select c.customer_id, c.customer_code, c.customer_name, c.contact_person, c.contact_phone, c.contact_email, c.address,
-               c.credit_limit, c.payment_method, c.customer_level,
+               c.credit_limit, c.credit_days, c.payment_method, c.customer_level,
                c.status, c.del_flag, c.create_by, c.create_time, c.update_by, c.update_time, c.remark
         from md_customer c
         left join sys_user su on su.user_name = c.create_by and su.del_flag = '0'
@@ -95,6 +96,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="contactEmail != null">contact_email,</if>
             <if test="address != null">address,</if>
             <if test="creditLimit != null">credit_limit,</if>
+            <if test="creditDays != null">credit_days,</if>
             <if test="paymentMethod != null">payment_method,</if>
             <if test="customerLevel != null">customer_level,</if>
             <if test="status != null">status,</if>
@@ -112,6 +114,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="contactEmail != null">#{contactEmail},</if>
             <if test="address != null">#{address},</if>
             <if test="creditLimit != null">#{creditLimit},</if>
+            <if test="creditDays != null">#{creditDays},</if>
             <if test="paymentMethod != null">#{paymentMethod},</if>
             <if test="customerLevel != null">#{customerLevel},</if>
             <if test="status != null">#{status},</if>
@@ -133,6 +136,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="contactEmail != null">contact_email = #{contactEmail},</if>
             <if test="address != null">address = #{address},</if>
             <if test="creditLimit != null">credit_limit = #{creditLimit},</if>
+            <if test="creditDays != null">credit_days = #{creditDays},</if>
             <if test="paymentMethod != null">payment_method = #{paymentMethod},</if>
             <if test="customerLevel != null">customer_level = #{customerLevel},</if>
             <if test="status != null">status = #{status},</if>

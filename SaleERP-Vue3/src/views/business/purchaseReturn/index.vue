@@ -14,22 +14,37 @@
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="purchaseReturnStatItems" :columns="4" />
+    <erp-stat-strip :items="purchaseReturnStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true">
         <el-form-item label="退货单号" prop="returnNo">
-          <el-input v-model="queryParams.returnNo" placeholder="请输入退货单号" clearable style="width: 195px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.returnNo" placeholder="请输入退货单号" clearable style="width: 170px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="来源采购单" prop="sourceOrderNo">
+          <el-input v-model="queryParams.sourceOrderNo" placeholder="请输入采购单号" clearable style="width: 170px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="供应商" prop="supplierId">
-          <el-select v-model="queryParams.supplierId" placeholder="请选择供应商" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadSupplierOptionList" :loading="supplierListLoading" style="width: 200px">
+          <el-select v-model="queryParams.supplierId" placeholder="请选择供应商" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadSupplierOptionList" :loading="supplierListLoading" style="width: 175px">
             <el-option v-for="supplier in supplierSelectOptionList" :key="supplier.supplierId" :label="supplier.supplierName" :value="supplier.supplierId" />
           </el-select>
         </el-form-item>
         <el-form-item label="仓库" prop="warehouseId">
-          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 185px">
+          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 165px">
             <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="退货日期">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -44,10 +59,10 @@
           <erp-status-tabs :model-value="queryParams.status ?? ''" :items="returnStatusTabItems" @change="handleQuickStatus" />
         </div>
         <div class="erp-toolbar-right">
-          <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:purchaseReturn:edit']">修改</el-button>
-          <el-button type="info" plain icon="Upload" :disabled="!canSubmitSelected" @click="handleSubmit" v-hasPermi="['business:purchaseReturn:edit']">提交</el-button>
-          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit" v-hasPermi="['business:purchaseReturn:audit']">审核</el-button>
-          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:purchaseReturn:remove']">删除</el-button>
+          <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate()" v-hasPermi="['business:purchaseReturn:edit']">修改</el-button>
+          <el-button type="info" plain icon="Upload" :disabled="!canSubmitSelected" @click="handleSubmit()" v-hasPermi="['business:purchaseReturn:edit']">提交</el-button>
+          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit()" v-hasPermi="['business:purchaseReturn:audit']">审核</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete()" v-hasPermi="['business:purchaseReturn:remove']">删除</el-button>
           <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
         </div>
       </div>
@@ -128,7 +143,7 @@
         <el-row>
           <el-col :span="12">
             <el-form-item label="来源采购单" prop="purchaseOrderId">
-              <el-select v-model="form.purchaseOrderId" placeholder="可选：关联已入库采购单防止超退" clearable filterable style="width: 100%" @change="handleSourcePurchaseOrderChange">
+              <el-select v-model="form.purchaseOrderId" placeholder="可选：搜索已入库采购单自动带出退货明细" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadSourcePurchaseOrders" style="width: 100%" @change="handleSourcePurchaseOrderChange">
                 <el-option
                   v-for="po in sourcePurchaseOrderList"
                   :key="po.purchaseOrderId"
@@ -205,8 +220,8 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <template v-if="!form.purchaseReturnId">
-          <el-divider content-position="left">退货商品明细（可选，支持一体化建单）</el-divider>
+        <template v-if="!form.purchaseReturnId || isDraftPurchaseReturnStatus(form.status)">
+          <el-divider content-position="left">退货商品明细（支持自动带出与一体化维护）</el-divider>
           <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center">
             <el-button type="primary" plain size="small" icon="Plus" @click="handleAddInlineReturnItem">添加退货商品</el-button>
             <span class="erp-cell-sub">合计 {{ inlineReturnSummary.qty.toFixed(2) }} 件 · ¥{{ inlineReturnSummary.amount.toFixed(2) }}</span>
@@ -271,6 +286,9 @@
         </el-col>
         <el-col :span="1.5">
           <el-button v-if="isPurchaseReturnItemEditable()" type="danger" plain icon="Delete" :disabled="purchaseReturnItemMultiple" @click="handleDeletePurchaseReturnItem" v-hasPermi="['business:purchaseReturn:remove']">删除明细</el-button>
+        </el-col>
+        <el-col :span="1.5">
+          <el-button plain icon="Download" @click="handleExportPurchaseReturnItems" v-hasPermi="['business:purchaseReturn:export']">导出明细</el-button>
         </el-col>
       </el-row>
       <el-table v-loading="purchaseReturnItemLoading" :data="purchaseReturnItemList" @selection-change="handlePurchaseReturnItemSelectionChange">
@@ -365,14 +383,17 @@
 
 <script setup name="PurchaseReturn">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
-import { listPurchaseReturn, getPurchaseReturn, addPurchaseReturn, updatePurchaseReturn, delPurchaseReturn, submitPurchaseReturn, auditPurchaseReturn, rejectPurchaseReturn, cancelPurchaseReturn } from "@/api/business/purchaseReturn"
+import { listPurchaseReturn, getPurchaseReturn, addPurchaseReturn, updatePurchaseReturn, delPurchaseReturn, submitPurchaseReturn, auditPurchaseReturn, batchSubmitPurchaseReturn, batchAuditPurchaseReturn, rejectPurchaseReturn, cancelPurchaseReturn } from "@/api/business/purchaseReturn"
 import { listPurchaseReturnItem, getPurchaseReturnItem, addPurchaseReturnItem, updatePurchaseReturnItem, delPurchaseReturnItem } from "@/api/business/purchaseReturnItem"
-import { listPurchaseOrder } from "@/api/business/purchaseOrder"
+import { listPurchaseOrder, getPurchaseOrder } from "@/api/business/purchaseOrder"
+import { listInbound } from "@/api/business/inbound"
+import { listInboundItem } from "@/api/business/inboundItem"
 import { listSupplier, getSupplier } from "@/api/business/supplier"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listLocation } from "@/api/business/location"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -405,7 +426,7 @@ function handleInlineReturnProductChange(row, productId) {
 }
 
 function recalcInlineReturnTotals() {
-  if (!form.value.purchaseReturnId) {
+  if (!form.value.purchaseReturnId || isDraftPurchaseReturnStatus(form.value.status)) {
     form.value.totalQty = Number(inlineReturnSummary.value.qty.toFixed(2))
     form.value.totalAmount = Number(inlineReturnSummary.value.amount.toFixed(2))
   }
@@ -460,6 +481,7 @@ const productList = ref([])
 const productListLoading = ref(false)
 const sourcePurchaseOrderList = ref([])
 const locationList = ref([])
+const dateRange = ref([])
 const open = ref(false)
 const loading = ref(true)
 const showSearch = ref(true)
@@ -491,6 +513,7 @@ const data = reactive({
     pageNum: 1,
     pageSize: 10,
     returnNo: undefined,
+    sourceOrderNo: undefined,
     returnType: undefined,
     supplierId: undefined,
     warehouseId: undefined,
@@ -523,13 +546,20 @@ const purchaseReturnStatItems = computed(() => {
   const draftCount = rows.filter(r => r.status === "draft").length
   const submittedCount = rows.filter(r => r.status === "submitted").length
   const pageAmount = rows.reduce((s, r) => s + Number(r.totalAmount || 0), 0)
+  const curStatus = queryParams.value.status ?? ""
   return [
-    { label: "采购退货总数", value: total.value, suffix: "单", hint: "匹配当前筛选的全部退货单", icon: "RefreshLeft", tone: "amber" },
-    { label: "本页草稿单", value: draftCount, suffix: "单", hint: "可维护退货商品明细", icon: "EditPen", tone: "slate" },
-    { label: "本页待审核", value: submittedCount, suffix: "单", hint: "审核后自动扣库冲应付", icon: "Stamp", tone: "blue" },
-    { label: "本页退货总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "本页采购退货金额合计", icon: "Money", tone: "rose" }
+    { key: "all", statusVal: "", label: "采购退货总数", value: total.value, suffix: "单", hint: "点击查看全部退货单", icon: "RefreshLeft", tone: "amber", clickable: true, active: curStatus === "" },
+    { key: "draft", statusVal: "draft", label: "本页草稿单", value: draftCount, suffix: "单", hint: "点击筛选草稿退货单", icon: "EditPen", tone: "slate", clickable: true, active: curStatus === "draft" },
+    { key: "submitted", statusVal: "submitted", label: "本页待审核", value: submittedCount, suffix: "单", hint: "点击筛选待审核退货单", icon: "Stamp", tone: "blue", clickable: true, active: curStatus === "submitted" },
+    { key: "amt", label: "本页退货总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "本页采购退货金额合计", icon: "Money", tone: "rose" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.statusVal !== undefined) {
+    handleQuickStatus(item.statusVal)
+  }
+}
 
 function handleQuickStatus(val) {
   queryParams.value.status = val === "" ? undefined : val
@@ -540,10 +570,11 @@ const supplierSelectOptionList = computed(() => buildSupplierSelectOptionList())
 const warehouseSelectOptionList = computed(() => buildWarehouseSelectOptionList())
 const productSelectOptionList = computed(() => buildProductSelectOptionList())
 
-const canUpdateSelected = computed(() => ids.value.length === 1 && purchaseReturnList.value.some(purchaseReturn => purchaseReturn.purchaseReturnId === ids.value[0] && isDraftPurchaseReturnStatus(purchaseReturn.status)))
-const canSubmitSelected = computed(() => ids.value.length === 1 && purchaseReturnList.value.some(purchaseReturn => purchaseReturn.purchaseReturnId === ids.value[0] && isDraftPurchaseReturnStatus(purchaseReturn.status)))
-const canAuditSelected = computed(() => ids.value.length === 1 && purchaseReturnList.value.some(purchaseReturn => purchaseReturn.purchaseReturnId === ids.value[0] && isSubmittedPurchaseReturnStatus(purchaseReturn.status)))
-const canDeleteSelected = computed(() => ids.value.length > 0 && purchaseReturnList.value.filter(purchaseReturn => ids.value.includes(purchaseReturn.purchaseReturnId)).every(purchaseReturn => isDraftPurchaseReturnStatus(purchaseReturn.status)))
+const selectedRows = computed(() => purchaseReturnList.value.filter(pr => ids.value.includes(pr.purchaseReturnId)))
+const canUpdateSelected = computed(() => selectedRows.value.length === 1 && isDraftPurchaseReturnStatus(selectedRows.value[0].status))
+const canSubmitSelected = computed(() => selectedRows.value.length > 0 && selectedRows.value.every(pr => isDraftPurchaseReturnStatus(pr.status)))
+const canAuditSelected = computed(() => selectedRows.value.length > 0 && selectedRows.value.every(pr => isSubmittedPurchaseReturnStatus(pr.status)))
+const canDeleteSelected = computed(() => selectedRows.value.length > 0 && selectedRows.value.every(pr => isDraftPurchaseReturnStatus(pr.status)))
 
 // 初始化页面基础主数据，保证首次打开即可按名称搜索。
 async function initBasicData() {
@@ -716,7 +747,8 @@ function buildWarehouseSelectOptionList() {
 
 // 构造商品下拉列表，并兼容主数据缺失时的兜底回显。
 function buildProductSelectOptionList() {
-  return buildSelectOptionList(productList.value, [purchaseReturnItemForm.value.productId], "productId", "productName", () => "商品资料缺失")
+  const inlineIds = (inlineReturnItems.value || []).map(it => it.productId)
+  return buildSelectOptionList(productList.value, [purchaseReturnItemForm.value.productId, ...inlineIds], "productId", "productName", () => "商品资料缺失")
 }
 
 // 通过供应商编号返回供应商名称，未命中主数据时显示资料缺失提示。
@@ -791,7 +823,7 @@ function ensurePurchaseReturnItemEditable() {
 async function getList() {
   loading.value = true
   try {
-    const response = await listPurchaseReturn(queryParams.value)
+    const response = await listPurchaseReturn(proxy.addDateRange(queryParams.value, dateRange.value))
     purchaseReturnList.value = response.rows || []
     total.value = response.total || 0
     await ensurePurchaseReturnReferenceOptionsLoaded(purchaseReturnList.value)
@@ -812,17 +844,18 @@ function getLocationName(locationId) {
   return loc?.locationName || `库位#${locationId}`
 }
 
-async function loadSourcePurchaseOrders() {
+async function loadSourcePurchaseOrders(keyword) {
   try {
+    const orderNo = normalizeRemoteKeyword(keyword)
     const [r2, r3] = await Promise.all([
-      listPurchaseOrder({ pageNum: 1, pageSize: 100, status: "2" }),
-      listPurchaseOrder({ pageNum: 1, pageSize: 100, status: "3" })
+      listPurchaseOrder({ pageNum: 1, pageSize: 50, status: "2", orderNo }),
+      listPurchaseOrder({ pageNum: 1, pageSize: 50, status: "3", orderNo })
     ])
     sourcePurchaseOrderList.value = [...(r2.rows || []), ...(r3.rows || [])]
   } catch (e) {}
 }
 
-function handleSourcePurchaseOrderChange(purchaseOrderId) {
+async function handleSourcePurchaseOrderChange(purchaseOrderId) {
   if (!purchaseOrderId) return
   const po = sourcePurchaseOrderList.value.find(item => item.purchaseOrderId === purchaseOrderId)
   if (po) {
@@ -831,6 +864,48 @@ function handleSourcePurchaseOrderChange(purchaseOrderId) {
       appendUniqueSelectOption(supplierList.value, { supplierId: po.supplierId, supplierName: po.supplierName }, "supplierId")
     }
   }
+  try {
+    const [poDetailRes, inbRes] = await Promise.all([
+      getPurchaseOrder(purchaseOrderId).catch(() => null),
+      listInbound({ pageNum: 1, pageSize: 10, purchaseOrderId, status: "audited" }).catch(() => null)
+    ])
+    const auditedInbounds = inbRes?.rows || []
+    let inboundItems = []
+    if (auditedInbounds.length > 0) {
+      const firstInbound = auditedInbounds[0]
+      if (!form.value.warehouseId && firstInbound.warehouseId) {
+        form.value.warehouseId = firstInbound.warehouseId
+        await ensureWarehouseOptionLoaded([firstInbound.warehouseId])
+        await loadLocationsByWarehouse(firstInbound.warehouseId)
+      }
+      const inbItemRes = await listInboundItem({ pageNum: 1, pageSize: 200, inboundId: firstInbound.inboundId }).catch(() => null)
+      inboundItems = inbItemRes?.rows || []
+    }
+    if (inboundItems.length > 0) {
+      await ensureProductOptionLoaded(inboundItems.map(it => it.productId))
+      inlineReturnItems.value = inboundItems.map(it => ({
+        productId: it.productId,
+        locationId: it.locationId || undefined,
+        batchNo: it.batchNo || "",
+        quantity: Number(it.quantity || 1),
+        price: Number(it.price || 0)
+      }))
+      recalcInlineReturnTotals()
+      proxy.$modal.msgSuccess(`已自动带入来源入库商品明细（共 ${inboundItems.length} 行），可按实际退货数量调整`)
+    } else if (poDetailRes?.data?.wmsPurchaseOrderItemList?.length) {
+      const poItems = poDetailRes.data.wmsPurchaseOrderItemList
+      await ensureProductOptionLoaded(poItems.map(it => it.productId))
+      inlineReturnItems.value = poItems.map(it => ({
+        productId: it.productId,
+        locationId: undefined,
+        batchNo: "",
+        quantity: Number(it.inboundQuantity || it.quantity || 1),
+        price: Number(it.price || 0)
+      }))
+      recalcInlineReturnTotals()
+      proxy.$modal.msgSuccess(`已自动带入来源采购商品明细（共 ${poItems.length} 行）`)
+    }
+  } catch (e) {}
 }
 
 async function loadLocationsByWarehouse(warehouseId) {
@@ -883,7 +958,10 @@ function handleQuery() {
 
 // 重置查询条件并重新加载列表。
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
+  queryParams.value.status = undefined
+  queryParams.value.sourceOrderNo = undefined
   handleQuery()
 }
 
@@ -918,14 +996,36 @@ async function handleUpdate(row) {
   if (!purchaseReturnId) {
     return
   }
-  const response = await getPurchaseReturn(purchaseReturnId)
+  const [response, itemRes] = await Promise.all([
+    getPurchaseReturn(purchaseReturnId),
+    listPurchaseReturnItem({ pageNum: 1, pageSize: 1000, purchaseReturnId })
+  ])
   form.value = response.data
-  await ensurePurchaseReturnReferenceOptionsLoaded([form.value])
+  const items = itemRes.rows || []
+  await Promise.all([
+    ensurePurchaseReturnReferenceOptionsLoaded([form.value]),
+    ensurePurchaseReturnItemReferenceOptionsLoaded(items)
+  ])
   if (form.value.warehouseId) {
     await loadLocationsByWarehouse(form.value.warehouseId)
   }
+  inlineReturnItems.value = items.map(it => ({
+    purchaseReturnItemId: it.purchaseReturnItemId,
+    productId: it.productId,
+    locationId: it.locationId || undefined,
+    batchNo: it.batchNo || "",
+    quantity: Number(it.quantity || 1),
+    price: Number(it.price || 0)
+  }))
   open.value = true
   title.value = "修改采购退货单"
+}
+
+function handleExportPurchaseReturnItems() {
+  if (!currentPurchaseReturnId.value) return
+  proxy.download("business/purchaseReturnItem/export", {
+    purchaseReturnId: currentPurchaseReturnId.value
+  }, `purchaseReturnItem_${currentPurchaseReturnId.value}_${new Date().getTime()}.xlsx`)
 }
 
 // 打开采购退货明细弹窗，并根据主单状态决定是否允许编辑。
@@ -1041,7 +1141,7 @@ function handleDeletePurchaseReturnItem(row) {
   }).catch(() => {})
 }
 
-// 保存采购退货主单。
+// 保存采购退货主单（新增与草稿修改均支持一体化提交商品明细）。
 function submitForm() {
   proxy.$refs["purchaseReturnRef"].validate(valid => {
     if (!valid) {
@@ -1049,20 +1149,19 @@ function submitForm() {
     }
     const isEdit = form.value.purchaseReturnId !== undefined
     const submitMethod = isEdit ? updatePurchaseReturn : addPurchaseReturn
-    const payload = isEdit
-      ? form.value
-      : {
-          ...form.value,
-          items: (inlineReturnItems.value || [])
-            .filter(it => it.productId && Number(it.quantity || 0) > 0)
-            .map(it => ({
-              productId: it.productId,
-              locationId: it.locationId || undefined,
-              batchNo: it.batchNo || undefined,
-              quantity: Number(it.quantity),
-              price: Number(it.price || 0)
-            }))
-        }
+    const payload = {
+      ...form.value,
+      items: (inlineReturnItems.value || [])
+        .filter(it => it.productId && Number(it.quantity || 0) > 0)
+        .map(it => ({
+          purchaseReturnItemId: it.purchaseReturnItemId,
+          productId: it.productId,
+          locationId: it.locationId || undefined,
+          batchNo: it.batchNo || undefined,
+          quantity: Number(it.quantity),
+          price: Number(it.price || 0)
+        }))
+    }
     submitMethod(payload).then(() => {
       proxy.$modal.msgSuccess(isEdit ? "修改成功" : "新增成功")
       inlineReturnItems.value = []
@@ -1082,8 +1181,17 @@ function getTargetPurchaseReturnRow(row, actionText) {
   return purchaseReturnRow
 }
 
-// 提交采购退货主单进入审核流程。
+// 提交采购退货主单进入审核流程（支持单条与批量）。
 function handleSubmit(row) {
+  if (!row?.purchaseReturnId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量提交选中的 ${ids.value.length} 笔采购退货单？`).then(() => {
+      return batchSubmitPurchaseReturn(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量提交完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const purchaseReturnRow = getTargetPurchaseReturnRow(row, "提交")
   if (!purchaseReturnRow) {
     return
@@ -1096,8 +1204,17 @@ function handleSubmit(row) {
   }).catch(() => {})
 }
 
-// 审核采购退货主单，审核后会扣减库存并冲减应付。
+// 审核采购退货主单，审核后会扣减库存并冲减应付（支持单条与批量）。
 function handleAudit(row) {
+  if (!row?.purchaseReturnId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量审核选中的 ${ids.value.length} 笔采购退货单？审核后将自动扣减库存并冲减应付。`).then(() => {
+      return batchAuditPurchaseReturn(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量审核完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const purchaseReturnRow = getTargetPurchaseReturnRow(row, "审核")
   if (!purchaseReturnRow) {
     return

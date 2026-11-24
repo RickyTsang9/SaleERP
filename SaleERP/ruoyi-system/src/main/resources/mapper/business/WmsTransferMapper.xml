@@ -59,6 +59,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="outWarehouseId != null"> and a.out_warehouse_id = #{outWarehouseId}</if>
             <if test="inWarehouseId != null"> and a.in_warehouse_id = #{inWarehouseId}</if>
             <if test="status != null and status != ''"> and a.status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and ifnull(a.transfer_date, a.create_time) &gt;= #{params.beginTime}
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and ifnull(a.transfer_date, a.create_time) &lt;= concat(#{params.endTime}, ' 23:59:59')
+            </if>
             ${params.dataScope}
         </where>
         order by a.transfer_id desc

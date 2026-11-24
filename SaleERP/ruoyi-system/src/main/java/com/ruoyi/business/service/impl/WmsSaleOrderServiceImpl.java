@@ -191,6 +191,14 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
                 BigDecimal lineAmount = item.getQuantity().multiply(item.getPrice()).setScale(2, RoundingMode.HALF_UP);
                 item.setSaleOrderId(wmsSaleOrder.getSaleOrderId());
                 item.setAmount(lineAmount);
+                if (item.getCostPriceSnapshot() == null && mdProductMapper != null)
+                {
+                    MdProduct prod = mdProductMapper.selectMdProductById(item.getProductId());
+                    if (prod != null && prod.getCostPrice() != null)
+                    {
+                        item.setCostPriceSnapshot(prod.getCostPrice());
+                    }
+                }
                 wmsSaleOrderItemMapper.insertWmsSaleOrderItem(item);
                 sumQty = sumQty.add(item.getQuantity());
                 sumAmount = sumAmount.add(lineAmount);
@@ -206,6 +214,7 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         return insertCount;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public int updateWmsSaleOrder(WmsSaleOrder wmsSaleOrder)
     {
@@ -218,7 +227,8 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         {
             throw new ServiceException("仅草稿状态销售单允许修改");
         }
-        if (wmsSaleOrder.getWarehouseId() != null && !Objects.equals(databaseSaleOrder.getWarehouseId(), wmsSaleOrder.getWarehouseId()))
+        if (wmsSaleOrder.getItems() == null && wmsSaleOrder.getWarehouseId() != null
+            && !Objects.equals(databaseSaleOrder.getWarehouseId(), wmsSaleOrder.getWarehouseId()))
         {
             List<WmsSaleOrderItem> existingItems = wmsSaleOrderItemMapper.selectWmsSaleOrderItemsByOrderId(wmsSaleOrder.getSaleOrderId());
             if (existingItems != null && !existingItems.isEmpty())
@@ -237,7 +247,43 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
                 complianceHelper.assertEntityEnabled("md_warehouse", "warehouse_id", wmsSaleOrder.getWarehouseId(), "仓库");
             }
         }
-        return wmsSaleOrderMapper.updateWmsSaleOrder(wmsSaleOrder);
+        int rows = wmsSaleOrderMapper.updateWmsSaleOrder(wmsSaleOrder);
+        if (wmsSaleOrder.getItems() != null)
+        {
+            wmsSaleOrderItemMapper.deleteWmsSaleOrderItemBySaleOrderIds(new Long[] { wmsSaleOrder.getSaleOrderId() });
+            for (WmsSaleOrderItem item : wmsSaleOrder.getItems())
+            {
+                if (item == null || item.getProductId() == null)
+                {
+                    continue;
+                }
+                if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+                {
+                    throw new ServiceException("销售明细数量必须大于0");
+                }
+                if (item.getPrice() == null || item.getPrice().compareTo(BigDecimal.ZERO) < 0)
+                {
+                    throw new ServiceException("销售明细单价不能小于0");
+                }
+                if (complianceHelper != null)
+                {
+                    complianceHelper.assertEntityEnabled("md_product", "product_id", item.getProductId(), "商品");
+                }
+                item.setSaleOrderId(wmsSaleOrder.getSaleOrderId());
+                item.setAmount(item.getQuantity().multiply(item.getPrice()).setScale(2, RoundingMode.HALF_UP));
+                if (item.getCostPriceSnapshot() == null && mdProductMapper != null)
+                {
+                    MdProduct prod = mdProductMapper.selectMdProductById(item.getProductId());
+                    if (prod != null && prod.getCostPrice() != null)
+                    {
+                        item.setCostPriceSnapshot(prod.getCostPrice());
+                    }
+                }
+                wmsSaleOrderItemMapper.insertWmsSaleOrderItem(item);
+            }
+            wmsSaleOrderMapper.refreshTotalBySaleOrderId(wmsSaleOrder.getSaleOrderId());
+        }
+        return rows;
     }
 
     /**
@@ -293,7 +339,7 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
     }
 
     /**
-     * 校验赊销/月结客户信用额度（包含已欠款 + 待审占用 + 当前单据）
+     * 校验客户信用额度（所有配置了正信用额度的客户均纳入额度管控；赊销/月结客户必须设置额度）
      */
     private void validateCustomerCreditLimit(MdCustomer customer, WmsSaleOrder saleOrder, boolean alreadyInPendingStatus)
     {
@@ -302,14 +348,15 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
             return;
         }
         String paymentMethod = customer.getPaymentMethod();
-        if (!"credit".equals(paymentMethod) && !"month".equals(paymentMethod))
-        {
-            return;
-        }
+        boolean isCreditMethod = "credit".equals(paymentMethod) || "month".equals(paymentMethod);
         BigDecimal customerCreditLimit = customer.getCreditLimit() == null ? BigDecimal.ZERO : customer.getCreditLimit();
         if (customerCreditLimit.compareTo(BigDecimal.ZERO) <= 0)
         {
-            throw new ServiceException("客户未设置可用信用额度，不允许提交或审核赊销/月结销售单");
+            if (isCreditMethod)
+            {
+                throw new ServiceException("客户未设置可用信用额度，不允许提交或审核赊销/月结销售单");
+            }
+            return;
         }
         BigDecimal customerOutstandingAmount = finReceivableMapper.selectCustomerOutstandingAmount(saleOrder.getCustomerId());
         if (customerOutstandingAmount == null)
@@ -329,6 +376,42 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         {
             throw new ServiceException(
                 "客户信用额度不足，预计占用:" + projectedCreditAmount + "，可用信用额度:" + customerCreditLimit);
+        }
+    }
+
+    /**
+     * 校验客户是否存在逾期未结清应收账款（允许财务主管在审核备注填写【特批】或【放行】原因豁免）
+     */
+    private void validateCustomerOverdueReceivables(MdCustomer customer, Long customerId, String auditComment)
+    {
+        if (jdbcTemplate == null || customerId == null)
+        {
+            return;
+        }
+        boolean overridden = StringUtils.isNotEmpty(auditComment)
+            && (auditComment.contains("特批") || auditComment.contains("放行"));
+        if (overridden)
+        {
+            return;
+        }
+        java.util.Map<String, Object> overdueSummary = jdbcTemplate.queryForMap(
+            "SELECT COUNT(*) AS cnt, IFNULL(SUM(fr.amount_due - IFNULL(fr.amount_paid, 0)), 0) AS amt "
+            + "FROM fin_receivable fr LEFT JOIN wms_sale_order so ON so.sale_order_id = fr.sale_order_id "
+            + "WHERE COALESCE(fr.customer_id, so.customer_id) = ? "
+            + "AND fr.status IN ('unpaid', 'partial') AND (fr.amount_due - IFNULL(fr.amount_paid, 0)) > 0 "
+            + "AND fr.due_date IS NOT NULL AND fr.due_date < CURDATE()",
+            customerId
+        );
+        long overdueCnt = overdueSummary == null || overdueSummary.get("cnt") == null ? 0L : ((Number) overdueSummary.get("cnt")).longValue();
+        if (overdueCnt > 0L)
+        {
+            BigDecimal overdueAmt = overdueSummary.get("amt") instanceof BigDecimal
+                ? (BigDecimal) overdueSummary.get("amt")
+                : new BigDecimal(String.valueOf(overdueSummary.get("amt")));
+            String custName = customer != null && StringUtils.isNotEmpty(customer.getCustomerName())
+                ? customer.getCustomerName() : ("#" + customerId);
+            throw new ServiceException("客户【" + custName + "】存在 " + overdueCnt + " 笔逾期未结清应收款（逾期余额 ¥"
+                + overdueAmt.setScale(2, RoundingMode.HALF_UP) + "），请先催收核销，或在财务审核意见中填写【特批放行：原因】后再审核");
         }
     }
 
@@ -442,6 +525,7 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
             }
         }
         validateCustomerCreditLimit(databaseCustomer, databaseSaleOrder, true);
+        validateCustomerOverdueReceivables(databaseCustomer, databaseSaleOrder.getCustomerId(), auditComment);
         String auditUsername = SecurityUtils.getUsername();
         // 标准 ERP 锁库机制：销售单财务审核仅原子锁定可用库存 (locked_quantity)，仓库审核出库单时才扣减实物库存
         for (WmsSaleOrderItem wmsSaleOrderItem : itemList)
@@ -505,7 +589,10 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
             finReceivable.setAmountPaid(BigDecimal.ZERO);
             finReceivable.setStatus("unpaid");
             Calendar dueCalendar = Calendar.getInstance();
-            dueCalendar.add(Calendar.DAY_OF_MONTH, 30);
+            int creditDays = (databaseCustomer != null && databaseCustomer.getCreditDays() != null)
+                ? Math.max(0, databaseCustomer.getCreditDays())
+                : (databaseCustomer != null && "cash".equals(databaseCustomer.getPaymentMethod()) ? 0 : 30);
+            dueCalendar.add(Calendar.DAY_OF_MONTH, creditDays);
             finReceivable.setDueDate(dueCalendar.getTime());
             finReceivableMapper.insertFinReceivable(finReceivable);
         }

@@ -78,6 +78,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </trim>
     </insert>
 
+    <insert id="insertWmsInventoryCheckItemBatch" parameterType="java.util.List">
+        insert into wms_inventory_check_item (check_id, product_id, location_id, batch_no, stock_qty, actual_qty, diff_qty, price, diff_amount)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.checkId}, #{item.productId}, #{item.locationId}, #{item.batchNo}, #{item.stockQty}, #{item.actualQty}, #{item.diffQty}, #{item.price}, #{item.diffAmount})
+        </foreach>
+    </insert>
+
     <update id="updateWmsInventoryCheckItem" parameterType="WmsInventoryCheckItem">
         update wms_inventory_check_item
         <set>

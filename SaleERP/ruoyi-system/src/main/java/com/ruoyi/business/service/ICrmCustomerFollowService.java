@@ -67,4 +67,9 @@ public interface ICrmCustomerFollowService
      * @return 结果
      */
     public int deleteCrmCustomerFollowByFollowId(Long followId);
+
+    /**
+     * 推送今日到期与逾期未跟进客户站内提醒
+     */
+    public int pushDueFollowReminder(String operator);
 }

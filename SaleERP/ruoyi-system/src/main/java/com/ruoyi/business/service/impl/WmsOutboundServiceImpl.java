@@ -71,6 +71,9 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
     @Autowired(required = false)
     private BizComplianceHelper complianceHelper;
 
+    @Autowired(required = false)
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @Override
     public WmsOutbound selectWmsOutboundById(Long outboundId)
     {
@@ -197,6 +200,33 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
                 complianceHelper.assertEntityEnabled("md_customer", "customer_id", databaseOutbound.getCustomerId(), "客户");
             }
         }
+        // OPT-13: 出库发货前二次校验客户是否存在超期 30 天以上未结清应收款（若关联销售单财务审核意见含特批/放行则豁免）
+        if (jdbcTemplate != null && databaseOutbound.getCustomerId() != null)
+        {
+            boolean orderOverridden = false;
+            if (databaseOutbound.getSaleOrderId() != null && wmsSaleOrderMapper != null)
+            {
+                WmsSaleOrder linked = wmsSaleOrderMapper.selectWmsSaleOrderById(databaseOutbound.getSaleOrderId());
+                if (linked != null && StringUtils.isNotEmpty(linked.getFinanceAuditComment())
+                    && (linked.getFinanceAuditComment().contains("特批") || linked.getFinanceAuditComment().contains("放行")))
+                {
+                    orderOverridden = true;
+                }
+            }
+            if (!orderOverridden)
+            {
+                Long severeOverdueCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM fin_receivable fr LEFT JOIN wms_sale_order so ON so.sale_order_id = fr.sale_order_id "
+                    + "WHERE COALESCE(fr.customer_id, so.customer_id) = ? AND fr.status IN ('unpaid', 'partial') "
+                    + "AND (fr.amount_due - IFNULL(fr.amount_paid, 0)) > 0 AND fr.due_date IS NOT NULL AND fr.due_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)",
+                    Long.class, databaseOutbound.getCustomerId()
+                );
+                if (severeOverdueCount != null && severeOverdueCount > 0L)
+                {
+                    throw new ServiceException("该客户存在 " + severeOverdueCount + " 笔超期 30 天以上未结清应收款，已触发发货风控拦截，请先催收核销或由财务特批放行");
+                }
+            }
+        }
         List<WmsOutboundItem> outboundItemList = wmsOutboundItemMapper.selectWmsOutboundItemList(buildOutboundItemQuery(outboundId));
         if (outboundItemList == null || outboundItemList.isEmpty())
         {
@@ -274,8 +304,12 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
             wmsStockLog.setBillNo(databaseOutbound.getOutboundNo());
             wmsStockLog.setInOut("out");
             wmsStockLog.setQuantity(wmsOutboundItem.getQuantity());
-            wmsStockLog.setPrice(wmsOutboundItem.getPrice());
-            wmsStockLog.setAmount(wmsOutboundItem.getAmount());
+            BigDecimal logCostPrice = costSnapshot == null ? BigDecimal.ZERO : costSnapshot.setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal logCostAmount = (costSnapshot == null ? BigDecimal.ZERO : costSnapshot)
+                .multiply(wmsOutboundItem.getQuantity())
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+            wmsStockLog.setPrice(logCostPrice);
+            wmsStockLog.setAmount(logCostAmount);
             wmsStockLog.setBeforeQty(qtyPair[0]);
             wmsStockLog.setAfterQty(qtyPair[1]);
             wmsStockLogMapper.insertWmsStockLog(wmsStockLog);

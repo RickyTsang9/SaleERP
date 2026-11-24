@@ -115,6 +115,27 @@ public class WmsInventoryCheckItemController extends BaseController
         return toAjax(wmsInventoryCheckItemService.updateWmsInventoryCheckItem(wmsInventoryCheckItem));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:edit')")
+    @Log(title = "批量更新盘点实盘数", businessType = BusinessType.UPDATE)
+    @RepeatSubmit
+    @PutMapping("/batch")
+    public AjaxResult editBatch(@RequestBody List<WmsInventoryCheckItem> itemList)
+    {
+        if (itemList == null || itemList.isEmpty())
+        {
+            return AjaxResult.error("没有需要保存的盘点明细");
+        }
+        int updated = 0;
+        for (WmsInventoryCheckItem item : itemList)
+        {
+            if (item != null && item.getCheckItemId() != null)
+            {
+                updated += wmsInventoryCheckItemService.updateWmsInventoryCheckItem(item);
+            }
+        }
+        return AjaxResult.success("已批量保存 " + updated + " 条实盘记录", updated);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:inventoryCheck:remove')")
     @Log(title = "库存盘点明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/{checkItemIds}")

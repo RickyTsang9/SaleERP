@@ -66,3 +66,19 @@ export function delInbound(inboundId) {
     method: 'delete'
   })
 }
+
+export function batchSubmitInbound(ids) {
+  return request({
+    url: '/business/inbound/batchSubmit',
+    method: 'post',
+    data: ids
+  })
+}
+
+export function batchAuditInbound(ids) {
+  return request({
+    url: '/business/inbound/batchAudit',
+    method: 'post',
+    data: ids
+  })
+}

@@ -20,6 +20,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="frozenQuantity" column="frozen_quantity" />
         <result property="warningMinQty"  column="warning_min_qty" />
         <result property="warningMaxQty"  column="warning_max_qty" />
+        <result property="openingCostPrice" column="opening_cost_price" />
         <result property="version"        column="version"         />
         <result property="createBy"       column="create_by"       />
         <result property="createTime"     column="create_time"     />
@@ -28,7 +29,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectWmsStockVo">
-        select st.stock_id, st.warehouse_id, mw.warehouse_name, st.product_id, mp.product_code, mp.product_name,
+        select st.stock_id, st.warehouse_id, mw.warehouse_name, st.product_id, mp.product_code, mp.product_name, mp.cost_price as opening_cost_price,
                st.location_id, ml.location_name, st.batch_no, st.expire_date, st.quantity, st.locked_quantity, st.frozen_quantity,
                st.warning_min_qty, st.warning_max_qty, st.version, st.create_by, st.create_time, st.update_by, st.update_time
         from wms_stock st
@@ -68,7 +69,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 and st.batch_no = #{batchNo}
             </if>
             and (
-                (st.warning_min_qty is not null and st.quantity &lt; st.warning_min_qty)
+                (st.warning_min_qty is not null and (st.quantity - ifnull(st.locked_quantity, 0) - ifnull(st.frozen_quantity, 0)) &lt; st.warning_min_qty)
                 or
                 (st.warning_max_qty is not null and st.quantity &gt; st.warning_max_qty)
             )
@@ -92,7 +93,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 and batch_no = #{batchNo}
             </if>
             and (
-                (warning_min_qty is not null and quantity &lt; warning_min_qty)
+                (warning_min_qty is not null and (quantity - ifnull(locked_quantity, 0) - ifnull(frozen_quantity, 0)) &lt; warning_min_qty)
                 or
                 (warning_max_qty is not null and quantity &gt; warning_max_qty)
             )

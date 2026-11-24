@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="仓储基础架构"
+      eyebrow="仓储管理 · 库位档案"
       title="库位管理"
-      subtitle="按所属仓库精细化划分货架与库位编码，支撑批次精准定位及移动 PDA 扫码上架。"
+      subtitle="按所属仓库划分货架与库位编码，用于批次上架定位与移动扫码作业。"
       icon="Grid"
       tone="blue"
       :badge="`共 ${total} 个库位`"

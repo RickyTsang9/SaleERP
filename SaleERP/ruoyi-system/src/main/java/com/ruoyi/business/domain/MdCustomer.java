@@ -33,6 +33,9 @@ public class MdCustomer extends BaseEntity
     @Excel(name = "信用额度")
     private BigDecimal creditLimit;
 
+    @Excel(name = "账期天数")
+    private Integer creditDays;
+
     @Excel(name = "付款方式")
     private String paymentMethod;
 
@@ -132,6 +135,16 @@ public class MdCustomer extends BaseEntity
     public void setCreditLimit(BigDecimal creditLimit)
     {
         this.creditLimit = creditLimit;
+    }
+
+    public Integer getCreditDays()
+    {
+        return creditDays;
+    }
+
+    public void setCreditDays(Integer creditDays)
+    {
+        this.creditDays = creditDays;
     }
 
     public String getPaymentMethod()

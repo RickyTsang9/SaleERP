@@ -82,12 +82,28 @@ public class WmsPurchaseReturnController extends BaseController
         return toAjax(wmsPurchaseReturnService.submitWmsPurchaseReturn(purchaseReturnId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:edit')")
+    @Log(title = "批量提交采购退货单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchSubmit")
+    public AjaxResult batchSubmit(@RequestBody List<Long> ids)
+    {
+        return BatchActionHelper.execute(ids, "提交", wmsPurchaseReturnService::submitWmsPurchaseReturn);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:purchaseReturn:audit')")
     @Log(title = "采购退货单", businessType = BusinessType.UPDATE)
     @PostMapping("/audit/{purchaseReturnId}")
     public AjaxResult audit(@PathVariable Long purchaseReturnId)
     {
         return toAjax(wmsPurchaseReturnService.auditWmsPurchaseReturn(purchaseReturnId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:purchaseReturn:audit')")
+    @Log(title = "批量审核采购退货单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchAudit")
+    public AjaxResult batchAudit(@RequestBody List<Long> ids)
+    {
+        return BatchActionHelper.execute(ids, "审核", wmsPurchaseReturnService::auditWmsPurchaseReturn);
     }
 
     @PreAuthorize("@ss.hasPermi('business:purchaseReturn:audit')")

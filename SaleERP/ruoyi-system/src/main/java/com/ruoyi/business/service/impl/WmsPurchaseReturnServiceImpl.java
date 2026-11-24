@@ -70,6 +70,9 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
     private WmsPurchaseOrderMapper wmsPurchaseOrderMapper;
 
     @Autowired(required = false)
+    private com.ruoyi.business.mapper.MdProductMapper mdProductMapper;
+
+    @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
 
     @Autowired(required = false)
@@ -133,6 +136,7 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateWmsPurchaseReturn(WmsPurchaseReturn wmsPurchaseReturn)
     {
         WmsPurchaseReturn databasePurchaseReturn = wmsPurchaseReturnMapper.selectWmsPurchaseReturnById(wmsPurchaseReturn.getPurchaseReturnId());
@@ -146,7 +150,31 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
         }
         validatePurchaseReturnBeforeSave(wmsPurchaseReturn);
         wmsPurchaseReturn.setStatus(databasePurchaseReturn.getStatus());
-        return wmsPurchaseReturnMapper.updateWmsPurchaseReturn(wmsPurchaseReturn);
+        int rows = wmsPurchaseReturnMapper.updateWmsPurchaseReturn(wmsPurchaseReturn);
+        if (wmsPurchaseReturn.getItems() != null)
+        {
+            wmsPurchaseReturnItemMapper.deleteWmsPurchaseReturnItemByPurchaseReturnIds(new Long[] { wmsPurchaseReturn.getPurchaseReturnId() });
+            for (WmsPurchaseReturnItem item : wmsPurchaseReturn.getItems())
+            {
+                if (item == null || item.getProductId() == null)
+                {
+                    continue;
+                }
+                if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+                {
+                    throw new ServiceException("采购退货明细数量必须大于0");
+                }
+                if (item.getPrice() == null || item.getPrice().compareTo(BigDecimal.ZERO) < 0)
+                {
+                    throw new ServiceException("采购退货明细单价不能小于0");
+                }
+                item.setPurchaseReturnId(wmsPurchaseReturn.getPurchaseReturnId());
+                item.setAmount(item.getQuantity().multiply(item.getPrice()).setScale(2, java.math.RoundingMode.HALF_UP));
+                wmsPurchaseReturnItemMapper.insertWmsPurchaseReturnItem(item);
+            }
+            wmsPurchaseReturnMapper.refreshTotalByPurchaseReturnId(wmsPurchaseReturn.getPurchaseReturnId());
+        }
+        return rows;
     }
 
     @Override
@@ -216,6 +244,33 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
                 if (wmsPurchaseReturnItem.getLocationId() != null)
                 {
                     bizComplianceHelper.assertEntityEnabled("md_location", "location_id", wmsPurchaseReturnItem.getLocationId(), "库位");
+                }
+            }
+            // OPT-12: 采购退货出库前按退货单价回调移动加权平均成本，防止错价入库再退货导致成本永久失真
+            if (mdProductMapper != null && wmsStockMapper != null
+                && wmsPurchaseReturnItem.getPrice() != null && wmsPurchaseReturnItem.getQuantity() != null)
+            {
+                com.ruoyi.business.domain.MdProduct product = mdProductMapper.selectMdProductById(wmsPurchaseReturnItem.getProductId());
+                BigDecimal oldTotalStock = wmsStockMapper.selectTotalProductStockQuantity(wmsPurchaseReturnItem.getProductId());
+                if (product != null && product.getCostPrice() != null && product.getCostPrice().compareTo(BigDecimal.ZERO) > 0
+                    && oldTotalStock != null && oldTotalStock.compareTo(wmsPurchaseReturnItem.getQuantity()) > 0)
+                {
+                    BigDecimal remainQty = oldTotalStock.subtract(wmsPurchaseReturnItem.getQuantity());
+                    BigDecimal remainValue = oldTotalStock.multiply(product.getCostPrice())
+                        .subtract(wmsPurchaseReturnItem.getQuantity().multiply(wmsPurchaseReturnItem.getPrice()));
+                    if (remainValue.compareTo(BigDecimal.ZERO) > 0)
+                    {
+                        BigDecimal newCost = remainValue.divide(remainQty, 4, java.math.RoundingMode.HALF_UP).stripTrailingZeros();
+                        if (newCost.scale() < 2)
+                        {
+                            newCost = newCost.setScale(2, java.math.RoundingMode.HALF_UP);
+                        }
+                        com.ruoyi.business.domain.MdProduct patch = new com.ruoyi.business.domain.MdProduct();
+                        patch.setProductId(product.getProductId());
+                        patch.setCostPrice(newCost);
+                        patch.setUpdateBy(auditUsername);
+                        mdProductMapper.updateMdProduct(patch);
+                    }
                 }
             }
             if (wmsPurchaseReturnItem.getLocationId() != null || StringUtils.isNotEmpty(wmsPurchaseReturnItem.getBatchNo()))

@@ -38,7 +38,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectStockWarningCount" resultType="java.lang.Long">
         select count(1)
         from wms_stock
-        where (warning_min_qty is not null and quantity &lt; warning_min_qty)
+        where (warning_min_qty is not null and (quantity - ifnull(locked_quantity, 0) - ifnull(frozen_quantity, 0)) &lt; warning_min_qty)
            or (warning_max_qty is not null and quantity &gt; warning_max_qty)
     </select>
 
@@ -188,15 +188,21 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                    p.product_code as productCode,
                    p.product_name as productName,
                    p.category_name as categoryName,
-                   i.quantity as quantity,
+                   (case when o.status = 'closed' then
+                       ifnull((select sum(oi.quantity) from wms_outbound_item oi join wms_outbound wo on wo.outbound_id = oi.outbound_id
+                               where wo.status = 'audited' and oi.sale_order_item_id = i.sale_order_item_id), 0)
+                   else i.quantity end) as quantity,
                    i.price as price,
-                   i.amount as amount,
+                   (case when o.status = 'closed' then
+                       round(ifnull((select sum(oi.quantity) from wms_outbound_item oi join wms_outbound wo on wo.outbound_id = oi.outbound_id
+                                     where wo.status = 'audited' and oi.sale_order_item_id = i.sale_order_item_id), 0) * i.price, 2)
+                   else i.amount end) as amount,
                    ifnull(
-                       (select round(sum(oi.quantity * ifnull(oi.cost_price_snapshot, p.cost_price)) / nullif(sum(oi.quantity), 0), 2)
+                       (select round(sum(oi.quantity * coalesce(oi.cost_price_snapshot, i.cost_price_snapshot, p.cost_price)) / nullif(sum(oi.quantity), 0), 4)
                         from wms_outbound_item oi
                         join wms_outbound wo on wo.outbound_id = oi.outbound_id
                         where wo.status = 'audited' and oi.sale_order_item_id = i.sale_order_item_id),
-                       ifnull(p.cost_price, 0)
+                       coalesce(i.cost_price_snapshot, p.cost_price, 0)
                    ) as costPrice
             from wms_sale_order_item i
             join wms_sale_order o on i.sale_order_id = o.sale_order_id
@@ -734,7 +740,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                        0 as remain_amount,
                        'high' as priority_level,
                        case
-                           when ws.warning_min_qty is not null and ws.quantity &lt; ws.warning_min_qty then 'below_min'
+                           when ws.warning_min_qty is not null and (ws.quantity - ifnull(ws.locked_quantity, 0) - ifnull(ws.frozen_quantity, 0)) &lt; ws.warning_min_qty then 'below_min'
                            when ws.warning_max_qty is not null and ws.quantity &gt; ws.warning_max_qty then 'above_max'
                            else 'warning'
                        end as todo_status,
@@ -748,7 +754,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 from wms_stock ws
                 left join md_product mp on ws.product_id = mp.product_id
                 left join md_warehouse mw on ws.warehouse_id = mw.warehouse_id
-                where (ws.warning_min_qty is not null and ws.quantity &lt; ws.warning_min_qty)
+                where (ws.warning_min_qty is not null and (ws.quantity - ifnull(ws.locked_quantity, 0) - ifnull(ws.frozen_quantity, 0)) &lt; ws.warning_min_qty)
                    or (ws.warning_max_qty is not null and ws.quantity &gt; ws.warning_max_qty)
                 order by ws.quantity asc
                 limit 50
@@ -1093,6 +1099,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             where cf.status = '0'
               and cf.next_follow_time is not null
               and cf.next_follow_time &lt; date_add(curdate(), interval 1 day)
+              <if test="followOwnerUsername != null and followOwnerUsername != ''">
+                  and cf.create_by = #{followOwnerUsername}
+              </if>
             union all
             select * from (
                 select concat('stock_expiring_', st.stock_id) as todo_id,

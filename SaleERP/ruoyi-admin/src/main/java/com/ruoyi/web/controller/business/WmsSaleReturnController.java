@@ -82,12 +82,28 @@ public class WmsSaleReturnController extends BaseController
         return toAjax(wmsSaleReturnService.submitWmsSaleReturn(saleReturnId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:saleReturn:edit')")
+    @Log(title = "批量提交销售退货单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchSubmit")
+    public AjaxResult batchSubmit(@RequestBody List<Long> ids)
+    {
+        return BatchActionHelper.execute(ids, "提交", wmsSaleReturnService::submitWmsSaleReturn);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:saleReturn:audit')")
     @Log(title = "销售退货单", businessType = BusinessType.UPDATE)
     @PostMapping("/audit/{saleReturnId}")
     public AjaxResult audit(@PathVariable Long saleReturnId)
     {
         return toAjax(wmsSaleReturnService.auditWmsSaleReturn(saleReturnId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:saleReturn:audit')")
+    @Log(title = "批量审核销售退货单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchAudit")
+    public AjaxResult batchAudit(@RequestBody List<Long> ids)
+    {
+        return BatchActionHelper.execute(ids, "审核", wmsSaleReturnService::auditWmsSaleReturn);
     }
 
     @PreAuthorize("@ss.hasPermi('business:saleReturn:audit')")

@@ -363,7 +363,7 @@ public class WmsInventoryCheckServiceImpl implements IWmsInventoryCheckService
             }
         }
         boolean isBlind = Boolean.TRUE.equals(blindMode);
-        int loadedCount = 0;
+        List<WmsInventoryCheckItem> batchInsertList = new java.util.ArrayList<>();
         for (WmsStock stock : stockList)
         {
             BigDecimal qty = stock.getQuantity() == null ? BigDecimal.ZERO : stock.getQuantity();
@@ -377,14 +377,18 @@ public class WmsInventoryCheckServiceImpl implements IWmsInventoryCheckService
             {
                 continue;
             }
-            BigDecimal unitCost = BigDecimal.ZERO;
-            if (mdProductMapper != null && stock.getProductId() != null)
+            BigDecimal unitCost = stock.getOpeningCostPrice();
+            if (unitCost == null && mdProductMapper != null && stock.getProductId() != null)
             {
                 MdProduct p = mdProductMapper.selectMdProductById(stock.getProductId());
                 if (p != null && p.getCostPrice() != null)
                 {
                     unitCost = p.getCostPrice();
                 }
+            }
+            if (unitCost == null)
+            {
+                unitCost = BigDecimal.ZERO;
             }
             WmsInventoryCheckItem item = new WmsInventoryCheckItem();
             item.setCheckId(checkId);
@@ -397,12 +401,15 @@ public class WmsInventoryCheckServiceImpl implements IWmsInventoryCheckService
             item.setActualQty(initActual);
             item.setDiffQty(initDiff);
             item.setPrice(unitCost);
-            item.setDiffAmount(initDiff.multiply(unitCost));
-            wmsInventoryCheckItemMapper.insertWmsInventoryCheckItem(item);
+            item.setDiffAmount(initDiff.multiply(unitCost).setScale(2, java.math.RoundingMode.HALF_UP));
+            batchInsertList.add(item);
             existingKeys.add(key);
-            loadedCount++;
         }
-        return loadedCount;
+        if (!batchInsertList.isEmpty())
+        {
+            wmsInventoryCheckItemMapper.insertWmsInventoryCheckItemBatch(batchInsertList);
+        }
+        return batchInsertList.size();
     }
 
     /**

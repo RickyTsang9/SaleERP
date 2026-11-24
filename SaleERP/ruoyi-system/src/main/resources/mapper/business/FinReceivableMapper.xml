@@ -114,6 +114,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                     </when>
                 </choose>
             </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and fr.due_date &gt;= #{params.beginTime}
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and fr.due_date &lt;= concat(#{params.endTime}, ' 23:59:59')
+            </if>
             ${params.dataScope}
         </where>
         order by fr.receivable_id desc
@@ -147,10 +153,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectCustomerOutstandingAmount" parameterType="Long" resultType="java.math.BigDecimal">
-        select ifnull(sum(amount_due - ifnull(amount_paid, 0)), 0)
-        from fin_receivable
-        where customer_id = #{customerId}
-          and status in ('unpaid', 'partial')
+        select ifnull(sum(fr.amount_due - ifnull(fr.amount_paid, 0)), 0)
+        from fin_receivable fr
+        left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
+        where coalesce(fr.customer_id, so.customer_id) = #{customerId}
+          and fr.status in ('unpaid', 'partial')
+          and fr.amount_due - ifnull(fr.amount_paid, 0) &gt; 0
     </select>
 
     <insert id="insertFinReceivable" parameterType="FinReceivable" useGeneratedKeys="true" keyProperty="receivableId">

@@ -108,6 +108,70 @@ public class BizComplianceHelper
     }
 
     /**
+     * 批量校验基础资料集合是否全部存在且处于启用状态（单次 IN 查询消除循环 N+1）
+     */
+    public void assertEntitiesEnabledBatch(String tableName, String idColumn, java.util.Collection<Long> ids, String entityLabel)
+    {
+        if (jdbcTemplate == null || ids == null || ids.isEmpty())
+        {
+            return;
+        }
+        java.util.Set<Long> uniqueIds = new java.util.LinkedHashSet<>();
+        for (Long id : ids)
+        {
+            if (id != null)
+            {
+                uniqueIds.add(id);
+            }
+        }
+        if (uniqueIds.isEmpty())
+        {
+            return;
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(uniqueIds.size(), "?"));
+        Object[] args = uniqueIds.toArray();
+        java.util.Map<Long, java.util.Map<String, Object>> rowMap = new java.util.HashMap<>();
+        try
+        {
+            java.util.List<java.util.Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT " + idColumn + " AS entity_id, status, del_flag FROM " + tableName + " WHERE " + idColumn + " IN (" + placeholders + ")",
+                args
+            );
+            for (java.util.Map<String, Object> r : rows)
+            {
+                rowMap.put(((Number) r.get("entity_id")).longValue(), r);
+            }
+        }
+        catch (org.springframework.jdbc.BadSqlGrammarException noDelFlagCol)
+        {
+            java.util.List<java.util.Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT " + idColumn + " AS entity_id, status FROM " + tableName + " WHERE " + idColumn + " IN (" + placeholders + ")",
+                args
+            );
+            for (java.util.Map<String, Object> r : rows)
+            {
+                rowMap.put(((Number) r.get("entity_id")).longValue(), r);
+            }
+        }
+        for (Long id : uniqueIds)
+        {
+            java.util.Map<String, Object> row = rowMap.get(id);
+            if (row == null)
+            {
+                throw new ServiceException(entityLabel + "（编号：" + id + "）不存在");
+            }
+            if ("2".equals(String.valueOf(row.get("del_flag"))))
+            {
+                throw new ServiceException(entityLabel + "（编号：" + id + "）已删除，禁止参与业务操作");
+            }
+            if ("1".equals(String.valueOf(row.get("status"))))
+            {
+                throw new ServiceException(entityLabel + "（编号：" + id + "）已停用，禁止参与业务操作");
+            }
+        }
+    }
+
+    /**
      * 校验商品在全库总在库库存是否为0（停用前防线）
      */
     public BigDecimal queryBigDecimal(String sql, Object... args)

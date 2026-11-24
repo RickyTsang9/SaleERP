@@ -260,46 +260,54 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                    ), 0),
                    0
                ) as purchaseAmount,
-               (
+                (
                    select count(*)
                    from wms_sale_order
                    where status in ('submitted', 'manager_approved')
-                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+                     and create_time &gt;= str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d')
+                     and create_time &lt; date_add(str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d'), interval 1 month)
                ) + (
                    select count(*)
                    from wms_purchase_order
                    where status = '0'
-                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+                     and create_time &gt;= str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d')
+                     and create_time &lt; date_add(str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d'), interval 1 month)
                ) + (
                    select count(*)
                    from wms_inbound
                    where status = 'submitted'
-                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+                     and create_time &gt;= str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d')
+                     and create_time &lt; date_add(str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d'), interval 1 month)
                ) + (
                    select count(*)
                    from wms_outbound
                    where status = 'submitted'
-                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+                     and create_time &gt;= str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d')
+                     and create_time &lt; date_add(str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d'), interval 1 month)
                ) + (
                    select count(*)
                    from wms_sale_return
                    where status = 'submitted'
-                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+                     and create_time &gt;= str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d')
+                     and create_time &lt; date_add(str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d'), interval 1 month)
                ) + (
                    select count(*)
                    from wms_purchase_return
                    where status = 'submitted'
-                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+                     and create_time &gt;= str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d')
+                     and create_time &lt; date_add(str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d'), interval 1 month)
                ) + (
                    select count(*)
                    from wms_inventory_check
                    where status = 'submitted'
-                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+                     and create_time &gt;= str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d')
+                     and create_time &lt; date_add(str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d'), interval 1 month)
                ) + (
                    select count(*)
                    from wms_transfer
                    where status in ('0', 'in_transit')
-                     and date_format(create_time, '%Y-%m') = #{periodMonth}
+                     and create_time &gt;= str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d')
+                     and create_time &lt; date_add(str_to_date(concat(#{periodMonth}, '-01'), '%Y-%m-%d'), interval 1 month)
                ) as pendingBillCount
     </select>
 

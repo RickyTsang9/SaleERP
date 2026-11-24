@@ -10,31 +10,44 @@
     >
       <template #actions>
         <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:receivable:export']">导出</el-button>
+        <el-button type="warning" plain icon="Switch" :disabled="!canOffsetSelected" @click="handleOpenOffsetDialog()" v-hasPermi="['business:receipt:add']">红字互抵</el-button>
         <el-button type="success" plain icon="Finished" :disabled="!canBatchReceiptSelected" @click="handleOpenBatchReceipt" v-hasPermi="['business:receipt:add']">多单合并核销</el-button>
         <el-button type="primary" icon="Money" :disabled="!canCreateReceiptForSelected" @click="handleReceipt" v-hasPermi="['business:receipt:add']">登记回款</el-button>
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="receivableStatItems" :columns="4" />
+    <erp-stat-strip :items="receivableStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true">
         <el-form-item label="销售单号" prop="saleOrderNo">
-          <el-input v-model="queryParams.saleOrderNo" placeholder="请输入销售单号" clearable style="width: 190px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.saleOrderNo" placeholder="请输入销售单号" clearable style="width: 175px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="客户" prop="customerId">
-          <el-select v-model="queryParams.customerId" placeholder="请选择客户" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadCustomerOptionList" :loading="customerListLoading" style="width: 195px">
+          <el-select v-model="queryParams.customerId" placeholder="请选择客户" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadCustomerOptionList" :loading="customerListLoading" style="width: 180px">
             <el-option v-for="customer in customerSelectOptionList" :key="customer.customerId" :label="customer.customerName" :value="customer.customerId" />
           </el-select>
         </el-form-item>
         <el-form-item label="账龄区间">
-          <el-select v-model="queryParams.params.agingBucket" placeholder="全部账龄" clearable style="width: 150px" @change="handleQuery">
+          <el-select v-model="queryParams.params.agingBucket" placeholder="全部账龄" clearable style="width: 140px" @change="handleQuery">
             <el-option label="未设置到期日" value="no_due" />
             <el-option label="未到期" value="not_due" />
             <el-option label="逾期1-30天" value="1_30" />
             <el-option label="逾期31-60天" value="31_60" />
             <el-option label="逾期61天以上" value="61_plus" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="到期日期">
+          <el-date-picker
+            v-model="dueDateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -109,7 +122,7 @@
             <span>{{ parseTime(scope.row.dueDate, '{y}-{m}-{d}') || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="275" fixed="right" align="center">
+        <el-table-column label="操作" width="315" fixed="right" align="center">
           <template #default="scope">
             <el-button link type="primary" icon="View" @click="handleViewSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:list']" v-if="scope.row.saleOrderId">销售单</el-button>
             <el-button
@@ -120,6 +133,14 @@
               v-hasPermi="['business:receipt:add']"
               v-if="canCreateReceipt(scope.row)"
             >{{ Number(scope.row.amountDue || 0) < 0 ? '办理退款' : '回款' }}</el-button>
+            <el-button
+              v-if="Number(scope.row.amountDue || 0) < 0 && canCreateReceipt(scope.row)"
+              link
+              type="warning"
+              icon="Switch"
+              @click="handleOpenOffsetDialog(scope.row)"
+              v-hasPermi="['business:receipt:add']"
+            >互抵</el-button>
             <el-button link type="primary" icon="Tickets" @click="handleViewReceiptRecord(scope.row)" v-hasPermi="['business:receipt:list']" v-if="canViewReceiptRecord(scope.row)">流水</el-button>
             <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['business:receivable:edit']">调整</el-button>
           </template>
@@ -145,8 +166,8 @@
       <el-form ref="receivableRef" :model="form" :rules="rules" label-width="110px">
         <el-row>
           <el-col :span="12">
-            <el-form-item label="销售单编号" prop="saleOrderId">
-              <el-input-number v-model="form.saleOrderId" :min="1" controls-position="right" style="width: 100%" disabled />
+            <el-form-item label="来源销售单">
+              <el-input :model-value="form.saleOrderNo || (form.saleOrderId ? ('SO-' + form.saleOrderId) : '未关联销售单')" disabled />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -219,13 +240,13 @@
       <el-form ref="receiptRef" :model="receiptForm" :rules="receiptRules" label-width="110px">
         <el-row>
           <el-col :span="12">
-            <el-form-item label="应收编号" prop="receivableId">
-              <el-input-number v-model="receiptForm.receivableId" :min="1" controls-position="right" style="width: 100%" disabled />
+            <el-form-item label="应收单号">
+              <el-input :model-value="receiptForm.receivableId ? ('AR' + String(receiptForm.receivableId).padStart(5, '0')) : '-'" disabled />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="销售单编号" prop="saleOrderId">
-              <el-input-number v-model="receiptForm.saleOrderId" :min="1" controls-position="right" style="width: 100%" disabled />
+            <el-form-item label="来源销售单">
+              <el-input :model-value="currentReceivable.saleOrderNo || (receiptForm.saleOrderId ? ('SO-' + receiptForm.saleOrderId) : '-')" disabled />
             </el-form-item>
           </el-col>
         </el-row>
@@ -303,13 +324,30 @@
     </el-dialog>
 
     <!-- 多单合并回款核销弹窗 -->
-    <el-dialog title="多单合并回款核销" v-model="batchReceiptDialog.open" width="540px" append-to-body>
+    <el-dialog title="多单合并回款核销" v-model="batchReceiptDialog.open" width="660px" append-to-body>
       <el-alert
-        :title="`已选中 ${batchReceiptDialog.receivableIds.length} 笔同客户应收单，合计未收余额 ¥${batchReceiptDialog.maxTotalAmount.toFixed(2)}，系统将按单据顺序自动分摊核销。`"
+        :title="`已选中 ${batchReceiptDialog.receivableIds.length} 笔同客户应收单，合计未收余额 ¥${batchReceiptDialog.maxTotalAmount.toFixed(2)}，系统按勾选顺序自动分摊核销。`"
         type="info"
         :closable="false"
         class="mb8"
       />
+      <el-table :data="batchReceiptAllocationRows" size="small" border max-height="210" class="mb12">
+        <el-table-column label="应收单号" width="110" align="center">
+          <template #default="scope">{{ 'AR' + String(scope.row.receivableId || '').padStart(5, '0') }}</template>
+        </el-table-column>
+        <el-table-column label="来源销售单" prop="saleOrderNo" min-width="140" show-overflow-tooltip />
+        <el-table-column label="核销前余额" width="105" align="right">
+          <template #default="scope">¥{{ scope.row.beforeRemain.toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column label="本次分摊" width="105" align="right">
+          <template #default="scope">
+            <span class="erp-amount is-positive">¥{{ scope.row.allocated.toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="核销后剩余" width="105" align="right">
+          <template #default="scope">¥{{ scope.row.afterRemain.toFixed(2) }}</template>
+        </el-table-column>
+      </el-table>
       <el-form :model="batchReceiptDialog" label-width="110px">
         <el-form-item label="合并收款总额" required>
           <el-input-number v-model="batchReceiptDialog.totalAmount" :min="0.01" :max="batchReceiptDialog.maxTotalAmount" :precision="2" controls-position="right" style="width: 100%" />
@@ -338,16 +376,92 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 红字应收与正向应收互抵核销弹窗 -->
+    <el-dialog title="红字应收与正向应收对冲核销" v-model="offsetDialog.open" width="580px" append-to-body>
+      <el-alert
+        title="同客户退货红字应收可直接冲抵未收正向应收账款，系统自动写入成对互抵核销记录，不产生银行资金流水变动。"
+        type="warning"
+        :closable="false"
+        class="mb12"
+      />
+      <el-form :model="offsetDialog" label-width="115px">
+        <el-form-item label="正向待收台账" required>
+          <el-select v-model="offsetDialog.positiveReceivableId" placeholder="选择同客户未收清正向应收单" style="width: 100%" @change="recalcOffsetMaxAmount">
+            <el-option
+              v-for="item in offsetDialog.positiveOptions"
+              :key="item.receivableId"
+              :label="`AR${String(item.receivableId).padStart(5, '0')} | ${item.saleOrderNo || '-'} | 待收 ¥${Number(item.remainAmount || 0).toFixed(2)}`"
+              :value="item.receivableId"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="红字待退台账" required>
+          <el-select v-model="offsetDialog.negativeReceivableId" placeholder="选择同客户红字应收单" style="width: 100%" @change="recalcOffsetMaxAmount">
+            <el-option
+              v-for="item in offsetDialog.negativeOptions"
+              :key="item.receivableId"
+              :label="`AR${String(item.receivableId).padStart(5, '0')} | ${item.saleOrderNo || '退货红字'} | 待冲 ¥${Math.abs(Number(item.remainAmount || 0)).toFixed(2)}`"
+              :value="item.receivableId"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="对冲核销金额" required>
+          <el-input-number v-model="offsetDialog.amount" :min="0.01" :max="offsetDialog.maxAmount || 0.01" :precision="2" controls-position="right" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="互抵备注">
+          <el-input v-model="offsetDialog.remark" placeholder="如：销售退货红字冲抵本月货款" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" :loading="offsetDialog.submitting" @click="submitOffsetReceivable">确认对冲核销</el-button>
+          <el-button @click="offsetDialog.open = false">取 消</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 应收核销回款明细抽屉 -->
+    <el-drawer v-model="writeOffDrawer.open" :title="`应收核销明细 · AR${String(writeOffDrawer.receivableId || '').padStart(5, '0')}`" size="640px" append-to-body>
+      <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <span class="erp-cell-sub">来源单号：{{ writeOffDrawer.saleOrderNo || '-' }} · 已核销合计 ¥{{ Number(writeOffDrawer.amountPaid || 0).toFixed(2) }}</span>
+        <el-button type="primary" link @click="jumpReceiptPageFromDrawer">前往回款记录页</el-button>
+      </div>
+      <el-table v-loading="writeOffDrawer.loading" :data="writeOffDrawer.rows" size="small" border>
+        <el-table-column label="回款单号" width="105" align="center">
+          <template #default="scope">{{ 'RC' + String(scope.row.receiptId || '').padStart(5, '0') }}</template>
+        </el-table-column>
+        <el-table-column label="核销金额" width="110" align="right">
+          <template #default="scope">
+            <span class="erp-amount" :class="Number(scope.row.amount || 0) >= 0 ? 'is-positive' : 'is-danger'">
+              ¥{{ Number(scope.row.amount || 0).toFixed(2) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="结算方式" width="100" align="center">
+          <template #default="scope">
+            <el-tag size="small" :type="scope.row.paymentMethod === 'offset' ? 'warning' : 'info'" effect="plain">
+              {{ formatDrawerPaymentMethod(scope.row.paymentMethod) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="时间" width="150" align="center">
+          <template #default="scope">{{ parseTime(scope.row.paymentTime) }}</template>
+        </el-table-column>
+        <el-table-column label="备注" prop="remark" min-width="130" show-overflow-tooltip />
+      </el-table>
+    </el-drawer>
   </div>
 </template>
 
 <script setup name="Receivable">
-import { listReceivable, getReceivable, updateReceivable } from "@/api/business/receivable"
-import { addReceipt, batchAddReceipt } from "@/api/business/receipt"
+import { listReceivable, getReceivable, updateReceivable, offsetReceivable } from "@/api/business/receivable"
+import { listReceipt, addReceipt, batchAddReceipt } from "@/api/business/receipt"
 import { listAccount } from "@/api/business/account"
 import { listCustomer, getCustomer } from "@/api/business/customer"
 import { getSaleOrder } from "@/api/business/saleOrder"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -370,6 +484,7 @@ const currentReceivable = ref({})
 const selectedReceivableRows = ref([])
 const selectedReceivableStatus = ref(undefined)
 const selectedReceivableRemainAmount = ref(0)
+const dueDateRange = ref([])
 const autoOpenReceiptHandled = ref(false)
 const saleOrderCustomerNameMap = ref({})
 const customerSelectOptionList = computed(() => buildCustomerSelectOptionList())
@@ -383,16 +498,63 @@ const canBatchReceiptSelected = computed(() => {
   const custIds = new Set(validRows.map(r => r.customerId))
   return custIds.size === 1
 })
+const canOffsetSelected = computed(() => {
+  const rows = selectedReceivableRows.value || []
+  if (rows.length !== 2) return false
+  const custIds = new Set(rows.map(r => r.customerId))
+  if (custIds.size !== 1) return false
+  const hasPos = rows.some(r => r.status !== "paid" && Number(r.remainAmount || 0) > 0)
+  const hasNeg = rows.some(r => r.status !== "paid" && Number(r.remainAmount || 0) < 0)
+  return hasPos && hasNeg
+})
 const batchReceiptDialog = reactive({
   open: false,
   submitting: false,
   receivableIds: [],
+  rows: [],
   maxTotalAmount: 0,
   totalAmount: 0,
   paymentMethod: "bank_transfer",
   accountId: undefined,
   paymentTime: "",
   remark: ""
+})
+const batchReceiptAllocationRows = computed(() => {
+  let remainPool = Number(batchReceiptDialog.totalAmount || 0)
+  return (batchReceiptDialog.rows || []).map(row => {
+    const beforeRemain = Math.max(0, Number(row.remainAmount || 0))
+    const allocated = Math.min(beforeRemain, Math.max(0, remainPool))
+    remainPool = Number((remainPool - allocated).toFixed(2))
+    return {
+      receivableId: row.receivableId,
+      saleOrderNo: row.saleOrderNo || (row.saleOrderId ? `SO-${row.saleOrderId}` : "-"),
+      beforeRemain,
+      allocated,
+      afterRemain: Number((beforeRemain - allocated).toFixed(2))
+    }
+  })
+})
+const offsetDialog = reactive({
+  open: false,
+  submitting: false,
+  customerId: undefined,
+  positiveReceivableId: undefined,
+  negativeReceivableId: undefined,
+  positiveOptions: [],
+  negativeOptions: [],
+  maxAmount: 0,
+  amount: 0,
+  remark: "退货红字对冲核销"
+})
+const writeOffDrawer = reactive({
+  open: false,
+  loading: false,
+  receivableId: undefined,
+  saleOrderId: undefined,
+  customerId: undefined,
+  saleOrderNo: "",
+  amountPaid: 0,
+  rows: []
 })
 
 const receivableStatusOptionList = [
@@ -445,13 +607,28 @@ const receivableStatItems = computed(() => {
   const dueSum = rows.reduce((s, r) => s + Number(r.amountDue || 0), 0)
   const paidSum = rows.reduce((s, r) => s + Number(r.amountPaid || 0), 0)
   const remainSum = rows.reduce((s, r) => s + Number(r.remainAmount || 0), 0)
+  const curStatus = queryParams.value.status ?? ""
   return [
-    { label: "应收单据总数", value: total.value, suffix: "笔", hint: "由销售终审自动入账", icon: "Wallet", tone: "indigo" },
-    { label: "本页应收总额", prefix: "¥", value: dueSum.toFixed(2), hint: "本页应收金额合计", icon: "Money", tone: "blue" },
-    { label: "本页已收金额", prefix: "¥", value: paidSum.toFixed(2), hint: "已核销客户回款总额", icon: "CircleCheck", tone: "emerald" },
-    { label: "本页待收余额", prefix: "¥", value: remainSum.toFixed(2), hint: "未结清待催收欠款", icon: "Warning", tone: "rose" }
+    { key: "all", statusVal: "", label: "应收单据总数", value: total.value, suffix: "笔", hint: "点击查看全部应收台账", icon: "Wallet", tone: "indigo", clickable: true, active: curStatus === "" && !queryParams.value.params.overdueQuery },
+    { key: "unpaid", statusVal: "unpaid", label: "本页应收总额", prefix: "¥", value: dueSum.toFixed(2), hint: "点击筛选未收款台账", icon: "Money", tone: "blue", clickable: true, active: curStatus === "unpaid" },
+    { key: "paid", statusVal: "paid", label: "本页已收金额", prefix: "¥", value: paidSum.toFixed(2), hint: "点击筛选已收清台账", icon: "CircleCheck", tone: "emerald", clickable: true, active: curStatus === "paid" },
+    { key: "overdue", overdueVal: "1", label: "本页待收余额", prefix: "¥", value: remainSum.toFixed(2), hint: "点击筛选已逾期应收", icon: "Warning", tone: "rose", clickable: true, active: queryParams.value.params.overdueQuery === "1" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (!item) return
+  if (item.overdueVal) {
+    queryParams.value.status = undefined
+    queryParams.value.params.overdueQuery = queryParams.value.params.overdueQuery === "1" ? undefined : "1"
+    handleQuery()
+    return
+  }
+  if (item.statusVal !== undefined) {
+    queryParams.value.params.overdueQuery = undefined
+    handleQuickStatus(item.statusVal)
+  }
+}
 
 function handleQuickStatus(val) {
   queryParams.value.status = val === "" ? undefined : val
@@ -618,7 +795,7 @@ function getReceivableStatusType(statusValue) {
 
 function getList() {
   loading.value = true
-  listReceivable(queryParams.value).then(response => {
+  listReceivable(proxy.addDateRange(queryParams.value, dueDateRange.value)).then(response => {
     receivableList.value = response.rows
     total.value = response.total
     ensureReceivableReferenceOptionsLoaded(response.rows)
@@ -684,6 +861,7 @@ function handleViewSaleOrder(row) {
 }
 
 function resetQuery() {
+  dueDateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.saleOrderId = undefined
   queryParams.value.saleOrderNo = undefined
@@ -713,6 +891,7 @@ function handleOpenBatchReceipt() {
   }
   const sumRemain = rows.reduce((s, r) => s + Number(r.remainAmount || 0), 0)
   batchReceiptDialog.receivableIds = rows.map(r => r.receivableId)
+  batchReceiptDialog.rows = rows
   batchReceiptDialog.maxTotalAmount = Number(sumRemain.toFixed(2))
   batchReceiptDialog.totalAmount = Number(sumRemain.toFixed(2))
   batchReceiptDialog.paymentMethod = "bank_transfer"
@@ -829,19 +1008,113 @@ function handleReceipt(row) {
   })
 }
 
-// 从应收台账直接查看回款流水，方便财务核对每次回款明细。
+// 从应收台账在侧边抽屉就地查看回款/互抵核销明细，避免频繁切页。
 function handleViewReceiptRecord(row) {
   if (!canViewReceiptRecord(row)) {
-    proxy.$modal.msgWarning("当前应收台账还没有回款记录")
+    proxy.$modal.msgWarning("当前应收台账还没有核销记录")
     return
   }
+  writeOffDrawer.receivableId = row.receivableId
+  writeOffDrawer.saleOrderId = row.saleOrderId
+  writeOffDrawer.customerId = row.customerId
+  writeOffDrawer.saleOrderNo = row.saleOrderNo || ""
+  writeOffDrawer.amountPaid = row.amountPaid || 0
+  writeOffDrawer.rows = []
+  writeOffDrawer.open = true
+  writeOffDrawer.loading = true
+  listReceipt({ pageNum: 1, pageSize: 100, receivableId: row.receivableId }).then(res => {
+    writeOffDrawer.rows = res.rows || []
+  }).finally(() => {
+    writeOffDrawer.loading = false
+  })
+}
+
+function jumpReceiptPageFromDrawer() {
+  writeOffDrawer.open = false
   proxy.$router.push({
     path: "/finance/receipt",
     query: {
-      receivableId: row.receivableId,
-      saleOrderId: row.saleOrderId,
-      customerId: row.customerId
+      receivableId: writeOffDrawer.receivableId,
+      saleOrderId: writeOffDrawer.saleOrderId,
+      customerId: writeOffDrawer.customerId
     }
+  })
+}
+
+function formatDrawerPaymentMethod(method) {
+  const map = {
+    bank_transfer: "银行转账",
+    bank: "银行转账",
+    cash: "现金",
+    wechat: "微信",
+    alipay: "支付宝",
+    offset: "红字互抵"
+  }
+  return map[method] || method || "-"
+}
+
+async function handleOpenOffsetDialog(targetNegRow) {
+  let customerId = targetNegRow?.customerId
+  let prePosId = undefined
+  let preNegId = targetNegRow?.receivableId
+  if (!targetNegRow && canOffsetSelected.value) {
+    const posRow = selectedReceivableRows.value.find(r => Number(r.remainAmount || 0) > 0)
+    const negRow = selectedReceivableRows.value.find(r => Number(r.remainAmount || 0) < 0)
+    customerId = posRow?.customerId
+    prePosId = posRow?.receivableId
+    preNegId = negRow?.receivableId
+  }
+  if (!customerId) {
+    proxy.$modal.msgWarning("请勾选同一客户的 1 笔正向应收与 1 笔红字应收，或点击红字行上的「互抵」按钮")
+    return
+  }
+  const res = await listReceivable({ pageNum: 1, pageSize: 200, customerId })
+  const allRows = (res.rows || []).filter(r => r.status !== "paid" && Number(r.remainAmount || 0) !== 0)
+  const posOpts = allRows.filter(r => Number(r.remainAmount || 0) > 0)
+  const negOpts = allRows.filter(r => Number(r.remainAmount || 0) < 0)
+  if (!posOpts.length || !negOpts.length) {
+    proxy.$modal.msgWarning("该客户当前没有可互相冲抵的正向待收单与红字待退单")
+    return
+  }
+  offsetDialog.customerId = customerId
+  offsetDialog.positiveOptions = posOpts
+  offsetDialog.negativeOptions = negOpts
+  offsetDialog.positiveReceivableId = prePosId || posOpts[0].receivableId
+  offsetDialog.negativeReceivableId = preNegId || negOpts[0].receivableId
+  offsetDialog.remark = "退货红字对冲核销"
+  recalcOffsetMaxAmount()
+  offsetDialog.open = true
+}
+
+function recalcOffsetMaxAmount() {
+  const pos = offsetDialog.positiveOptions.find(r => r.receivableId === offsetDialog.positiveReceivableId)
+  const neg = offsetDialog.negativeOptions.find(r => r.receivableId === offsetDialog.negativeReceivableId)
+  const maxAmt = (pos && neg) ? Math.min(Number(pos.remainAmount || 0), Math.abs(Number(neg.remainAmount || 0))) : 0
+  offsetDialog.maxAmount = Number(maxAmt.toFixed(2))
+  offsetDialog.amount = offsetDialog.maxAmount
+}
+
+function submitOffsetReceivable() {
+  if (!offsetDialog.positiveReceivableId || !offsetDialog.negativeReceivableId) {
+    proxy.$modal.msgWarning("请选择要对冲的正向应收单和红字应收单")
+    return
+  }
+  if (!(Number(offsetDialog.amount || 0) > 0)) {
+    proxy.$modal.msgWarning("对冲核销金额必须大于 0")
+    return
+  }
+  offsetDialog.submitting = true
+  offsetReceivable({
+    positiveReceivableId: offsetDialog.positiveReceivableId,
+    negativeReceivableId: offsetDialog.negativeReceivableId,
+    amount: offsetDialog.amount,
+    remark: offsetDialog.remark
+  }).then(res => {
+    proxy.$modal.msgSuccess(res.msg || "红字对冲核销成功")
+    offsetDialog.open = false
+    getList()
+  }).finally(() => {
+    offsetDialog.submitting = false
   })
 }
 

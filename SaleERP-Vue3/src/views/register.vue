@@ -2,9 +2,9 @@
   <div class="register">
     <div class="register-card">
       <div class="register-header">
-        <span class="register-badge">创建企业账号</span>
+        <span class="register-badge">新用户注册</span>
         <h2 class="title">{{ title }}</h2>
-        <p class="register-subtitle">注册账号后即可登录智慧经销云平台</p>
+        <p class="register-subtitle">完成注册后即可登录 {{ title }}</p>
       </div>
       <el-form ref="registerRef" :model="registerForm" :rules="registerRules" class="register-form">
         <el-form-item prop="username">

@@ -1,12 +1,11 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="经营决策驾驶舱"
+      eyebrow="财务分析 · 经营看板"
       title="经营分析与财务看板"
-      subtitle="全景汇聚营收趋势、应收应付账龄、经营健康度、商品毛利排行、预算执行与资金预测。"
+      subtitle="汇总展示销售趋势、应收应付账龄、商品毛利排行、预算执行与资金预测。"
       icon="DataAnalysis"
       tone="indigo"
-      :badge="managementCockpitModeLabel"
     >
       <template #actions>
         <el-button plain icon="TrendCharts" @click="router.push('/finance/saleReport')">销售明细报表</el-button>
@@ -111,28 +110,19 @@
           <template #header>
             <div class="dashboard-section-header">
               <div class="dashboard-section-title-group">
-                <span>管理驾驶舱</span>
-                <el-tag size="small" :type="managementCockpitModeTagType">{{ managementCockpitModeLabel }}</el-tag>
+                <span>核心经营指标</span>
               </div>
-              <span class="dashboard-section-subtitle">聚焦利润、回款和环比变化，帮助管理层快速判断经营状态</span>
+              <span class="dashboard-section-subtitle">汇总本月与上月营收、毛利、回款及环比变化</span>
             </div>
           </template>
           <el-alert
             v-if="!hasManagementCockpitData && !managementCockpitLoading"
-            title="当前环境尚未发布管理驾驶舱数据，部署最新后端后即可显示利润、环比与账龄风险。"
+            title="暂无当前期间经营汇总数据，请刷新页面或检查业务台账记录。"
             type="warning"
             :closable="false"
             show-icon
           />
           <template v-else>
-            <el-alert
-              v-if="managementCockpitDataSource === 'fallback'"
-              title="当前看板已切换为兼容模式，利润、回款率和账龄风险由前端按现有业务台账实时汇总。"
-              type="info"
-              :closable="false"
-              show-icon
-              style="margin-bottom: 12px"
-            />
             <el-row :gutter="12">
               <el-col :xs="24" :sm="12" :lg="6" style="margin-bottom: 12px" v-for="managementOverviewCard in managementOverviewCardList" :key="managementOverviewCard.key">
                 <div class="management-overview-card">
@@ -206,7 +196,7 @@
     >
       <el-col :span="8">
         <el-card>
-          <template #header>风险雷达</template>
+          <template #header>风险提醒</template>
           <div class="risk-overview-list">
             <div v-for="riskOverviewCard in riskOverviewCardList" :key="riskOverviewCard.key" class="risk-overview-item">
               <div class="risk-overview-title">{{ riskOverviewCard.title }}</div>
@@ -1075,7 +1065,7 @@
 
     <el-dialog v-model="dashboardTargetDialogOpen" title="维护经营目标" width="520px" append-to-body>
       <el-alert
-        title="经营目标按自然月展示，修改后会同步更新管理驾驶舱的达成进度。"
+        title="经营目标按自然月展示，修改后会同步更新经营报表的达成进度。"
         type="info"
         :closable="false"
         show-icon
@@ -2333,7 +2323,7 @@ const managementHealthSummary = computed(() => {
       tagType: "info",
       weakestTitle: "",
       description: "当前尚未生成经营健康度评估。",
-      adviceText: "建议先检查经营驾驶舱数据是否已生成，再判断重点动作。",
+      adviceText: "建议先检查经营报表数据是否已生成，再判断重点处理项。",
       actionType: undefined,
       actionLabel: ""
     }
@@ -3065,21 +3055,25 @@ async function getData() {
     {
       await hydrateManagementCockpitFallbackData()
     }
-    if (hasManagementCockpitData.value)
-    {
-      await loadDecisionSupportData()
-    }
   }
   catch (error)
   {
-    // 管理驾驶舱扩展数据异常时保留首页基础数据，避免顶部指标和消息中心被整体清空。
-    console.error("经营看板扩展数据加载失败：", error)
+    console.error("经营报表基础数据回补失败：", error)
   }
   finally
   {
     await nextTick()
     initCharts(dashboardData.value)
     managementCockpitLoading.value = false
+  }
+
+  if (hasManagementCockpitData.value)
+  {
+    setTimeout(() => {
+      loadDecisionSupportData().catch(err => {
+        console.error("经营分析扩展数据加载失败：", err)
+      })
+    }, 80)
   }
 }
 

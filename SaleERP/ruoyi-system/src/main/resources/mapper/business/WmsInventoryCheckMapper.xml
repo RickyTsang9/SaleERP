@@ -47,6 +47,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="status != null and status != ''">
                 and ic.status = #{status}
             </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and ic.create_time &gt;= #{params.beginTime}
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and ic.create_time &lt;= concat(#{params.endTime}, ' 23:59:59')
+            </if>
             ${params.dataScope}
         </where>
         order by ic.check_id desc

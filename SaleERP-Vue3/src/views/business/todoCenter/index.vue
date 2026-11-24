@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="运营协同"
+      eyebrow="待办协同"
       title="统一待办中心"
-      subtitle="实时汇总销售审批、采购入库、库存预警、财务逾期及客户跟进事项，点击直达业务页面闭环处理。"
+      subtitle="汇总销售审批、采购入库、库存预警、财务逾期及客户跟进事项，点击直达对应业务页面处理。"
       icon="Bell"
       tone="indigo"
       :badge="`共 ${summaryData.totalCount || 0} 项`"

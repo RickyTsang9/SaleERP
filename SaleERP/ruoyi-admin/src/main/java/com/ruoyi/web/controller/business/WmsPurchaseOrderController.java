@@ -112,6 +112,14 @@ public class WmsPurchaseOrderController extends BaseController
         return toAjax(wmsPurchaseOrderService.submitWmsPurchaseOrder(purchaseOrderId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:purchaseOrder:edit')")
+    @Log(title = "批量提交采购订单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchSubmit")
+    public AjaxResult batchSubmit(@RequestBody List<Long> purchaseOrderIds)
+    {
+        return BatchActionHelper.execute(purchaseOrderIds, "提交", wmsPurchaseOrderService::submitWmsPurchaseOrder);
+    }
+
     /**
      * 审核采购订单
      */
@@ -121,6 +129,14 @@ public class WmsPurchaseOrderController extends BaseController
     public AjaxResult audit(@PathVariable Long purchaseOrderId)
     {
         return toAjax(wmsPurchaseOrderService.auditWmsPurchaseOrder(purchaseOrderId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:purchaseOrder:audit')")
+    @Log(title = "批量审核采购订单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchAudit")
+    public AjaxResult batchAudit(@RequestBody List<Long> purchaseOrderIds)
+    {
+        return BatchActionHelper.execute(purchaseOrderIds, "审核", wmsPurchaseOrderService::auditWmsPurchaseOrder);
     }
 
     @PreAuthorize("@ss.hasPermi('business:purchaseOrder:audit')")
@@ -157,6 +173,35 @@ public class WmsPurchaseOrderController extends BaseController
     public AjaxResult cancel(@PathVariable Long purchaseOrderId)
     {
         return toAjax(wmsPurchaseOrderService.cancelWmsPurchaseOrder(purchaseOrderId));
+    }
+
+    @PreAuthorize("@ss.hasAnyPermi('business:purchaseOrder:list,business:purchaseOrder:add,business:purchaseOrder:edit')")
+    @GetMapping("/suggestPrice")
+    public AjaxResult suggestPrice(@org.springframework.web.bind.annotation.RequestParam(value = "supplierId", required = false) Long supplierId,
+                                   @org.springframework.web.bind.annotation.RequestParam("productId") Long productId)
+    {
+        java.util.Map<String, Object> data = wmsPurchaseOrderService.suggestPurchasePrice(supplierId, productId);
+        if (!com.ruoyi.common.utils.SecurityUtils.isAdmin(getUserId())
+            && !com.ruoyi.common.utils.SecurityUtils.hasPermi("business:report:profit"))
+        {
+            data.put("currentCostPrice", null);
+        }
+        return success(data);
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:purchaseOrder:add')")
+    @Log(title = "缺货一键生成补货采购单", businessType = BusinessType.INSERT)
+    @PostMapping("/createFromReplenish")
+    @SuppressWarnings("unchecked")
+    public AjaxResult createFromReplenish(@RequestBody java.util.Map<String, Object> payload)
+    {
+        Long supplierId = payload != null && payload.get("supplierId") != null
+            ? Long.valueOf(String.valueOf(payload.get("supplierId")))
+            : null;
+        List<java.util.Map<String, Object>> items = payload == null
+            ? java.util.Collections.emptyList()
+            : (List<java.util.Map<String, Object>>) payload.get("items");
+        return success(wmsPurchaseOrderService.createReplenishPurchaseOrders(supplierId, items, getUsername()));
     }
 
     /**

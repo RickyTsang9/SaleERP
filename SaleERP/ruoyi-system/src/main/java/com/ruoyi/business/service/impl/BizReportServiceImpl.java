@@ -52,13 +52,37 @@ public class BizReportServiceImpl implements IBizReportService
     @Autowired
     private MdSupplierMapper mdSupplierMapper;
 
+    @Autowired(required = false)
+    private com.ruoyi.common.core.redis.RedisCache redisCache;
+
     /**
-     * 查询经营看板首页数据
+     * 查询经营看板首页数据（含 15 秒短 TTL 按用户/权限级缓存，防止首页与看板并发刷新打爆数据库）
      * @return 经营看板首页数据
      */
     @Override
     public AjaxResult getDashboardData()
     {
+        String cacheKey = null;
+        if (redisCache != null)
+        {
+            try
+            {
+                Long uid = SecurityUtils.getUserId();
+                boolean profitPerm = SecurityUtils.isAdmin(uid) || SecurityUtils.hasPermi("business:report:profit");
+                cacheKey = "biz:dashboard:v3:" + uid + ":" + (profitPerm ? "1" : "0");
+                Map<String, Object> cached = redisCache.getCacheObject(cacheKey);
+                if (cached != null && !cached.isEmpty())
+                {
+                    AjaxResult hit = AjaxResult.success();
+                    hit.putAll(cached);
+                    return hit;
+                }
+            }
+            catch (Exception ignored)
+            {
+                cacheKey = null;
+            }
+        }
         AjaxResult ajaxResult = AjaxResult.success();
         Long stockWarningCount = nvlCount(bizReportMapper.selectStockWarningCount());
         ajaxResult.put("totalSaleAmount", nvlAmount(bizReportMapper.selectApprovedSaleAmount()));
@@ -79,6 +103,14 @@ public class BizReportServiceImpl implements IBizReportService
         ajaxResult.put("payableAgingList", getPayableAgingData());
         ajaxResult.put("topRiskCustomerList", getTopOverdueCustomerData());
         ajaxResult.put("topRiskSupplierList", getTopDueSupplierData());
+        if (redisCache != null && cacheKey != null)
+        {
+            try
+            {
+                redisCache.setCacheObject(cacheKey, new HashMap<>(ajaxResult), 15, java.util.concurrent.TimeUnit.SECONDS);
+            }
+            catch (Exception ignored) {}
+        }
         return ajaxResult;
     }
 
@@ -228,6 +260,20 @@ public class BizReportServiceImpl implements IBizReportService
     {
         Map<String, Object> params = new HashMap<>();
         params.put("dueDays", DEFAULT_TODO_DUE_DAYS);
+        try
+        {
+            LoginUser loginUser = SecurityUtils.getLoginUser();
+            if (loginUser != null && !SecurityUtils.isAdmin(loginUser.getUserId()))
+            {
+                Set<String> perms = loginUser.getPermissions();
+                boolean isManager = perms != null && (perms.contains("*:*:*") || perms.contains("business:saleOrder:managerAudit"));
+                if (!isManager && com.ruoyi.common.utils.StringUtils.isNotEmpty(loginUser.getUsername()))
+                {
+                    params.put("followOwnerUsername", loginUser.getUsername());
+                }
+            }
+        }
+        catch (Exception ignored) {}
         List<Map<String, Object>> rawList = normalizeTodoCenterList(bizReportMapper.selectTodoCenterList(params));
         List<Map<String, Object>> todoCenterList = filterTodoListByCurrentUserPermissions(rawList);
         Map<String, Object> todoCenterDataMap = new HashMap<>();

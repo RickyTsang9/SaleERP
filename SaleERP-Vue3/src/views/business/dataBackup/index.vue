@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="系统运维 · 数据安全"
-      title="数据备份与容灾恢复"
-      subtitle="支持全量快照备份、本地文件下载与二次确认容灾恢复，守护企业核心交易与账务数据安全。"
+      eyebrow="系统运维 · 数据备份"
+      title="数据备份与恢复"
+      subtitle="支持业务数据手动快照备份、备份包下载及离线包导入恢复。"
       icon="Coin"
       tone="emerald"
       :badge="`共 ${backupOverview.totalCount} 份备份`"

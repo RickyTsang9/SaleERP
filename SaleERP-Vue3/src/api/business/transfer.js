@@ -102,3 +102,19 @@ export function exportTransfer(query) {
     params: query
   })
 }
+
+export function batchSubmitTransfer(ids) {
+  return request({
+    url: '/business/transfer/batchSubmit',
+    method: 'post',
+    data: ids
+  })
+}
+
+export function batchAuditTransfer(ids) {
+  return request({
+    url: '/business/transfer/batchAudit',
+    method: 'post',
+    data: ids
+  })
+}

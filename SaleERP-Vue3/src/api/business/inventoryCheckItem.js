@@ -37,3 +37,11 @@ export function delInventoryCheckItem(checkItemId) {
     method: 'delete'
   })
 }
+
+export function batchUpdateInventoryCheckItem(items) {
+  return request({
+    url: '/business/inventoryCheckItem/batch',
+    method: 'put',
+    data: items
+  })
+}

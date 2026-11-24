@@ -332,13 +332,14 @@ public class WmsInboundServiceImpl implements IWmsInboundService
     }
 
     /**
-     * 按移动加权平均法重算商品单位成本价：C_new = (max(Q_old,0) * C_old + Q_in * C_in) / (max(Q_old,0) + Q_in)
+     * 按移动加权平均法重算商品单位成本价（支持 4 位小数精度与零价赠品摊薄）：
+     * C_new = (max(Q_old,0) * C_old + Q_in * C_in) / (max(Q_old,0) + Q_in)
      */
     private void recalculateMovingWeightedAverageCost(WmsInboundItem inboundItem, String operatorName)
     {
         if (mdProductMapper == null || wmsStockMapper == null || inboundItem == null
             || inboundItem.getProductId() == null || inboundItem.getPrice() == null
-            || inboundItem.getPrice().compareTo(BigDecimal.ZERO) <= 0
+            || inboundItem.getPrice().compareTo(BigDecimal.ZERO) < 0
             || inboundItem.getQuantity() == null || inboundItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
         {
             return;
@@ -353,11 +354,15 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         {
             oldTotalStock = BigDecimal.ZERO;
         }
-        BigDecimal oldCost = (product.getCostPrice() == null || product.getCostPrice().compareTo(BigDecimal.ZERO) <= 0)
-            ? inboundItem.getPrice()
-            : product.getCostPrice();
         BigDecimal inQty = inboundItem.getQuantity();
         BigDecimal inPrice = inboundItem.getPrice();
+        if (inPrice.compareTo(BigDecimal.ZERO) == 0 && oldTotalStock.compareTo(BigDecimal.ZERO) <= 0)
+        {
+            return;
+        }
+        BigDecimal oldCost = (product.getCostPrice() == null || product.getCostPrice().compareTo(BigDecimal.ZERO) <= 0)
+            ? inPrice
+            : product.getCostPrice();
         BigDecimal denom = oldTotalStock.add(inQty);
         if (denom.compareTo(BigDecimal.ZERO) <= 0)
         {
@@ -365,7 +370,12 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         }
         BigDecimal newWeightedCost = oldTotalStock.multiply(oldCost)
             .add(inQty.multiply(inPrice))
-            .divide(denom, 2, RoundingMode.HALF_UP);
+            .divide(denom, 4, RoundingMode.HALF_UP);
+        newWeightedCost = newWeightedCost.stripTrailingZeros();
+        if (newWeightedCost.scale() < 2)
+        {
+            newWeightedCost = newWeightedCost.setScale(2, RoundingMode.HALF_UP);
+        }
         MdProduct updateProduct = new MdProduct();
         updateProduct.setProductId(product.getProductId());
         updateProduct.setCostPrice(newWeightedCost);

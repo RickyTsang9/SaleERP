@@ -1,24 +1,25 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="仓储实时监控"
+      eyebrow="库存管理 · 库存台账"
       title="库存实时台账"
-      subtitle="实时洞察各仓库位与批次实物数、销售预占锁定及可用余额，支持上下限预警、效期监控与期初批量建账。"
+      subtitle="实时查询各仓库位与批次实物数、预占锁定及可用数量，支持预警阈值配置、一键补货与期初导入。"
       icon="Box"
       tone="blue"
       :badge="`共 ${total} 条批次`"
     >
       <template #actions>
+        <el-button type="primary" icon="ShoppingCart" @click="handleOpenReplenishDialog()" v-hasPermi="['business:purchaseOrder:add']">一键补货生单</el-button>
         <el-button icon="Upload" plain @click="handleOpenOpeningImport" v-hasPermi="['business:stock:add']">期初导入</el-button>
         <el-button icon="AlarmClock" plain @click="handleWarningRemind" v-hasPermi="['business:stock:list']">触发预警</el-button>
         <el-button type="danger" plain icon="Bell" @click="handleReadWarningMessage" v-hasPermi="['business:stock:list']">
           未读预警 ({{ warningUnreadCount }})
         </el-button>
-        <el-button type="primary" icon="Download" @click="handleExport" v-hasPermi="['business:stock:export']">导出</el-button>
+        <el-button plain icon="Download" @click="handleExport" v-hasPermi="['business:stock:export']">导出</el-button>
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="stockStatItems" :columns="4" />
+    <erp-stat-strip :items="stockStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true">
@@ -60,7 +61,8 @@
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="stockList">
+      <el-table v-loading="loading" :data="stockList" @selection-change="handleStockSelectionChange">
+        <el-table-column type="selection" width="46" align="center" />
         <el-table-column label="商品 / 批次" align="left" prop="productId" min-width="195" show-overflow-tooltip>
           <template #default="scope">
             <div class="erp-cell-title">{{ scope.row.productName || getProductName(scope.row.productId) }}</div>
@@ -114,8 +116,14 @@
             <span class="erp-cell-sub">{{ scope.row.warningMinQty ?? '-' }} ~ {{ scope.row.warningMaxQty ?? '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="275" fixed="right" align="center">
+        <el-table-column label="操作" width="315" fixed="right" align="center">
           <template #default="scope">
+            <el-button
+              v-if="isStockBelowWarningMin(scope.row)"
+              link type="success" icon="ShoppingCart"
+              @click="handleOpenReplenishDialog(scope.row)"
+              v-hasPermi="['business:purchaseOrder:add']"
+            >补货</el-button>
             <el-button
               v-if="Number(scope.row.quantity || 0) - Number(scope.row.lockedQuantity || 0) - Number(scope.row.frozenQuantity || 0) > 0"
               link type="warning" icon="Lock"
@@ -259,11 +267,81 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 一键智能补货生单弹窗 -->
+    <el-dialog v-model="replenishDialog.open" title="一键智能补货生成采购草稿" width="760px" append-to-body>
+      <el-alert
+        title="系统已按【安全上限（或 2 倍安全下限） - 净可用库存】自动测算建议补货量，并在后台自动扣减在途未完结采购量、按供应商拆单生成采购草稿。"
+        type="info"
+        :closable="false"
+        class="mb12"
+      />
+      <el-form :model="replenishDialog" label-width="95px">
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="默认供应商">
+              <el-select
+                v-model="replenishDialog.supplierId"
+                placeholder="可选（未匹配历史供应商时使用）"
+                clearable
+                filterable
+                remote
+                reserve-keyword
+                remote-show-suffix
+                :remote-method="loadSupplierOptionList"
+                style="width: 100%"
+              >
+                <el-option v-for="sup in supplierList" :key="sup.supplierId" :label="sup.supplierName" :value="sup.supplierId" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="补货备注">
+              <el-input v-model="replenishDialog.remark" placeholder="如：缺货预警自动补货" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <el-table :data="replenishDialog.items" size="small" border max-height="320">
+        <el-table-column label="商品名称" prop="productName" min-width="170" show-overflow-tooltip />
+        <el-table-column label="当前可用" prop="netAvail" width="90" align="right" />
+        <el-table-column label="安全区间" width="110" align="center">
+          <template #default="scope">
+            <span>{{ scope.row.warningMinQty ?? '-' }} ~ {{ scope.row.warningMaxQty ?? '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="本次补货数" width="135" align="center">
+          <template #default="scope">
+            <el-input-number v-model="scope.row.quantity" :min="1" :precision="2" size="small" controls-position="right" style="width: 115px" />
+          </template>
+        </el-table-column>
+        <el-table-column label="指定供应商(可选)" min-width="165">
+          <template #default="scope">
+            <el-select v-model="scope.row.supplierId" placeholder="自动匹配最近供应商" clearable filterable size="small" style="width: 100%">
+              <el-option v-for="sup in supplierList" :key="sup.supplierId" :label="sup.supplierName" :value="sup.supplierId" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="60" align="center">
+          <template #default="scope">
+            <el-button link type="danger" icon="Delete" @click="replenishDialog.items.splice(scope.$index, 1)" />
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" :loading="replenishDialog.submitting" @click="submitReplenishOrders">生成采购草稿</el-button>
+          <el-button @click="replenishDialog.open = false">取 消</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup name="Stock">
 import { listStock, listWarningStock, remindWarningStock, updateStockWarningThreshold, freezeStock, unfreezeStock } from "@/api/business/stock"
+import { createPurchaseOrderFromReplenish } from "@/api/business/purchaseOrder"
+import { listSupplier } from "@/api/business/supplier"
 import { getUnreadMessageCount, listPopupMessage, readAllMessage } from "@/api/business/message"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
@@ -294,6 +372,15 @@ const thresholdOpen = ref(false)
 const thresholdSaving = ref(false)
 const warningDrawerOpen = ref(false)
 const warningMessageList = ref([])
+const selectedStockRows = ref([])
+const supplierList = ref([])
+const replenishDialog = reactive({
+  open: false,
+  submitting: false,
+  supplierId: undefined,
+  remark: "库存预警一键补货",
+  items: []
+})
 const freezeDialog = reactive({
   open: false,
   mode: "freeze",
@@ -359,12 +446,18 @@ const stockStatItems = computed(() => {
   const totalLocked = rows.reduce((s, r) => s + Number(r.lockedQuantity || 0), 0)
   const totalAvail = rows.reduce((s, r) => s + Math.max(0, Number(r.quantity || 0) - Number(r.lockedQuantity || 0) - Number(r.frozenQuantity || 0)), 0)
   return [
-    { label: "库存批次数", value: total.value, suffix: "条", hint: "匹配当前条件的在库批次", icon: "Box", tone: "blue" },
-    { label: "本页实物总数", value: totalPhysical, suffix: "件", hint: "仓库账面在库实物合计", icon: "Goods", tone: "indigo" },
-    { label: "本页销售锁定", value: totalLocked, suffix: "件", hint: "已审销售单防超卖预占", icon: "Lock", tone: "amber" },
-    { label: "本页可用库存", value: totalAvail, suffix: "件", hint: "当前可售/可调拨数量", icon: "CircleCheck", tone: "emerald" }
+    { key: "all", modeVal: "all", label: "库存批次数", value: total.value, suffix: "条", hint: "点击查看全部在库批次", icon: "Box", tone: "blue", clickable: true, active: stockViewMode.value === "all" },
+    { key: "warning", modeVal: "warning", label: "本页实物总数", value: totalPhysical, suffix: "件", hint: "点击筛选库存预警记录", icon: "Goods", tone: "indigo", clickable: true, active: stockViewMode.value === "warning" },
+    { key: "expiring", modeVal: "expiring", label: "本页销售锁定", value: totalLocked, suffix: "件", hint: "点击筛选30天临期批次", icon: "Lock", tone: "amber", clickable: true, active: stockViewMode.value === "expiring" },
+    { key: "avail", label: "本页可用库存", value: totalAvail, suffix: "件", hint: "当前可售/可调拨数量", icon: "CircleCheck", tone: "emerald" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.modeVal) {
+    handleStockViewModeChange(item.modeVal)
+  }
+}
 
 function handleStockViewModeChange(mode) {
   if (mode === "warning") {
@@ -556,11 +649,11 @@ function getLocationName(locationId) {
   return location ? location.locationName : (locationId ? "库位资料缺失" : "")
 }
 
-// 判断当前库存是否低于最小预警值，帮助仓库人员快速识别缺货风险。
+// 判断当前净可用库存是否低于最小预警值，帮助仓库人员快速识别缺货风险。
 function isStockBelowWarningMin(stockRow) {
-  const quantityValue = Number(stockRow.quantity ?? 0)
+  const netAvail = Number(stockRow.quantity ?? 0) - Number(stockRow.lockedQuantity ?? 0) - Number(stockRow.frozenQuantity ?? 0)
   const warningMinQtyValue = Number(stockRow.warningMinQty ?? 0)
-  return warningMinQtyValue > 0 && quantityValue < warningMinQtyValue
+  return warningMinQtyValue > 0 && netAvail < warningMinQtyValue
 }
 
 // 判断当前库存是否高于最大预警值，帮助仓库人员快速识别积压风险。
@@ -822,6 +915,98 @@ function submitThresholdForm() {
     getList()
   }).finally(() => {
     thresholdSaving.value = false
+  })
+}
+
+function handleStockSelectionChange(selection) {
+  selectedStockRows.value = selection || []
+}
+
+function loadSupplierOptionList(keyword) {
+  listSupplier({
+    pageNum: 1,
+    pageSize: 30,
+    status: "0",
+    supplierName: normalizeRemoteKeyword(keyword)
+  }).then(res => {
+    ;(res.rows || []).forEach(sup => appendUniqueSelectOption(supplierList.value, sup, "supplierId"))
+  }).catch(() => {})
+}
+
+async function handleOpenReplenishDialog(singleRow) {
+  loadSupplierOptionList()
+  let sourceRows = []
+  if (singleRow && singleRow.stockId) {
+    sourceRows = [singleRow]
+  } else if (selectedStockRows.value.length > 0) {
+    sourceRows = selectedStockRows.value
+  } else {
+    const warnRes = await listWarningStock({ pageNum: 1, pageSize: 50 }).catch(() => null)
+    sourceRows = (warnRes?.rows || []).filter(r => isStockBelowWarningMin(r))
+    if (sourceRows.length === 0) {
+      sourceRows = (stockList.value || []).filter(r => isStockBelowWarningMin(r))
+    }
+  }
+  if (!sourceRows.length) {
+    proxy.$modal.msgWarning("请先勾选需要补货的库存记录，或配置最小预警值后再一键补货")
+    return
+  }
+  const mergedByProduct = new Map()
+  sourceRows.forEach(r => {
+    const pid = r.productId
+    if (!pid) return
+    const netAvail = Math.max(0, Number(r.quantity || 0) - Number(r.lockedQuantity || 0) - Number(r.frozenQuantity || 0))
+    const minQ = Number(r.warningMinQty || 0)
+    const maxQ = Number(r.warningMaxQty || 0)
+    const targetQ = maxQ > 0 ? maxQ : (minQ > 0 ? minQ * 2 : netAvail + 20)
+    const suggestedQty = Math.max(1, Number((targetQ - netAvail).toFixed(2)))
+    if (!mergedByProduct.has(pid)) {
+      mergedByProduct.set(pid, {
+        stockId: r.stockId,
+        productId: pid,
+        productName: r.productName || getProductName(pid),
+        netAvail,
+        warningMinQty: r.warningMinQty,
+        warningMaxQty: r.warningMaxQty,
+        quantity: suggestedQty,
+        supplierId: undefined
+      })
+    }
+  })
+  replenishDialog.items = Array.from(mergedByProduct.values())
+  if (!replenishDialog.supplierId && supplierList.value.length > 0) {
+    replenishDialog.supplierId = supplierList.value[0].supplierId
+  }
+  replenishDialog.open = true
+}
+
+function submitReplenishOrders() {
+  if (!replenishDialog.items.length) {
+    proxy.$modal.msgWarning("请至少保留一条补货商品")
+    return
+  }
+  replenishDialog.submitting = true
+  createPurchaseOrderFromReplenish({
+    supplierId: replenishDialog.supplierId,
+    remark: replenishDialog.remark,
+    items: replenishDialog.items.map(it => ({
+      stockId: it.stockId,
+      productId: it.productId,
+      supplierId: it.supplierId || replenishDialog.supplierId,
+      quantity: it.quantity
+    }))
+  }).then(res => {
+    replenishDialog.open = false
+    const orderNos = (res.data?.orderNos || []).join("、")
+    proxy.$modal.confirm(
+      `${res.msg || "补货采购草稿已生成"}${orderNos ? `（单号：${orderNos}）` : ""}。是否立即前往采购订单页核对提交？`,
+      "补货生单成功",
+      { confirmButtonText: "前往采购订单", cancelButtonText: "留在当前页", type: "success" }
+    ).then(() => {
+      router.push({ path: "/purchase/purchaseOrder", query: { status: "draft" } })
+    }).catch(() => {})
+  }).finally(() => {
+    replenishDialog.submitting = false
   })
 }
 

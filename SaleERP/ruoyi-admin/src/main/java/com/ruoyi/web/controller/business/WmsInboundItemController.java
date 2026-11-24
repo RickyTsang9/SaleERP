@@ -72,6 +72,27 @@ public class WmsInboundItemController extends BaseController
         return toAjax(wmsInboundItemService.updateWmsInboundItem(wmsInboundItem));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:inbound:edit')")
+    @Log(title = "批量更新入库明细", businessType = BusinessType.UPDATE)
+    @RepeatSubmit
+    @PutMapping("/batch")
+    public AjaxResult editBatch(@RequestBody List<WmsInboundItem> itemList)
+    {
+        if (itemList == null || itemList.isEmpty())
+        {
+            return AjaxResult.error("没有需要保存的入库明细");
+        }
+        int updated = 0;
+        for (WmsInboundItem item : itemList)
+        {
+            if (item != null && item.getInboundItemId() != null)
+            {
+                updated += wmsInboundItemService.updateWmsInboundItem(item);
+            }
+        }
+        return AjaxResult.success("已批量保存 " + updated + " 条入库明细", updated);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:inbound:remove')")
     @Log(title = "入库明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/{inboundItemIds}")

@@ -69,6 +69,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="params.endInvoiceDate != null and params.endInvoiceDate != ''">
                 and fi.invoice_date &lt;= #{params.endInvoiceDate}
             </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and fi.invoice_date &gt;= #{params.beginTime}
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and fi.invoice_date &lt;= #{params.endTime}
+            </if>
         </where>
     </sql>
 

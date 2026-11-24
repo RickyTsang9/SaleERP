@@ -13,6 +13,8 @@ public interface WmsInventoryCheckItemMapper
 
     public int insertWmsInventoryCheckItem(WmsInventoryCheckItem wmsInventoryCheckItem);
 
+    public int insertWmsInventoryCheckItemBatch(List<WmsInventoryCheckItem> itemList);
+
     public int updateWmsInventoryCheckItem(WmsInventoryCheckItem wmsInventoryCheckItem);
 
     public int deleteWmsInventoryCheckItemById(Long checkItemId);

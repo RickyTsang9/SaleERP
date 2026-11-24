@@ -14,17 +14,29 @@
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="checkStatItems" :columns="4" />
+    <erp-stat-strip :items="checkStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true">
         <el-form-item label="盘点单号" prop="checkNo">
-          <el-input v-model="queryParams.checkNo" placeholder="请输入盘点单号" clearable style="width: 195px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.checkNo" placeholder="请输入盘点单号" clearable style="width: 185px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="仓库" prop="warehouseId">
-          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 195px">
+          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 185px">
             <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="盘点日期">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -187,13 +199,19 @@
         <el-col :span="1.5" v-if="isInventoryCheckItemEditable()">
           <el-button type="success" plain icon="MagicStick" :loading="snapshotLoading" @click="handleLoadWarehouseSnapshot" v-hasPermi="['business:inventoryCheck:edit']">一键载入库存</el-button>
         </el-col>
+        <el-col :span="1.5" v-if="isInventoryCheckItemEditable() && inventoryCheckItemList.length > 0">
+          <el-button type="primary" icon="Check" :loading="batchSaveCheckLoading" @click="handleBatchSaveInventoryCheckItems" v-hasPermi="['business:inventoryCheck:edit']">保存全部实盘数</el-button>
+        </el-col>
         <el-col :span="1.5">
           <el-button v-if="isInventoryCheckItemEditable()" type="primary" plain icon="Plus" @click="handleAddInventoryCheckItem" v-hasPermi="['business:inventoryCheck:add']">新增明细</el-button>
         </el-col>
         <el-col :span="1.5">
           <el-button v-if="isInventoryCheckItemEditable()" type="danger" plain icon="Delete" :disabled="inventoryCheckItemMultiple" @click="handleDeleteInventoryCheckItem" v-hasPermi="['business:inventoryCheck:remove']">删除明细</el-button>
         </el-col>
-        <el-col :span="10" v-if="isInventoryCheckItemEditable()" v-hasPermi="['business:inventoryCheck:add', 'business:inventoryCheck:edit']">
+        <el-col :span="1.5">
+          <el-button plain icon="Download" @click="handleExportInventoryCheckItems" v-hasPermi="['business:inventoryCheck:export']">导出明细</el-button>
+        </el-col>
+        <el-col :span="8" v-if="isInventoryCheckItemEditable()" v-hasPermi="['business:inventoryCheck:add', 'business:inventoryCheck:edit']">
           <el-input
             v-model="checkScanCode"
             placeholder="扫码或输入商品编码按回车（自动实盘 +1）"
@@ -229,7 +247,21 @@
             <span>{{ blindCheckMode ? '***' : scope.row.stockQty }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="实盘数" align="right" prop="actualQty" width="76" />
+        <el-table-column label="实盘数" align="right" prop="actualQty" width="132">
+          <template #default="scope">
+            <el-input-number
+              v-if="isInventoryCheckItemEditable()"
+              v-model="scope.row.actualQty"
+              :min="0"
+              :precision="2"
+              size="small"
+              controls-position="right"
+              style="width: 112px"
+              @change="handleInlineCheckQtyChange(scope.row)"
+            />
+            <span v-else>{{ scope.row.actualQty }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="差异数" align="right" prop="diffQty" width="76">
           <template #default="scope">
             <span>{{ blindCheckMode ? '***' : scope.row.diffQty }}</span>
@@ -335,12 +367,13 @@
 
 <script setup name="InventoryCheck">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
-import { listInventoryCheck, getInventoryCheck, addInventoryCheck, updateInventoryCheck, delInventoryCheck, submitInventoryCheck, auditInventoryCheck, rejectInventoryCheck, loadInventoryCheckStockSnapshot, cancelInventoryCheck } from "@/api/business/inventoryCheck"
-import { listInventoryCheckItem, getInventoryCheckItem, addInventoryCheckItem, updateInventoryCheckItem, delInventoryCheckItem } from "@/api/business/inventoryCheckItem"
+import { listInventoryCheck, getInventoryCheck, addInventoryCheck, updateInventoryCheck, delInventoryCheck, submitInventoryCheck, auditInventoryCheck, batchSubmitInventoryCheck, batchAuditInventoryCheck, rejectInventoryCheck, loadInventoryCheckStockSnapshot, cancelInventoryCheck } from "@/api/business/inventoryCheck"
+import { listInventoryCheckItem, getInventoryCheckItem, addInventoryCheckItem, updateInventoryCheckItem, batchUpdateInventoryCheckItem, delInventoryCheckItem } from "@/api/business/inventoryCheckItem"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct, scanProductByCode } from "@/api/business/product"
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -374,6 +407,8 @@ const currentCheckId = ref(undefined)
 const printDialogRef = ref(null)
 const blindCheckMode = ref(false)
 const snapshotLoading = ref(false)
+const batchSaveCheckLoading = ref(false)
+const dateRange = ref([])
 const currentInventoryCheckStatus = ref("draft")
 const selectedInventoryCheckItemIds = ref([])
 const inventoryCheckItemMultiple = ref(true)
@@ -427,13 +462,20 @@ const checkStatItems = computed(() => {
   const draftCount = rows.filter(r => r.status === "draft").length
   const submittedCount = rows.filter(r => r.status === "submitted").length
   const netDiffAmt = rows.reduce((s, r) => s + Number(r.totalDiffAmount || 0), 0)
+  const curStatus = queryParams.value.status ?? ""
   return [
-    { label: "盘点单总数", value: total.value, suffix: "单", hint: "匹配当前条件的全部盘点单", icon: "Finished", tone: "violet" },
-    { label: "本页草稿盘点", value: draftCount, suffix: "单", hint: "支持快照载入与盲盘扫码", icon: "EditPen", tone: "slate" },
-    { label: "本页待审核", value: submittedCount, suffix: "单", hint: "审核后自动调整库存台账", icon: "Stamp", tone: "amber" },
-    { label: "本页净盈亏额", prefix: "¥", value: netDiffAmt.toFixed(2), hint: "本页差异金额净值合计", icon: "Money", tone: netDiffAmt >= 0 ? "emerald" : "rose" }
+    { key: "all", statusVal: "", label: "盘点单总数", value: total.value, suffix: "单", hint: "点击查看全部盘点单", icon: "Finished", tone: "violet", clickable: true, active: curStatus === "" },
+    { key: "draft", statusVal: "draft", label: "本页草稿盘点", value: draftCount, suffix: "单", hint: "点击筛选草稿盘点单", icon: "EditPen", tone: "slate", clickable: true, active: curStatus === "draft" },
+    { key: "submitted", statusVal: "submitted", label: "本页待审核", value: submittedCount, suffix: "单", hint: "点击筛选待审核单据", icon: "Stamp", tone: "amber", clickable: true, active: curStatus === "submitted" },
+    { key: "diff", label: "本页净盈亏额", prefix: "¥", value: netDiffAmt.toFixed(2), hint: "本页差异金额净值合计", icon: "Money", tone: netDiffAmt >= 0 ? "emerald" : "rose" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.statusVal !== undefined) {
+    handleQuickStatus(item.statusVal)
+  }
+}
 
 function handleQuickStatus(val) {
   queryParams.value.status = val === "" ? undefined : val
@@ -632,7 +674,7 @@ function ensureInventoryCheckItemEditable(actionLabel) {
 
 function getList() {
   loading.value = true
-  listInventoryCheck(queryParams.value).then(response => {
+  listInventoryCheck(proxy.addDateRange(queryParams.value, dateRange.value)).then(response => {
     inventoryCheckList.value = response.rows
     total.value = response.total
     ensureInventoryCheckReferenceOptionsLoaded(response.rows)
@@ -746,6 +788,7 @@ function handleQuery() {
 const currentCheckWarehouseId = ref(undefined)
 
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.status = undefined
   queryParams.value.checkNo = undefined
@@ -760,9 +803,46 @@ function handleSelectionChange(selection) {
   single.value = selection.length !== 1
   multiple.value = !selection.length
   canUpdateSelected.value = selection.length === 1 && isDraftStatus(selection[0].status)
-  canSubmitSelected.value = selection.length === 1 && isDraftStatus(selection[0].status)
-  canAuditSelected.value = selection.length === 1 && isSubmittedStatus(selection[0].status)
+  canSubmitSelected.value = selection.length > 0 && selection.every(item => isDraftStatus(item.status))
+  canAuditSelected.value = selection.length > 0 && selection.every(item => isSubmittedStatus(item.status))
   canDeleteSelected.value = selection.length > 0 && selection.every(item => isDraftStatus(item.status))
+}
+
+function handleInlineCheckQtyChange(row) {
+  if (!row) return
+  const stockQty = Number(row.stockQty || 0)
+  const actualQty = Number(row.actualQty || 0)
+  const diffQty = Math.round((actualQty - stockQty) * 100) / 100
+  row.diffQty = diffQty
+  if (row.price !== null && row.price !== undefined) {
+    row.diffAmount = Math.round(diffQty * Number(row.price || 0) * 100) / 100
+  }
+}
+
+async function handleBatchSaveInventoryCheckItems() {
+  if (!ensureInventoryCheckItemEditable("保存")) return
+  if (!inventoryCheckItemList.value.length) return
+  batchSaveCheckLoading.value = true
+  try {
+    const payload = inventoryCheckItemList.value.map(row => ({
+      ...row,
+      checkId: currentCheckId.value,
+      actualQty: Number(row.actualQty ?? 0)
+    }))
+    const res = await batchUpdateInventoryCheckItem(payload)
+    proxy.$modal.msgSuccess(res.msg || "实盘明细已全部保存")
+    getInventoryCheckItemList()
+    getList()
+  } finally {
+    batchSaveCheckLoading.value = false
+  }
+}
+
+function handleExportInventoryCheckItems() {
+  if (!currentCheckId.value) return
+  proxy.download("business/inventoryCheckItem/export", {
+    checkId: currentCheckId.value
+  }, `inventoryCheckItem_${currentCheckId.value}_${new Date().getTime()}.xlsx`)
 }
 
 function handleAdd() {
@@ -922,6 +1002,15 @@ function getCurrentInventoryCheckId(row, actionText) {
 }
 
 function handleSubmit(row) {
+  if (!row?.checkId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量提交选中的 ${ids.value.length} 笔盘点单？`).then(() => {
+      return batchSubmitInventoryCheck(ids.value)
+    }).then(res => {
+      getList()
+      proxy.$modal.msgSuccess(res.msg || "批量提交完成")
+    }).catch(() => {})
+    return
+  }
   const checkId = getCurrentInventoryCheckId(row, "提交")
   if (!checkId) {
     return
@@ -935,6 +1024,15 @@ function handleSubmit(row) {
 }
 
 function handleAudit(row) {
+  if (!row?.checkId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量审核选中的 ${ids.value.length} 笔盘点单？审核后将自动调整库存台账。`).then(() => {
+      return batchAuditInventoryCheck(ids.value)
+    }).then(res => {
+      getList()
+      proxy.$modal.msgSuccess(res.msg || "批量审核完成")
+    }).catch(() => {})
+    return
+  }
   const checkId = getCurrentInventoryCheckId(row, "审核")
   if (!checkId) {
     return

@@ -8,7 +8,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,7 +52,7 @@ public class BizReportController extends BaseController
     public void saleExport(HttpServletResponse response, @RequestParam Map<String, Object> params) throws Exception
     {
         List<Map<String, Object>> list = bizReportService.selectSaleReportList(params);
-        try (XSSFWorkbook wb = new XSSFWorkbook())
+        try (SXSSFWorkbook wb = new SXSSFWorkbook(500))
         {
             Sheet sheet = wb.createSheet("销售明细报表");
             String[] headers = { "业务单号", "单据类型", "业务日期", "客户名称", "商品编码", "商品名称", "分类", "净销数量", "单价(元)", "成交金额(元)", "成本单价(元)", "成本金额(元)", "毛利额(元)" };
@@ -143,6 +143,104 @@ public class BizReportController extends BaseController
      *
      * @return 统一待办中心数据
      */
+    @PreAuthorize("@ss.hasPermi('business:report:view')")
+    @Log(title = "往来对账汇总报表", businessType = BusinessType.EXPORT)
+    @PostMapping("/reconciliationExport")
+    public void reconciliationExport(HttpServletResponse response, @RequestParam Map<String, Object> params) throws Exception
+    {
+        List<Map<String, Object>> list = bizReportService.selectReconciliationList(params);
+        writeDynamicSheet(response, "reconciliation_report_", "往来对账汇总",
+            new String[] { "往来类型", "单位名称", "累计业务金额(元)", "累计已结金额(元)", "期末未结余额(元)", "逾期未结金额(元)", "待结单数" },
+            list, item -> new String[] {
+                "supplier".equals(safeStr(item.get("targetType"))) ? "供应商应付" : "客户应收",
+                safeStr(item.get("targetName")),
+                safeStr(item.get("totalAmount")),
+                safeStr(item.get("settledAmount")),
+                safeStr(item.get("remainAmount")),
+                safeStr(item.get("overdueAmount")),
+                safeStr(item.get("openBillCount"))
+            });
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:report:view')")
+    @Log(title = "商品经营排行报表", businessType = BusinessType.EXPORT)
+    @PostMapping("/productRankingExport")
+    public void productRankingExport(HttpServletResponse response, @RequestParam Map<String, Object> params) throws Exception
+    {
+        List<Map<String, Object>> list = bizReportService.selectProductRankingList(params);
+        writeDynamicSheet(response, "product_ranking_", "商品经营排行",
+            new String[] { "商品编码", "商品名称", "分类", "净销数量", "净销售额(元)", "毛利额(元)", "退货率(%)", "当前库存" },
+            list, item -> new String[] {
+                safeStr(item.get("productCode")),
+                safeStr(item.get("productName")),
+                safeStr(item.get("categoryName")),
+                safeStr(item.get("netSaleQty")),
+                safeStr(item.get("netSaleAmount")),
+                item.get("grossProfitAmount") == null ? "权限脱敏" : safeStr(item.get("grossProfitAmount")),
+                safeStr(item.get("returnRate")),
+                safeStr(item.get("currentStockQty"))
+            });
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:report:view')")
+    @Log(title = "进销项税票汇总", businessType = BusinessType.EXPORT)
+    @PostMapping("/invoiceTaxExport")
+    public void invoiceTaxExport(HttpServletResponse response, @RequestParam Map<String, Object> params) throws Exception
+    {
+        List<Map<String, Object>> list = bizReportService.selectInvoiceTaxList(params);
+        writeDynamicSheet(response, "invoice_tax_report_", "进销项税票汇总",
+            new String[] { "发票号码", "发票方向", "往来单位", "开票日期", "不含税金额(元)", "税率(%)", "税额(元)", "价税合计(元)", "状态" },
+            list, item -> new String[] {
+                safeStr(item.get("invoiceNo")),
+                "purchase".equals(safeStr(item.get("invoiceDirection"))) ? "进项发票" : "销项发票",
+                safeStr(item.get("targetName")),
+                safeStr(item.get("invoiceDate")),
+                safeStr(item.get("amountWithoutTax")),
+                safeStr(item.get("taxRate")),
+                safeStr(item.get("taxAmount")),
+                safeStr(item.get("totalAmount")),
+                safeStr(item.get("status"))
+            });
+    }
+
+    private void writeDynamicSheet(HttpServletResponse response, String filePrefix, String sheetName,
+                                   String[] headers, List<Map<String, Object>> list,
+                                   java.util.function.Function<Map<String, Object>, String[]> mapper) throws Exception
+    {
+        try (SXSSFWorkbook wb = new SXSSFWorkbook(500))
+        {
+            Sheet sheet = wb.createSheet(sheetName);
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++)
+            {
+                headerRow.createCell(i).setCellValue(headers[i]);
+            }
+            int rowIdx = 1;
+            if (list != null)
+            {
+                for (Map<String, Object> item : list)
+                {
+                    Row row = sheet.createRow(rowIdx++);
+                    String[] cols = mapper.apply(item);
+                    for (int c = 0; c < cols.length; c++)
+                    {
+                        row.createCell(c).setCellValue(cols[c] == null ? "" : cols[c]);
+                    }
+                }
+            }
+            String fileName = URLEncoder.encode(filePrefix + System.currentTimeMillis() + ".xlsx", StandardCharsets.UTF_8.name());
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setCharacterEncoding("utf-8");
+            response.setHeader("Content-Disposition", "attachment;filename=" + fileName);
+            try (OutputStream out = response.getOutputStream())
+            {
+                wb.write(out);
+                out.flush();
+            }
+            wb.dispose();
+        }
+    }
+
     @PreAuthorize("@ss.hasPermi('business:todoCenter:list')")
     @GetMapping("/todoCenter")
     public AjaxResult todoCenter()

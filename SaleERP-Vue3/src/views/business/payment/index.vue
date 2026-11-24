@@ -9,7 +9,7 @@
       :badge="`共 ${total} 笔付款`"
     >
       <template #actions>
-        <el-button type="primary" icon="Download" @click="handleExport" v-hasPermi="['business:payment:export']">导出付款</el-button>
+        <el-button plain icon="Download" @click="handleExport" v-hasPermi="['business:payment:export']">导出付款</el-button>
       </template>
     </erp-page-header>
 

@@ -149,6 +149,14 @@ public class WmsSaleOrderController extends BaseController
         return toAjax(wmsSaleOrderService.submitWmsSaleOrder(saleOrderId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:submit')")
+    @Log(title = "批量提交销售订单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchSubmit")
+    public AjaxResult batchSubmit(@RequestBody List<Long> saleOrderIds)
+    {
+        return BatchActionHelper.execute(saleOrderIds, "提交", wmsSaleOrderService::submitWmsSaleOrder);
+    }
+
     /**
      * 经理审核销售单
      */
@@ -159,6 +167,19 @@ public class WmsSaleOrderController extends BaseController
     {
         String auditComment = wmsSaleOrder == null ? null : wmsSaleOrder.getManagerAuditComment();
         return toAjax(wmsSaleOrderService.managerAuditWmsSaleOrder(saleOrderId, auditComment));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:managerAudit')")
+    @Log(title = "批量经理审核销售订单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchManagerAudit")
+    public AjaxResult batchManagerAudit(@RequestBody java.util.Map<String, Object> body)
+    {
+        @SuppressWarnings("unchecked")
+        List<Number> rawIds = body == null ? null : (List<Number>) body.get("ids");
+        String comment = body == null || body.get("auditComment") == null ? null : String.valueOf(body.get("auditComment"));
+        List<Long> ids = new java.util.ArrayList<>();
+        if (rawIds != null) { for (Number n : rawIds) { if (n != null) ids.add(n.longValue()); } }
+        return BatchActionHelper.execute(ids, "经理审核", id -> wmsSaleOrderService.managerAuditWmsSaleOrder(id, comment));
     }
 
     /**
@@ -183,6 +204,19 @@ public class WmsSaleOrderController extends BaseController
     {
         String auditComment = wmsSaleOrder == null ? null : wmsSaleOrder.getFinanceAuditComment();
         return toAjax(wmsSaleOrderService.financeAuditWmsSaleOrder(saleOrderId, auditComment));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:saleOrder:financeAudit')")
+    @Log(title = "批量财务审核销售订单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchFinanceAudit")
+    public AjaxResult batchFinanceAudit(@RequestBody java.util.Map<String, Object> body)
+    {
+        @SuppressWarnings("unchecked")
+        List<Number> rawIds = body == null ? null : (List<Number>) body.get("ids");
+        String comment = body == null || body.get("auditComment") == null ? null : String.valueOf(body.get("auditComment"));
+        List<Long> ids = new java.util.ArrayList<>();
+        if (rawIds != null) { for (Number n : rawIds) { if (n != null) ids.add(n.longValue()); } }
+        return BatchActionHelper.execute(ids, "财务审核", id -> wmsSaleOrderService.financeAuditWmsSaleOrder(id, comment));
     }
 
     /**

@@ -51,3 +51,11 @@ export function exportPayable(query) {
     params: query
   })
 }
+
+export function offsetPayable(data) {
+  return request({
+    url: '/business/payable/offset',
+    method: 'post',
+    data
+  })
+}

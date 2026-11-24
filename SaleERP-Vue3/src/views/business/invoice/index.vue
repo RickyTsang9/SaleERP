@@ -15,29 +15,41 @@
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="invoiceStatItems" :columns="4" />
+    <erp-stat-strip :items="invoiceStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true" label-width="82px">
         <el-form-item label="发票号码" prop="invoiceNo">
-          <el-input v-model="queryParams.invoiceNo" placeholder="请输入发票号码" clearable style="width: 185px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.invoiceNo" placeholder="请输入发票号码" clearable style="width: 170px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="发票类型" prop="invoiceType">
-          <el-select v-model="queryParams.invoiceType" placeholder="全部类型" clearable style="width: 145px">
+          <el-select v-model="queryParams.invoiceType" placeholder="全部类型" clearable style="width: 140px">
             <el-option label="全电数电票" value="electronic" />
             <el-option label="增值税专票" value="special" />
             <el-option label="增值税普票" value="normal" />
           </el-select>
         </el-form-item>
         <el-form-item label="往来单位" prop="targetName">
-          <el-input v-model="queryParams.targetName" placeholder="客户或供应商名称" clearable style="width: 180px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.targetName" placeholder="客户或供应商名称" clearable style="width: 165px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" placeholder="全部状态" clearable style="width: 135px">
+          <el-select v-model="queryParams.status" placeholder="全部状态" clearable style="width: 125px">
             <el-option label="正常有效" value="issued" />
             <el-option label="已红冲作废" value="red_void" />
             <el-option label="草稿" value="draft" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="开票日期">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -265,6 +277,7 @@
 import { useRoute, useRouter } from "vue-router"
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listInvoice, getInvoiceSummary, getInvoiceSourceOptions, getInvoice, addInvoice, updateInvoice, voidInvoice } from "@/api/business/invoice"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -292,11 +305,24 @@ const directionTabItems = [
 ]
 
 const invoiceStatItems = computed(() => [
-  { label: "销项有效开票额", prefix: "¥", value: formatMoney(summary.value.saleTotalAmount), hint: `销项税额 ¥${formatMoney(summary.value.saleTaxAmount)}`, icon: "Postcard", tone: "indigo" },
-  { label: "进项有效收票额", prefix: "¥", value: formatMoney(summary.value.purchaseTotalAmount), hint: `可抵扣进项税 ¥${formatMoney(summary.value.purchaseTaxAmount)}`, icon: "DocumentChecked", tone: "emerald" },
-  { label: "预计应纳增值税", prefix: "¥", value: formatMoney(summary.value.estimatedVatPayable), hint: Number(summary.value.estimatedVatPayable || 0) >= 0 ? "销项税大于进项税（待缴）" : "进项留抵税额结余", icon: "Money", tone: Number(summary.value.estimatedVatPayable || 0) >= 0 ? "amber" : "emerald" },
-  { label: "红冲作废发票", value: summary.value.voidCount || 0, suffix: "张", hint: "红冲记录保留完整税务留痕", icon: "RefreshLeft", tone: "rose" }
+  { key: "sale", dirVal: "sale", label: "销项有效开票额", prefix: "¥", value: formatMoney(summary.value.saleTotalAmount), hint: `点击筛选销项 · 税额 ¥${formatMoney(summary.value.saleTaxAmount)}`, icon: "Postcard", tone: "indigo", clickable: true, active: queryParams.value.invoiceDirection === "sale" },
+  { key: "purchase", dirVal: "purchase", label: "进项有效收票额", prefix: "¥", value: formatMoney(summary.value.purchaseTotalAmount), hint: `点击筛选进项 · 进项税 ¥${formatMoney(summary.value.purchaseTaxAmount)}`, icon: "DocumentChecked", tone: "emerald", clickable: true, active: queryParams.value.invoiceDirection === "purchase" },
+  { key: "all", dirVal: "", label: "预计应纳增值税", prefix: "¥", value: formatMoney(summary.value.estimatedVatPayable), hint: Number(summary.value.estimatedVatPayable || 0) >= 0 ? "销项税大于进项税（待缴）" : "进项留抵税额结余", icon: "Money", tone: Number(summary.value.estimatedVatPayable || 0) >= 0 ? "amber" : "emerald", clickable: true, active: !queryParams.value.invoiceDirection },
+  { key: "void", statusVal: "red_void", label: "红冲作废发票", value: summary.value.voidCount || 0, suffix: "张", hint: "点击筛选红冲作废记录", icon: "RefreshLeft", tone: "rose", clickable: true, active: queryParams.value.status === "red_void" }
 ])
+
+function handleStatSelect(item) {
+  if (!item) return
+  if (item.statusVal !== undefined) {
+    queryParams.value.status = queryParams.value.status === item.statusVal ? undefined : item.statusVal
+    handleQuery()
+    return
+  }
+  if (item.dirVal !== undefined) {
+    queryParams.value.status = undefined
+    handleQuickDirection(item.dirVal)
+  }
+}
 
 function handleQuickDirection(val) {
   queryParams.value.invoiceDirection = val === "" ? undefined : val
@@ -305,6 +331,7 @@ function handleQuickDirection(val) {
 
 const open = ref(false)
 const saving = ref(false)
+const dateRange = ref([])
 const dialogTitle = ref("登记发票")
 const customerList = ref([])
 const supplierList = ref([])
@@ -389,7 +416,7 @@ function formatInvoiceTypeShort(t) {
 async function getList() {
   loading.value = true
   try {
-    const res = await listInvoice(queryParams.value)
+    const res = await listInvoice(proxy.addDateRange(queryParams.value, dateRange.value))
     invoiceList.value = res.rows || []
     total.value = res.total || 0
   } finally {
@@ -398,7 +425,7 @@ async function getList() {
 }
 
 async function loadSummary() {
-  const res = await getInvoiceSummary(queryParams.value)
+  const res = await getInvoiceSummary(proxy.addDateRange(queryParams.value, dateRange.value))
   summary.value = res.data || summary.value
 }
 
@@ -437,6 +464,7 @@ function handleQuery() {
 }
 
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.invoiceDirection = undefined
   queryParams.value.sourceOrderNo = undefined
@@ -585,13 +613,28 @@ function handlePrintInvoice(row) {
 }
 
 function handleExport() {
-  proxy.download("business/invoice/export", { ...queryParams.value }, `invoice_${Date.now()}.xlsx`)
+  proxy.download("business/invoice/export", { ...proxy.addDateRange(queryParams.value, dateRange.value) }, `invoice_${Date.now()}.xlsx`)
 }
 
-function applyRouteQueryAndRefresh() {
+async function applyRouteQueryAndRefresh() {
   queryParams.value.invoiceDirection = route.query.invoiceDirection ? String(route.query.invoiceDirection) : undefined
   queryParams.value.sourceOrderNo = route.query.sourceOrderNo ? String(route.query.sourceOrderNo) : undefined
-  refreshAll()
+  await refreshAll()
+  if (route.query.mode === "create") {
+    const dir = route.query.invoiceDirection === "purchase" ? "purchase" : "sale"
+    await handleAdd(dir)
+    if (route.query.sourceOrderId) {
+      const sourceId = Number(route.query.sourceOrderId)
+      if (!Number.isNaN(sourceId)) {
+        form.value.sourceOrderId = sourceId
+        handlePickSourceOrder(sourceId)
+      }
+    }
+    const nextQuery = { ...route.query }
+    delete nextQuery.mode
+    delete nextQuery.sourceOrderId
+    router.replace({ path: route.path, query: nextQuery }).catch(() => {})
+  }
 }
 
 applyRouteQueryAndRefresh()

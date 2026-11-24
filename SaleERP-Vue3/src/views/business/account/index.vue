@@ -1,15 +1,17 @@
 <template>
   <div class="app-container erp-page fin-account-period-page">
     <erp-page-header
-      eyebrow="财务核算 · 资金与关账"
+      eyebrow="财务分析 · 资金与关账"
       title="资金账户与月结关账"
-      subtitle="实时掌控多渠道结算账户资金池余额、资金收支流水与互转登记，并按会计期间执行月结锁定与反结账管控。"
+      subtitle="管理各结算账户余额、收支流水与账户互转，并按会计期间执行月结关账与反结账。"
       icon="CreditCard"
       tone="indigo"
       :badge="`在用 ${summary.activeCount || 0} 个结算户`"
     >
       <template #actions>
         <el-button icon="Refresh" plain @click="handleRefreshActiveTab">刷新数据</el-button>
+        <el-button v-if="activeTab === 'accounts'" plain icon="Download" @click="handleExportAccounts" v-hasPermi="['business:account:list']">导出账户</el-button>
+        <el-button v-if="activeTab === 'journals'" plain icon="Download" @click="handleExportJournals" v-hasPermi="['business:account:list']">导出流水</el-button>
         <el-button v-if="activeTab !== 'periods'" plain icon="Switch" @click="handleOpenTransfer" v-hasPermi="['business:account:edit']">账户互转</el-button>
         <el-button v-if="activeTab !== 'periods'" type="success" plain icon="Money" @click="handleOpenOtherFund" v-hasPermi="['business:account:edit']">登记日常收支</el-button>
         <el-button v-if="activeTab === 'accounts'" type="primary" icon="Plus" @click="handleAddAccount" v-hasPermi="['business:account:edit']">新增结算账户</el-button>
@@ -116,6 +118,18 @@
                 <el-option label="日常其他收入" value="other_income" />
                 <el-option label="日常费用支出" value="other_expense" />
               </el-select>
+            </el-form-item>
+            <el-form-item label="发生时间">
+              <el-date-picker
+                v-model="journalDateRange"
+                value-format="YYYY-MM-DD"
+                type="daterange"
+                range-separator="-"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                :shortcuts="ERP_DATE_SHORTCUTS"
+                style="width: 235px"
+              />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" icon="Search" @click="handleJournalQuery">搜索</el-button>
@@ -415,10 +429,12 @@ import {
   closePeriod,
   reopenPeriod
 } from "@/api/business/account"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 
 const { proxy } = getCurrentInstance()
 
 const activeTab = ref("accounts")
+const journalDateRange = ref([])
 const accountLoading = ref(true)
 const journalLoading = ref(false)
 const periodLoading = ref(true)
@@ -586,7 +602,7 @@ async function refreshAccountData() {
 async function loadJournalList() {
   journalLoading.value = true
   try {
-    const res = await listAccountJournal(journalQuery.value)
+    const res = await listAccountJournal(proxy.addDateRange(journalQuery.value, journalDateRange.value))
     journalList.value = res.rows || []
     journalTotal.value = res.total || 0
   } finally {
@@ -600,6 +616,7 @@ function handleJournalQuery() {
 }
 
 function resetJournalQuery() {
+  journalDateRange.value = []
   journalQuery.value = {
     pageNum: 1,
     pageSize: 15,
@@ -608,6 +625,16 @@ function resetJournalQuery() {
     bizType: undefined
   }
   loadJournalList()
+}
+
+function handleExportAccounts() {
+  proxy.download("business/account/export", {}, `fin_account_${Date.now()}.xlsx`)
+}
+
+function handleExportJournals() {
+  proxy.download("business/account/journal/export", {
+    ...proxy.addDateRange(journalQuery.value, journalDateRange.value)
+  }, `fin_account_journal_${Date.now()}.xlsx`)
 }
 
 function handleViewAccountJournal(row) {

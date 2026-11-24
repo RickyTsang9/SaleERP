@@ -81,7 +81,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 and wo.status = #{status}
             </if>
             <if test="sourceOrderNo != null and sourceOrderNo != ''">
-                and wo.source_order_no = #{sourceOrderNo}
+                and (wo.source_order_no like concat('%', #{sourceOrderNo}, '%') or so.order_no like concat('%', #{sourceOrderNo}, '%'))
+            </if>
+            <if test="params.beginTime != null and params.beginTime != ''">
+                and wo.create_time &gt;= #{params.beginTime}
+            </if>
+            <if test="params.endTime != null and params.endTime != ''">
+                and wo.create_time &lt;= concat(#{params.endTime}, ' 23:59:59')
             </if>
             ${params.dataScope}
         </where>

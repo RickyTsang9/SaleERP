@@ -1,7 +1,7 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="销售履约中心 · 发货出库"
+      eyebrow="销售管理 · 销售出库"
       title="销售出库管理"
       subtitle="管理拣货核验、条码扫描、物流配送与标准送货单打印，审核后扣减实物库存并释放预占。"
       icon="Upload"
@@ -14,27 +14,37 @@
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="outboundStatItems" :columns="4" />
+    <erp-stat-strip :items="outboundStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true">
         <el-form-item label="出库单号" prop="outboundNo">
-          <el-input v-model="queryParams.outboundNo" placeholder="请输入出库单号" clearable style="width: 190px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.outboundNo" placeholder="请输入出库单号" clearable style="width: 170px" @keyup.enter="handleQuery" />
         </el-form-item>
-        <el-form-item label="出库类型" prop="outboundType">
-          <el-select v-model="queryParams.outboundType" placeholder="全部类型" clearable style="width: 145px">
-            <el-option v-for="outboundTypeOption in outboundTypeOptionList" :key="outboundTypeOption.value" :label="outboundTypeOption.label" :value="outboundTypeOption.value" />
-          </el-select>
+        <el-form-item label="来源单号" prop="sourceOrderNo">
+          <el-input v-model="queryParams.sourceOrderNo" placeholder="请输入销售单号" clearable style="width: 170px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="客户" prop="customerId">
-          <el-select v-model="queryParams.customerId" placeholder="请选择客户" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadCustomerOptionList" :loading="customerListLoading" style="width: 195px">
+          <el-select v-model="queryParams.customerId" placeholder="请选择客户" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadCustomerOptionList" :loading="customerListLoading" style="width: 175px">
             <el-option v-for="customer in customerSelectOptionList" :key="customer.customerId" :label="customer.customerName" :value="customer.customerId" />
           </el-select>
         </el-form-item>
         <el-form-item label="仓库" prop="warehouseId">
-          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 175px">
+          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 165px">
             <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="出库日期">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -50,7 +60,9 @@
         </div>
         <div class="erp-toolbar-right">
           <el-button type="success" plain icon="Edit" :disabled="!canUpdateSelected" @click="handleUpdate" v-hasPermi="['business:outbound:edit']">修改</el-button>
-          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete" v-hasPermi="['business:outbound:remove']">删除</el-button>
+          <el-button type="info" plain icon="Upload" :disabled="!canSubmitSelected" @click="handleSubmit()" v-hasPermi="['business:outbound:edit']">提交</el-button>
+          <el-button type="warning" plain icon="CircleCheck" :disabled="!canAuditSelected" @click="handleAudit()" v-hasPermi="['business:outbound:audit']">审核</el-button>
+          <el-button type="danger" plain icon="Delete" :disabled="!canDeleteSelected" @click="handleDelete()" v-hasPermi="['business:outbound:remove']">删除</el-button>
           <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" />
         </div>
       </div>
@@ -159,8 +171,29 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="来源销售单" prop="saleOrderNo">
-              <el-input v-model="form.saleOrderNo" placeholder="未关联销售单" disabled />
+            <el-form-item label="来源销售单" prop="saleOrderId">
+              <el-select
+                v-if="!form.outboundId"
+                v-model="form.saleOrderId"
+                placeholder="可选：搜索已审核销售单自动带入发货明细"
+                clearable
+                filterable
+                remote
+                reserve-keyword
+                remote-show-suffix
+                :remote-method="loadAvailableSaleOrders"
+                :loading="soSelectLoading"
+                style="width: 100%"
+                @change="handleSaleOrderSelectChange"
+              >
+                <el-option
+                  v-for="so in availableSaleOrderList"
+                  :key="so.saleOrderId"
+                  :label="`${so.orderNo} | ${so.customerName || ''} (待出 ${so.remainQuantity ?? so.totalQty ?? 0})`"
+                  :value="so.saleOrderId"
+                />
+              </el-select>
+              <el-input v-else v-model="form.saleOrderNo" placeholder="未关联销售单" disabled />
             </el-form-item>
           </el-col>
         </el-row>
@@ -213,18 +246,6 @@
           <el-col :span="12">
             <el-form-item label="总金额" prop="totalAmount">
               <el-input-number v-model="form.totalAmount" :min="0" :precision="2" controls-position="right" style="width: 100%" :disabled="true" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row>
-          <el-col :span="12">
-            <el-form-item label="平台类型" prop="platformType">
-              <el-input v-model="form.platformType" placeholder="请输入平台类型" :disabled="!isOutboundFormEditable()" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="店铺编号" prop="storeId">
-              <el-input-number v-model="form.storeId" :min="0" controls-position="right" style="width: 100%" :disabled="!isOutboundFormEditable()" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -310,7 +331,10 @@
             v-hasPermi="['business:outbound:remove']"
           >删除明细</el-button>
         </el-col>
-        <el-col :span="12" v-if="isOutboundItemEditable()" v-hasPermi="['business:outbound:add', 'business:outbound:edit']">
+        <el-col :span="1.5">
+          <el-button plain icon="Download" @click="handleExportOutboundItems" v-hasPermi="['business:outbound:export']">导出明细</el-button>
+        </el-col>
+        <el-col :span="10" v-if="isOutboundItemEditable()" v-hasPermi="['business:outbound:add', 'business:outbound:edit']">
           <el-input
             v-model="outboundScanCode"
             placeholder="扫码出库：扫描/输入条码或商品编码按回车（自动匹配+1）"
@@ -468,16 +492,17 @@
 
 <script setup name="Outbound">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
-import { listOutbound, getOutbound, addOutbound, updateOutbound, delOutbound, submitOutbound, auditOutbound, rejectOutbound, updateOutboundDelivery, cancelOutbound } from "@/api/business/outbound"
+import { listOutbound, getOutbound, addOutbound, updateOutbound, delOutbound, submitOutbound, auditOutbound, batchSubmitOutbound, batchAuditOutbound, rejectOutbound, updateOutboundDelivery, cancelOutbound } from "@/api/business/outbound"
 import { listOutboundItem, getOutboundItem, addOutboundItem, updateOutboundItem, delOutboundItem } from "@/api/business/outboundItem"
 import { recommendStockBatch } from "@/api/business/stock"
-import { getSaleOrder } from "@/api/business/saleOrder"
+import { listSaleOrder, getSaleOrder } from "@/api/business/saleOrder"
 import { listCustomer, getCustomer } from "@/api/business/customer"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct, scanProductByCode } from "@/api/business/product"
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
 import { buildDocumentSelectionState, resolveDocumentActionRow } from "@/utils/documentPage"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -491,7 +516,12 @@ const ids = ref([])
 const single = ref(true)
 const multiple = ref(true)
 const canUpdateSelected = ref(false)
+const canSubmitSelected = ref(false)
+const canAuditSelected = ref(false)
 const canDeleteSelected = ref(false)
+const dateRange = ref([])
+const availableSaleOrderList = ref([])
+const soSelectLoading = ref(false)
 const total = ref(0)
 const title = ref("")
 const outboundItemOpen = ref(false)
@@ -570,6 +600,7 @@ const data = reactive({
     pageNum: 1,
     pageSize: 10,
     saleOrderId: undefined,
+    sourceOrderNo: undefined,
     outboundNo: undefined,
     outboundType: undefined,
     customerId: undefined,
@@ -610,13 +641,20 @@ const outboundStatItems = computed(() => {
   const submittedCount = rows.filter(r => r.status === "submitted").length
   const shippingCount = rows.filter(r => r.deliveryStatus === "shipping" || r.deliveryStatus === "shipped").length
   const pageAmount = rows.reduce((s, r) => s + Number(r.totalAmount || 0), 0)
+  const curStatus = queryParams.value.status ?? ""
   return [
-    { label: "出库单总数", value: total.value, suffix: "单", hint: "匹配当前筛选的全部发货单", icon: "Upload", tone: "blue" },
-    { label: "本页待审核出库", value: submittedCount, suffix: "单", hint: "审核后自动扣库释放锁库", icon: "Stamp", tone: "amber" },
-    { label: "本页配送中", value: shippingCount, suffix: "单", hint: "物流在途履约单据", icon: "Van", tone: "indigo" },
-    { label: "本页出库总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "本页发货商品总金额", icon: "Money", tone: "emerald" }
+    { key: "all", statusVal: "", label: "出库单总数", value: total.value, suffix: "单", hint: "点击查看全部出库单", icon: "Upload", tone: "blue", clickable: true, active: curStatus === "" },
+    { key: "submitted", statusVal: "submitted", label: "本页待审核出库", value: submittedCount, suffix: "单", hint: "点击筛选待审核出库单", icon: "Stamp", tone: "amber", clickable: true, active: curStatus === "submitted" },
+    { key: "audited", statusVal: "audited", label: "本页配送中", value: shippingCount, suffix: "单", hint: "点击筛选已审核出库单", icon: "Van", tone: "indigo", clickable: true, active: curStatus === "audited" },
+    { key: "amt", label: "本页出库总额", prefix: "¥", value: pageAmount.toFixed(2), hint: "本页发货商品总金额", icon: "Money", tone: "emerald" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.statusVal !== undefined) {
+    handleQuickStatus(item.statusVal)
+  }
+}
 
 function handleQuickStatus(val) {
   queryParams.value.status = val === "" ? undefined : val
@@ -1079,7 +1117,7 @@ function getOutboundItemSourceProgressText(targetOutboundItem) {
 
 function getList() {
   loading.value = true
-  return listOutbound(queryParams.value).then(response => {
+  return listOutbound(proxy.addDateRange(queryParams.value, dateRange.value)).then(response => {
     outboundList.value = response.rows
     total.value = response.total
     ensureOutboundReferenceOptionsLoaded(response.rows)
@@ -1170,6 +1208,7 @@ function handleQuery() {
 }
 
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.saleOrderId = undefined
   queryParams.value.status = undefined
@@ -1218,12 +1257,62 @@ function handleSelectionChange(selection) {
   single.value = selectionState.single
   multiple.value = selectionState.multiple
   canUpdateSelected.value = selection.length === 1 && isDraftOutboundStatus(selection[0].status)
+  canSubmitSelected.value = selection.length > 0 && selection.every(selectionItem => isDraftOutboundStatus(selectionItem.status))
+  canAuditSelected.value = selection.length > 0 && selection.every(selectionItem => selectionItem.status === "submitted")
   canDeleteSelected.value = selection.length > 0 && selection.every(selectionItem => isDraftOutboundStatus(selectionItem.status))
+}
+
+function loadAvailableSaleOrders(keyword) {
+  soSelectLoading.value = true
+  listSaleOrder({
+    pageNum: 1,
+    pageSize: 50,
+    status: "audited",
+    orderNo: normalizeRemoteKeyword(keyword)
+  }).then(res => {
+    availableSaleOrderList.value = (res.rows || []).filter(so => Number(so.remainQuantity ?? so.totalQty ?? 1) > 0)
+  }).catch(() => {}).finally(() => {
+    soSelectLoading.value = false
+  })
+}
+
+function handleSaleOrderSelectChange(soId) {
+  if (!soId) {
+    form.value.saleOrderNo = undefined
+    form.value.sourceOrderNo = undefined
+    return
+  }
+  const so = availableSaleOrderList.value.find(item => item.saleOrderId === soId)
+  if (so) {
+    form.value.saleOrderNo = so.orderNo
+    form.value.sourceOrderNo = so.orderNo
+    form.value.outboundType = "sale"
+    form.value.customerId = so.customerId
+    form.value.warehouseId = so.warehouseId
+    ensureCustomerOptionLoaded(so.customerId)
+    ensureWarehouseOptionLoaded(so.warehouseId)
+  }
+}
+
+function handleExportOutboundItems() {
+  if (!currentOutboundId.value) return
+  proxy.download("business/outboundItem/export", {
+    outboundId: currentOutboundId.value
+  }, `outboundItem_${currentOutboundId.value}_${new Date().getTime()}.xlsx`)
 }
 
 async function handleAdd() {
   reset()
+  loadAvailableSaleOrders()
   await applyRouteSaleOrderToForm()
+  if (form.value.saleOrderId && form.value.saleOrderNo && !availableSaleOrderList.value.some(s => s.saleOrderId === form.value.saleOrderId)) {
+    availableSaleOrderList.value.unshift({
+      saleOrderId: form.value.saleOrderId,
+      orderNo: form.value.saleOrderNo,
+      customerName: getCustomerName(form.value.customerId),
+      remainQuantity: undefined
+    })
+  }
   open.value = true
   title.value = queryParams.value.saleOrderId ? "新增来源销售单出库" : "新增销售出库单"
 }
@@ -1449,8 +1538,17 @@ function getTargetOutboundRow(row, actionText) {
   )
 }
 
-// 提交按钮操作，补充空选择保护，避免未来工具栏入口场景下出现静默无响应。
+// 提交按钮操作，支持单条与多选批量提交。
 function handleSubmit(row) {
+  if (!row?.outboundId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量提交选中的 ${ids.value.length} 笔出库单？`).then(() => {
+      return batchSubmitOutbound(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量提交完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const targetOutboundRow = getTargetOutboundRow(row, "提交")
   if (!targetOutboundRow) {
     return
@@ -1463,8 +1561,17 @@ function handleSubmit(row) {
   }).catch(() => {})
 }
 
-// 审核按钮操作，补充空选择保护，避免未来工具栏入口场景下出现静默无响应。
+// 审核按钮操作，支持单条与多选批量审核。
 function handleAudit(row) {
+  if (!row?.outboundId && ids.value.length > 1) {
+    proxy.$modal.confirm(`是否确认批量审核选中的 ${ids.value.length} 笔出库单？审核后将正式核销库存锁定并扣减实物库存。`).then(() => {
+      return batchAuditOutbound(ids.value)
+    }).then(res => {
+      proxy.$modal.msgSuccess(res.msg || "批量审核完成")
+      getList()
+    }).catch(() => {})
+    return
+  }
   const targetOutboundRow = getTargetOutboundRow(row, "审核")
   if (!targetOutboundRow) {
     return
@@ -1561,9 +1668,9 @@ function handleExport() {
   }, `outbound_${new Date().getTime()}.xlsx`)
 }
 
-// 判断当前是否来自销售订单的一键新建出库入口，满足条件时直接打开新增弹窗。
+// 判断当前是否来自销售订单的一键新建出库入口，支持分批发货（只要当前无未提交草稿出库单即自动拉起建单）。
 function shouldAutoOpenLinkedOutboundFromRoute() {
-  return hasAutoCreateRouteMode() && outboundList.value.length === 0
+  return hasAutoCreateRouteMode() && !outboundList.value.some(r => r.status === "draft")
 }
 
 // 初始化页面基础数据和列表，并在需要时自动打开来源销售单的新建出库弹窗。

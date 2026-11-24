@@ -14,46 +14,61 @@
               <defs>
                 <linearGradient id="login_brand_grad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
                   <stop stop-color="#6366F1" />
-                  <stop offset="1" stop-color="#7C3AED" />
+                  <stop offset="1" stop-color="#4F46E5" />
                 </linearGradient>
               </defs>
             </svg>
           </span>
           <div class="login-brand__wordmark">
             <span class="login-brand__name">SaleERP</span>
-            <span class="login-brand__tag">ENTERPRISE EDITION</span>
+            <span class="login-brand__tag">销售与进销存管理系统</span>
           </div>
         </div>
 
         <div class="login-brand__hero">
-          <div class="login-brand__eyebrow">智慧经销云平台</div>
-          <h1 class="login-brand__headline">全链路业财一体<br />精准驱动增长决策</h1>
+          <div class="login-brand__eyebrow">采购 · 销售 · 仓储 · 财务</div>
+          <h1 class="login-brand__headline">让每一笔采销与库存<br />账实清晰、协同有序</h1>
           <p class="login-brand__desc">
-            整合采购、销售、FEFO 批次仓配、PDA 移动作业、资金月结与实时经营驾驶舱，构建高效透明的现代化商贸 ERP。
+            覆盖商品、客户与供应商档案，串联采购入库、销售出库、库存盘点及往来财务核算，规范单据流转并实时掌握经营数据。
           </p>
         </div>
 
         <div class="login-brand__features">
           <div class="login-feature-card">
-            <div class="login-feature-card__title">业财闭环协同</div>
-            <div class="login-feature-card__desc">销售、出入库、应收应付、发票与月结关账全自动穿透</div>
+            <div class="login-feature-card__head">
+              <el-icon class="login-feature-card__icon"><DocumentChecked /></el-icon>
+              <span class="login-feature-card__title">购销单据流转</span>
+            </div>
+            <div class="login-feature-card__desc">采购、销售、退货审批与全链路追溯</div>
           </div>
           <div class="login-feature-card">
-            <div class="login-feature-card__title">仓配扫码与效期</div>
-            <div class="login-feature-card__desc">支持无线 PDA 连续盲盘、近效期预警与 FEFO 智能拣货</div>
+            <div class="login-feature-card__head">
+              <el-icon class="login-feature-card__icon"><Box /></el-icon>
+              <span class="login-feature-card__title">批次仓储管理</span>
+            </div>
+            <div class="login-feature-card__desc">分仓库位、效期预警、锁库与扫码</div>
           </div>
           <div class="login-feature-card">
-            <div class="login-feature-card__title">经营驾驶舱洞察</div>
-            <div class="login-feature-card__desc">毛利排行、账龄风控、预算追踪与现金流压力即时推演</div>
+            <div class="login-feature-card__head">
+              <el-icon class="login-feature-card__icon"><Wallet /></el-icon>
+              <span class="login-feature-card__title">财务往来核算</span>
+            </div>
+            <div class="login-feature-card__desc">应收应付、资金流水、发票与月结</div>
+          </div>
+          <div class="login-feature-card">
+            <div class="login-feature-card__head">
+              <el-icon class="login-feature-card__icon"><DataAnalysis /></el-icon>
+              <span class="login-feature-card__title">分权经营报表</span>
+            </div>
+            <div class="login-feature-card__desc">按角色隔离权限，查看毛利与看板</div>
           </div>
         </div>
       </section>
 
       <el-form ref="loginRef" :model="loginForm" :rules="loginRules" class="login-form">
         <div class="login-form__header">
-          <span class="login-form__badge">统一身份认证</span>
-          <h2 class="title">{{ title }}</h2>
-          <p class="login-form__subtitle">欢迎回来，请输入您的企业账号与密码进入工作台</p>
+          <h2 class="title">账号登录</h2>
+          <p class="login-form__subtitle">请输入您的账号和密码登录 {{ title }}</p>
         </div>
 
         <el-alert
@@ -73,27 +88,27 @@
         </el-alert>
 
         <el-form-item prop="username">
-          <label class="login-field-label">登录账号</label>
+          <label class="login-field-label">账号</label>
           <el-input
             v-model="loginForm.username"
             type="text"
             size="large"
             auto-complete="off"
-            placeholder="请输入账号"
+            placeholder="请输入登录账号"
           >
             <template #prefix><svg-icon icon-class="user" class="el-input__icon input-icon" /></template>
           </el-input>
         </el-form-item>
 
         <el-form-item prop="password">
-          <label class="login-field-label">登录密码</label>
+          <label class="login-field-label">密码</label>
           <el-input
             v-model="loginForm.password"
             type="password"
             size="large"
             show-password
             auto-complete="off"
-            placeholder="请输入密码"
+            placeholder="请输入登录密码"
             @keyup.enter="handleLogin"
           >
             <template #prefix><svg-icon icon-class="password" class="el-input__icon input-icon" /></template>
@@ -101,7 +116,7 @@
         </el-form-item>
 
         <el-form-item prop="code" v-if="captchaEnabled">
-          <label class="login-field-label">安全校验码</label>
+          <label class="login-field-label">验证码</label>
           <div class="login-code-row">
             <el-input
               v-model="loginForm.code"
@@ -119,8 +134,8 @@
         </el-form-item>
 
         <div class="login-options">
-          <el-checkbox v-model="loginForm.rememberMe">记住登录凭证</el-checkbox>
-          <router-link v-if="register" class="link-type" :to="'/register'">注册新账号</router-link>
+          <el-checkbox v-model="loginForm.rememberMe">记住密码</el-checkbox>
+          <router-link v-if="register" class="link-type" :to="'/register'">注册账号</router-link>
         </div>
 
         <el-form-item class="login-submit">
@@ -131,20 +146,23 @@
             class="login-submit-btn"
             @click.prevent="handleLogin"
           >
-            <span v-if="!loading">进入工作台</span>
-            <span v-else>正在验证身份...</span>
+            <span v-if="!loading">登 录</span>
+            <span v-else>登录中...</span>
           </el-button>
         </el-form-item>
+
+        <p class="login-form__tip">忘记密码或需要开通岗位权限，请联系系统管理员处理。</p>
       </el-form>
     </div>
 
-    <div class="el-login-footer">
+    <footer class="el-login-footer">
       <span>{{ footerContent }}</span>
-    </div>
+    </footer>
   </div>
 </template>
 
 <script setup>
+import { Box, DataAnalysis, DocumentChecked, Wallet } from "@element-plus/icons-vue"
 import { getCodeImg } from "@/api/login"
 import Cookies from "js-cookie"
 import { encrypt, decrypt } from "@/utils/jsencrypt"
@@ -167,8 +185,8 @@ const loginForm = ref({
 })
 
 const loginRules = computed(() => ({
-  username: [{ required: true, trigger: "blur", message: "请输入您的账号" }],
-  password: [{ required: true, trigger: "blur", message: "请输入您的密码" }],
+  username: [{ required: true, trigger: "blur", message: "请输入登录账号" }],
+  password: [{ required: true, trigger: "blur", message: "请输入登录密码" }],
   code: captchaEnabled.value ? [{ required: true, trigger: "change", message: "请输入验证码" }] : []
 }))
 
@@ -294,38 +312,40 @@ getCookie()
 .login {
   position: relative;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  padding: 40px 24px 64px;
-  overflow: hidden;
+  padding: 32px 20px 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
-    radial-gradient(circle at 12% 18%, rgba(79, 70, 229, 0.14), transparent 36%),
-    radial-gradient(circle at 86% 82%, rgba(37, 99, 235, 0.12), transparent 38%),
+    radial-gradient(circle at 12% 18%, rgba(79, 70, 229, 0.12), transparent 36%),
+    radial-gradient(circle at 86% 82%, rgba(37, 99, 235, 0.1), transparent 38%),
     var(--erp-canvas);
 }
 
 .login-orb {
   position: absolute;
   border-radius: 999px;
-  filter: blur(72px);
+  filter: blur(76px);
   pointer-events: none;
-  opacity: 0.45;
+  opacity: 0.4;
 
   &--1 {
-    width: 360px;
-    height: 360px;
+    width: 340px;
+    height: 340px;
     top: -120px;
     left: -80px;
-    background: rgba(79, 70, 229, 0.35);
+    background: rgba(79, 70, 229, 0.32);
   }
 
   &--2 {
-    width: 320px;
-    height: 320px;
+    width: 300px;
+    height: 300px;
     right: -80px;
     bottom: -100px;
-    background: rgba(56, 189, 248, 0.28);
+    background: rgba(56, 189, 248, 0.24);
   }
 }
 
@@ -333,13 +353,13 @@ getCookie()
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(360px, 1.12fr) minmax(380px, 0.96fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   align-items: stretch;
-  width: min(1020px, 100%);
-  min-height: 600px;
+  width: min(980px, 100%);
+  min-height: 540px;
   overflow: hidden;
   border: 1px solid var(--erp-border);
-  border-radius: 22px;
+  border-radius: 20px;
   background: var(--erp-surface);
   box-shadow: var(--erp-shadow-lg);
 }
@@ -349,13 +369,13 @@ getCookie()
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 28px;
-  padding: 40px 38px;
+  gap: 24px;
+  padding: 36px 36px 34px;
   color: #f8fafc;
   background:
-    radial-gradient(circle at 18% 12%, rgba(99, 102, 241, 0.45), transparent 45%),
-    radial-gradient(circle at 85% 90%, rgba(14, 165, 233, 0.28), transparent 46%),
-    linear-gradient(155deg, #0f172a 0%, #1e1b4b 54%, #172554 100%);
+    radial-gradient(circle at 16% 12%, rgba(99, 102, 241, 0.4), transparent 46%),
+    radial-gradient(circle at 88% 92%, rgba(14, 165, 233, 0.22), transparent 46%),
+    linear-gradient(155deg, #0f172a 0%, #1e1b4b 56%, #172554 100%);
   overflow: hidden;
 
   &::after {
@@ -363,8 +383,8 @@ getCookie()
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
     background-size: 32px 32px;
     pointer-events: none;
   }
@@ -384,14 +404,14 @@ getCookie()
 }
 
 .login-brand__emblem {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  box-shadow: 0 10px 24px -4px rgba(99, 102, 241, 0.55);
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  box-shadow: 0 10px 22px -6px rgba(99, 102, 241, 0.55);
 
   svg {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     display: block;
   }
 }
@@ -402,18 +422,18 @@ getCookie()
 }
 
 .login-brand__name {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.15;
+  color: #ffffff;
 }
 
 .login-brand__tag {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  color: rgba(199, 210, 254, 0.78);
-  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(199, 210, 254, 0.85);
+  margin-top: 2px;
 }
 
 .login-brand__eyebrow {
@@ -423,40 +443,53 @@ getCookie()
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  color: #c7d2fe;
+  letter-spacing: 0.04em;
+  color: #e0e7ff;
   background: rgba(99, 102, 241, 0.24);
   border: 1px solid rgba(165, 180, 252, 0.28);
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .login-brand__headline {
   margin: 0;
-  font-size: 30px;
+  font-size: 27px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.3;
   letter-spacing: -0.02em;
   color: #ffffff;
 }
 
 .login-brand__desc {
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   font-size: 13.5px;
   line-height: 1.7;
-  color: rgba(226, 232, 240, 0.8);
+  color: rgba(226, 232, 240, 0.82);
 }
 
 .login-brand__features {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
 .login-feature-card {
-  padding: 12px 14px;
+  padding: 12px 13px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
+}
+
+.login-feature-card__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.login-feature-card__icon {
+  font-size: 15px;
+  color: #93c5fd;
+  flex-shrink: 0;
 }
 
 .login-feature-card__title {
@@ -466,10 +499,10 @@ getCookie()
 }
 
 .login-feature-card__desc {
-  margin-top: 3px;
+  margin-top: 5px;
   font-size: 12px;
   color: rgba(203, 213, 225, 0.78);
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .login-form {
@@ -477,23 +510,11 @@ getCookie()
   flex-direction: column;
   justify-content: center;
   width: 100%;
-  padding: 46px 46px 40px;
+  padding: 42px 42px 36px;
   background: var(--erp-surface);
 
   .login-form__header {
-    margin-bottom: 28px;
-  }
-
-  .login-form__badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--erp-primary);
-    background: var(--erp-primary-soft);
-    margin-bottom: 10px;
+    margin-bottom: 26px;
   }
 
   .title {
@@ -507,13 +528,14 @@ getCookie()
   .login-form__subtitle {
     margin: 8px 0 0;
     color: var(--erp-text-muted);
-    font-size: 13px;
+    font-size: 13.5px;
+    line-height: 1.5;
   }
 
   .login-field-label {
     display: block;
     width: 100%;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--erp-text-secondary);
     margin-bottom: 6px;
@@ -591,7 +613,7 @@ getCookie()
   align-items: center;
   justify-content: space-between;
   min-height: 24px;
-  margin: 2px 0 22px;
+  margin: 2px 0 20px;
 }
 
 .login-submit {
@@ -606,42 +628,49 @@ getCookie()
   border-radius: 10px !important;
   background: linear-gradient(135deg, var(--erp-primary) 0%, #6366f1 100%) !important;
   border: none !important;
-  box-shadow: 0 10px 22px -6px rgba(var(--erp-primary-rgb), 0.55) !important;
+  box-shadow: 0 10px 22px -6px rgba(var(--erp-primary-rgb), 0.5) !important;
+}
+
+.login-form__tip {
+  margin: 18px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--erp-text-muted);
+  text-align: center;
 }
 
 .el-login-footer {
-  position: fixed;
-  bottom: 0;
+  position: relative;
+  z-index: 1;
   width: 100%;
-  height: 40px;
-  line-height: 40px;
+  margin-top: 20px;
   text-align: center;
   color: var(--erp-text-muted);
   font-size: 12px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
-@media (max-width: 880px) {
+@media (max-width: 860px) {
   .login {
-    align-items: flex-start;
-    padding: 24px 16px 64px;
+    justify-content: flex-start;
+    padding: 20px 16px 24px;
   }
   .login-shell {
     grid-template-columns: 1fr;
     min-height: auto;
   }
   .login-brand {
-    padding: 28px 24px;
-    gap: 18px;
+    padding: 26px 24px;
+    gap: 16px;
   }
   .login-brand__features {
     display: none;
   }
   .login-brand__headline {
-    font-size: 24px;
+    font-size: 22px;
   }
   .login-form {
-    padding: 32px 24px 28px;
+    padding: 30px 24px 28px;
   }
 }
 

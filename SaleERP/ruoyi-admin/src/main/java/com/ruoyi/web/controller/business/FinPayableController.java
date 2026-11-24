@@ -91,6 +91,19 @@ public class FinPayableController extends BaseController
         return toAjax(finPayableService.updateFinPayable(finPayable));
     }
 
+    @PreAuthorize("@ss.hasAnyPermi('business:payable:edit,business:payment:add')")
+    @Log(title = "应付红字对冲核销", businessType = BusinessType.UPDATE)
+    @com.ruoyi.common.annotation.RepeatSubmit
+    @PostMapping("/offset")
+    public AjaxResult offset(@RequestBody java.util.Map<String, Object> body)
+    {
+        Long positivePayableId = body == null || body.get("positivePayableId") == null ? null : Long.valueOf(String.valueOf(body.get("positivePayableId")));
+        Long negativePayableId = body == null || body.get("negativePayableId") == null ? null : Long.valueOf(String.valueOf(body.get("negativePayableId")));
+        String remark = body == null || body.get("remark") == null ? null : String.valueOf(body.get("remark"));
+        java.math.BigDecimal offsetAmount = finPayableService.offsetPayable(positivePayableId, negativePayableId, remark, getUsername());
+        return AjaxResult.success("红字对冲成功，本次核销金额 ¥" + offsetAmount, offsetAmount);
+    }
+
     /**
      * 删除应付账款
      */

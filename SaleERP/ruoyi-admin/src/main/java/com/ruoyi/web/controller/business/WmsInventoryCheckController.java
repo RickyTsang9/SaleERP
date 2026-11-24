@@ -124,12 +124,28 @@ public class WmsInventoryCheckController extends BaseController
         return toAjax(wmsInventoryCheckService.submitWmsInventoryCheck(checkId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:edit')")
+    @Log(title = "批量提交库存盘点单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchSubmit")
+    public AjaxResult batchSubmit(@RequestBody List<Long> ids)
+    {
+        return BatchActionHelper.execute(ids, "提交", wmsInventoryCheckService::submitWmsInventoryCheck);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:inventoryCheck:audit')")
     @Log(title = "库存盘点单", businessType = BusinessType.UPDATE)
     @PostMapping("/audit/{checkId}")
     public AjaxResult audit(@PathVariable Long checkId)
     {
         return toAjax(wmsInventoryCheckService.auditWmsInventoryCheck(checkId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:inventoryCheck:audit')")
+    @Log(title = "批量审核库存盘点单", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchAudit")
+    public AjaxResult batchAudit(@RequestBody List<Long> ids)
+    {
+        return BatchActionHelper.execute(ids, "审核", wmsInventoryCheckService::auditWmsInventoryCheck);
     }
 
     @PreAuthorize("@ss.hasPermi('business:inventoryCheck:audit')")

@@ -1,42 +1,54 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="仓储实时监控 · 审计溯源"
+      eyebrow="库存管理 · 变动流水"
       title="库存变动流水"
-      subtitle="全量记录采购入库、销售出库、退货、盘点及调拨触发的每一笔批次数量与金额变动。"
+      subtitle="记录采购入库、销售出库、退货、盘点及调拨产生的每一笔批次数量与成本金额变动。"
       icon="Document"
       tone="indigo"
       :badge="`共 ${total} 条流水`"
     >
       <template #actions>
-        <el-button type="primary" icon="Download" @click="handleExport" v-hasPermi="['business:stockLog:export']">导出流水</el-button>
+        <el-button plain icon="Download" @click="handleExport" v-hasPermi="['business:stockLog:export']">导出流水</el-button>
       </template>
     </erp-page-header>
 
-    <erp-stat-strip :items="stockLogStatItems" :columns="4" />
+    <erp-stat-strip :items="stockLogStatItems" :columns="4" @select="handleStatSelect" />
 
     <section class="erp-filter-card" v-show="showSearch">
       <el-form :model="queryParams" ref="queryRef" :inline="true">
         <el-form-item label="仓库" prop="warehouseId">
-          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 185px">
+          <el-select v-model="queryParams.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 170px">
             <el-option v-for="warehouse in warehouseSelectOptionList" :key="warehouse.warehouseId" :label="warehouse.warehouseName" :value="warehouse.warehouseId" />
           </el-select>
         </el-form-item>
         <el-form-item label="商品" prop="productId">
-          <el-select v-model="queryParams.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 185px">
+          <el-select v-model="queryParams.productId" placeholder="请选择商品" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadProductOptionList" :loading="productListLoading" style="width: 170px">
             <el-option v-for="product in productSelectOptionList" :key="product.productId" :label="product.productName" :value="product.productId" />
           </el-select>
         </el-form-item>
         <el-form-item label="单据类型" prop="billType">
-          <el-select v-model="queryParams.billType" placeholder="全部类型" clearable style="width: 150px">
+          <el-select v-model="queryParams.billType" placeholder="全部类型" clearable style="width: 140px">
             <el-option v-for="billTypeOption in billTypeOptionList" :key="billTypeOption.value" :label="billTypeOption.label" :value="billTypeOption.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="单据号" prop="billNo">
-          <el-input v-model="queryParams.billNo" placeholder="请输入单据号" clearable style="width: 180px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.billNo" placeholder="请输入单据号" clearable style="width: 165px" @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item label="批次号" prop="batchNo">
-          <el-input v-model="queryParams.batchNo" placeholder="请输入批次号" clearable style="width: 155px" @keyup.enter="handleQuery" />
+          <el-input v-model="queryParams.batchNo" placeholder="请输入批次号" clearable style="width: 145px" @keyup.enter="handleQuery" />
+        </el-form-item>
+        <el-form-item label="发生时间">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -135,6 +147,7 @@ import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
 import { listLocation, getLocation } from "@/api/business/location"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat"
 import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
@@ -151,6 +164,7 @@ const locationListLoading = ref(false)
 const loading = ref(true)
 const showSearch = ref(true)
 const total = ref(0)
+const dateRange = ref([])
 const warehouseSelectOptionList = computed(() => buildWarehouseSelectOptionList())
 const productSelectOptionList = computed(() => buildProductSelectOptionList())
 const locationSelectOptionList = computed(() => buildLocationSelectOptionList())
@@ -200,13 +214,20 @@ const stockLogStatItems = computed(() => {
   const inQty = rows.filter(r => r.inOut === "in").reduce((s, r) => s + Number(r.quantity || 0), 0)
   const outQty = rows.filter(r => r.inOut === "out").reduce((s, r) => s + Number(r.quantity || 0), 0)
   const totalAmt = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
+  const curInOut = queryParams.value.inOut ?? ""
   return [
-    { label: "变动流水总数", value: total.value, suffix: "笔", hint: "完整留痕可审计追溯", icon: "Document", tone: "indigo" },
-    { label: "本页入库总量", value: inQty, suffix: "件", hint: "入库/退货/盘盈类增加", icon: "TopRight", tone: "emerald" },
-    { label: "本页出库总量", value: outQty, suffix: "件", hint: "出库/退供/盘亏类扣减", icon: "BottomRight", tone: "rose" },
-    { label: "本页涉及货值", prefix: "¥", value: totalAmt.toFixed(2), hint: "本页变动金额绝对值合计", icon: "Money", tone: "blue" }
+    { key: "all", inOutVal: "", label: "变动流水总数", value: total.value, suffix: "笔", hint: "点击查看全部变动流水", icon: "Document", tone: "indigo", clickable: true, active: curInOut === "" },
+    { key: "in", inOutVal: "in", label: "本页入库总量", value: inQty, suffix: "件", hint: "点击筛选入库增加流水", icon: "TopRight", tone: "emerald", clickable: true, active: curInOut === "in" },
+    { key: "out", inOutVal: "out", label: "本页出库总量", value: outQty, suffix: "件", hint: "点击筛选出库扣减流水", icon: "BottomRight", tone: "rose", clickable: true, active: curInOut === "out" },
+    { key: "amt", label: "本页涉及货值", prefix: "¥", value: totalAmt.toFixed(2), hint: "本页成本金额合计", icon: "Money", tone: "blue" }
   ]
 })
+
+function handleStatSelect(item) {
+  if (item && item.inOutVal !== undefined) {
+    handleQuickInOut(item.inOutVal)
+  }
+}
 
 function handleQuickInOut(val) {
   queryParams.value.inOut = val === "" ? undefined : val
@@ -460,7 +481,7 @@ function handleJumpSourceBill(row) {
 // 查询库存流水列表，并补充当前页需要展示的名称数据。
 function getList() {
   loading.value = true
-  listStockLog(queryParams.value).then(response => {
+  listStockLog(proxy.addDateRange(queryParams.value, dateRange.value)).then(response => {
     stockLogList.value = response.rows
     total.value = response.total
     ensureStockLogReferenceOptionsLoaded(response.rows)
@@ -477,14 +498,16 @@ function handleQuery() {
 
 // 重置筛选条件，恢复库存流水默认查询口径。
 function resetQuery() {
+  dateRange.value = []
   proxy.resetForm("queryRef")
+  queryParams.value.inOut = undefined
   handleQuery()
 }
 
 // 导出库存流水时复用当前筛选条件，保证导出的数据与页面所见一致。
 function handleExport() {
   proxy.download("business/stockLog/export", {
-    ...queryParams.value
+    ...proxy.addDateRange(queryParams.value, dateRange.value)
   }, `stock_log_${new Date().getTime()}.xlsx`)
 }
 

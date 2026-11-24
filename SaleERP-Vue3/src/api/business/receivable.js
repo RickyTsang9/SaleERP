@@ -37,3 +37,11 @@ export function delReceivable(receivableId) {
     method: 'delete'
   })
 }
+
+export function offsetReceivable(data) {
+  return request({
+    url: '/business/receivable/offset',
+    method: 'post',
+    data
+  })
+}

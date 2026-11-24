@@ -1,9 +1,9 @@
 <template>
   <div class="app-container erp-page">
     <erp-page-header
-      eyebrow="CRM 客户运营"
+      eyebrow="基础资料 · 客户跟进"
       title="客户跟进与回访"
-      subtitle="按逾期与今日优先级推进客户触达，完整沉淀沟通记录与下次跟进计划。"
+      subtitle="记录客户沟通详情与下次跟进时间，按逾期和今日待办推进回访计划。"
       icon="ChatDotRound"
       tone="violet"
       :badge="`共 ${total} 条记录`"
@@ -48,11 +48,23 @@
           </el-select>
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="queryParams.status" placeholder="全部状态" clearable style="width: 140px" @change="handleStatusChange">
+          <el-select v-model="queryParams.status" placeholder="全部状态" clearable style="width: 130px" @change="handleStatusChange">
             <el-option label="进行中" value="0" />
             <el-option label="已转化" value="1" />
             <el-option label="已流失" value="2" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="跟进时间">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            :shortcuts="ERP_DATE_SHORTCUTS"
+            style="width: 240px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
@@ -219,9 +231,10 @@
 </template>
 
 <script setup name="CustomerFollow">
-import { listCustomerFollow, getCustomerFollow, delCustomerFollow, addCustomerFollow, updateCustomerFollow } from "@/api/business/customerFollow";
+import { listCustomerFollow, getCustomerFollowTodoSummary, getCustomerFollow, delCustomerFollow, addCustomerFollow, updateCustomerFollow } from "@/api/business/customerFollow";
 import { listCustomer, getCustomer } from "@/api/business/customer";
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect";
+import { ERP_DATE_SHORTCUTS } from "@/utils/erpFormat";
 import { parseTime } from "@/utils/ruoyi";
 
 const { proxy } = getCurrentInstance();
@@ -243,7 +256,7 @@ const todoSummary = ref({
   today_count: 0,
   overdue_count: 0
 });
-const todoSummaryQueryPageSize = 1000;
+const dateRange = ref([]);
 
 const data = reactive({
   form: {},
@@ -521,21 +534,23 @@ function getCustomerFollowRowClassName({ row }) {
   return "";
 }
 
-// 查询客户跟进记录列表，并补齐当前页所需的客户名称。
+// 查询客户跟进记录列表（全部走服务端真分页，支持 todoType 与日期区间筛选）。
 async function getList() {
   loading.value = true;
   try {
-    if (queryParams.value.todoType) {
-      const response = await listCustomerFollow(buildTodoSummaryListQueryParams());
-      const filteredCustomerFollowRowList = filterCustomerFollowRowListByTodoType(response.rows || [], queryParams.value.todoType);
-      total.value = filteredCustomerFollowRowList.length;
-      customerFollowList.value = paginateCustomerFollowRowList(filteredCustomerFollowRowList);
-    } else {
-      const response = await listCustomerFollow(queryParams.value);
-      customerFollowList.value = response.rows || [];
-      total.value = response.total || 0;
-    }
-    await ensureCustomerOptionLoaded(customerFollowList.value.map(customerFollowItem => customerFollowItem.customerId));
+    const response = await listCustomerFollow(proxy.addDateRange(queryParams.value, dateRange.value));
+    customerFollowList.value = response.rows || [];
+    total.value = response.total || 0;
+    const missingCustomerIds = customerFollowList.value
+      .filter(item => {
+        if (item.customerId != null && item.customerName) {
+          appendUniqueSelectOption(customerList.value, { customerId: item.customerId, customerName: item.customerName }, "customerId");
+          return false;
+        }
+        return item.customerId != null;
+      })
+      .map(item => item.customerId);
+    await ensureCustomerOptionLoaded(missingCustomerIds);
   } finally {
     loading.value = false;
   }
@@ -543,51 +558,20 @@ async function getList() {
 
 // 生成待办摘要查询条件，仅保留影响待办统计口径的筛选项。
 function buildTodoSummaryQueryParams() {
-  return {
+  return proxy.addDateRange({
     customerId: queryParams.value.customerId,
     followType: queryParams.value.followType
-  };
+  }, dateRange.value);
 }
 
-// 构造待办摘要和待办筛选的基础查询条件，统一复用进行中的跟进范围。
-function buildTodoSummaryListQueryParams() {
-  return {
-    ...buildTodoSummaryQueryParams(),
-    pageNum: 1,
-    pageSize: todoSummaryQueryPageSize,
-    status: "0"
-  };
-}
-
-// 按待办类型过滤跟进记录，让顶部卡片和列表筛选保持同一套业务口径。
-function filterCustomerFollowRowListByTodoType(customerFollowRowList, todoTypeValue) {
-  if (todoTypeValue === "today") {
-    return customerFollowRowList.filter(customerFollowRow => isTodayFollow(customerFollowRow));
-  }
-  if (todoTypeValue === "overdue") {
-    return customerFollowRowList.filter(customerFollowRow => isOverdueFollow(customerFollowRow));
-  }
-  if (todoTypeValue === "processing") {
-    return customerFollowRowList.filter(customerFollowRow => customerFollowRow?.status === "0");
-  }
-  return customerFollowRowList;
-}
-
-// 在前端按当前分页参数截取待办列表，保证待办卡片筛选在旧接口下也可用。
-function paginateCustomerFollowRowList(customerFollowRowList) {
-  const startIndex = (queryParams.value.pageNum - 1) * queryParams.value.pageSize;
-  const endIndex = startIndex + queryParams.value.pageSize;
-  return customerFollowRowList.slice(startIndex, endIndex);
-}
-
-// 查询客户跟进待办摘要，当前直接基于进行中跟进列表计算，兼容未部署摘要接口的环境。
+// 查询客户跟进待办摘要，直接调用服务端聚合接口，避免拉取全量 1000 条记录。
 async function loadTodoSummary() {
-  const response = await listCustomerFollow(buildTodoSummaryListQueryParams());
-  const customerFollowRowList = response.rows || [];
+  const response = await getCustomerFollowTodoSummary(buildTodoSummaryQueryParams());
+  const summaryData = response.data || {};
   todoSummary.value = {
-    processing_count: Number(response.total || customerFollowRowList.length || 0),
-    today_count: filterCustomerFollowRowListByTodoType(customerFollowRowList, "today").length,
-    overdue_count: filterCustomerFollowRowListByTodoType(customerFollowRowList, "overdue").length
+    processing_count: Number(summaryData.processing_count ?? summaryData.processingCount ?? 0),
+    today_count: Number(summaryData.today_count ?? summaryData.todayCount ?? 0),
+    overdue_count: Number(summaryData.overdue_count ?? summaryData.overdueCount ?? 0)
   };
 }
 
@@ -661,6 +645,7 @@ async function handleQuery() {
 
 // 重置按钮操作
 async function resetQuery() {
+  dateRange.value = [];
   proxy.resetForm("queryRef");
   queryParams.value.todoType = undefined;
   await handleQuery();
@@ -742,7 +727,7 @@ function handleDelete(row) {
 // 导出按钮操作
 function handleExport() {
   proxy.download("business/customerFollow/export", {
-    ...queryParams.value
+    ...proxy.addDateRange(queryParams.value, dateRange.value)
   }, `customerFollow_${new Date().getTime()}.xlsx`);
 }
 

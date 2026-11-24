@@ -66,3 +66,19 @@ export function delSaleReturn(saleReturnId) {
     method: 'delete'
   })
 }
+
+export function batchSubmitSaleReturn(ids) {
+  return request({
+    url: '/business/saleReturn/batchSubmit',
+    method: 'post',
+    data: ids
+  })
+}
+
+export function batchAuditSaleReturn(ids) {
+  return request({
+    url: '/business/saleReturn/batchAudit',
+    method: 'post',
+    data: ids
+  })
+}

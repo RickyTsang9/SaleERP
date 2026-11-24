@@ -102,6 +102,14 @@ public class WmsTransferController extends BaseController
         return toAjax(wmsTransferService.submitWmsTransfer(transferId));
     }
 
+    @PreAuthorize("@ss.hasPermi('business:transfer:edit')")
+    @Log(title = "批量提交库存调拨", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchSubmit")
+    public AjaxResult batchSubmit(@RequestBody List<Long> ids)
+    {
+        return BatchActionHelper.execute(ids, "提交", wmsTransferService::submitWmsTransfer);
+    }
+
     /**
      * 审核库存调拨
      */
@@ -111,6 +119,14 @@ public class WmsTransferController extends BaseController
     public AjaxResult audit(@PathVariable Long transferId)
     {
         return toAjax(wmsTransferService.auditWmsTransfer(transferId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('business:transfer:audit')")
+    @Log(title = "批量审核库存调拨", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchAudit")
+    public AjaxResult batchAudit(@RequestBody List<Long> ids)
+    {
+        return BatchActionHelper.execute(ids, "审核", wmsTransferService::auditWmsTransfer);
     }
 
     @PreAuthorize("@ss.hasAnyPermi('business:transfer:audit,business:transfer:edit')")
