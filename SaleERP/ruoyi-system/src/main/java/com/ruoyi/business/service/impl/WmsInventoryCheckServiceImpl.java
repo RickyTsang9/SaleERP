@@ -179,6 +179,7 @@ public class WmsInventoryCheckServiceImpl implements IWmsInventoryCheckService
         {
             complianceHelper.assertPeriodOpen(new Date(), "审核盘点单");
             complianceHelper.assertNotSelfAudit(databaseInventoryCheck.getCreateBy(), "盘点单审核");
+            complianceHelper.assertEntityEnabled("md_warehouse", "warehouse_id", databaseInventoryCheck.getWarehouseId(), "仓库");
         }
         List<WmsInventoryCheckItem> checkItemList = wmsInventoryCheckItemMapper.selectWmsInventoryCheckItemsByCheckId(checkId);
         validateCheckItemList(checkItemList);
@@ -193,6 +194,14 @@ public class WmsInventoryCheckServiceImpl implements IWmsInventoryCheckService
         for (WmsInventoryCheckItem inventoryCheckItem : checkItemList)
         {
             validateCheckItem(inventoryCheckItem);
+            if (complianceHelper != null)
+            {
+                complianceHelper.assertEntityEnabled("md_product", "product_id", inventoryCheckItem.getProductId(), "商品");
+                if (inventoryCheckItem.getLocationId() != null)
+                {
+                    complianceHelper.assertEntityEnabled("md_location", "location_id", inventoryCheckItem.getLocationId(), "库位");
+                }
+            }
             // 审核瞬时实时重读当前在库账面库存，避免盘点期间正常出入库导致盈亏错算与双倍扣减
             WmsStock liveKey = new WmsStock();
             liveKey.setWarehouseId(databaseInventoryCheck.getWarehouseId());
@@ -489,6 +498,14 @@ public class WmsInventoryCheckServiceImpl implements IWmsInventoryCheckService
         for (WmsInventoryCheckItem inventoryCheckItem : checkItemList)
         {
             validateCheckItem(inventoryCheckItem);
+            if (complianceHelper != null)
+            {
+                complianceHelper.assertEntityEnabled("md_product", "product_id", inventoryCheckItem.getProductId(), "商品");
+                if (inventoryCheckItem.getLocationId() != null)
+                {
+                    complianceHelper.assertEntityEnabled("md_location", "location_id", inventoryCheckItem.getLocationId(), "库位");
+                }
+            }
         }
     }
 

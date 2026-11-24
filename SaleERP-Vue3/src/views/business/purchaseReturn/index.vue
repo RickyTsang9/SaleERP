@@ -96,10 +96,10 @@
                 <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="isDraftPurchaseReturnStatus(scope.row.status)" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
-                    <el-dropdown-item v-if="isSubmittedPurchaseReturnStatus(scope.row.status)" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
-                    <el-dropdown-item v-if="canCancelPurchaseReturnStatus(scope.row.status)" @click="handleCancelOrder(scope.row)">作废单据</el-dropdown-item>
-                    <el-dropdown-item v-if="isDraftPurchaseReturnStatus(scope.row.status)" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                    <el-dropdown-item v-if="isDraftPurchaseReturnStatus(scope.row.status)" v-hasPermi="['business:purchaseReturn:edit']" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
+                    <el-dropdown-item v-if="isSubmittedPurchaseReturnStatus(scope.row.status)" v-hasPermi="['business:purchaseReturn:audit']" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
+                    <el-dropdown-item v-if="canCancelPurchaseReturnStatus(scope.row.status)" v-hasPermi="['business:purchaseReturn:edit']" @click="handleCancelOrder(scope.row)">作废单据</el-dropdown-item>
+                    <el-dropdown-item v-if="isDraftPurchaseReturnStatus(scope.row.status)" v-hasPermi="['business:purchaseReturn:remove']" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -161,7 +161,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="仓库" prop="warehouseId">
-              <el-select v-model="form.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 100%">
+              <el-select v-model="form.warehouseId" placeholder="请选择仓库" clearable filterable remote reserve-keyword remote-show-suffix :remote-method="loadWarehouseOptionList" :loading="warehouseListLoading" style="width: 100%" @change="handleFormWarehouseChange">
                 <el-option
                   v-for="warehouse in warehouseSelectOptionList"
                   :key="warehouse.warehouseId"
@@ -363,7 +363,7 @@
   </div>
 </template>
 
-<script setup name="BusinessPurchaseReturn">
+<script setup name="PurchaseReturn">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listPurchaseReturn, getPurchaseReturn, addPurchaseReturn, updatePurchaseReturn, delPurchaseReturn, submitPurchaseReturn, auditPurchaseReturn, rejectPurchaseReturn, cancelPurchaseReturn } from "@/api/business/purchaseReturn"
 import { listPurchaseReturnItem, getPurchaseReturnItem, addPurchaseReturnItem, updatePurchaseReturnItem, delPurchaseReturnItem } from "@/api/business/purchaseReturnItem"
@@ -549,7 +549,8 @@ const canDeleteSelected = computed(() => ids.value.length > 0 && purchaseReturnL
 async function initBasicData() {
   await Promise.all([
     loadSupplierOptionList(),
-    loadWarehouseOptionList()
+    loadWarehouseOptionList(),
+    loadProductOptionList()
   ])
 }
 
@@ -580,9 +581,10 @@ async function loadSupplierOptionList(searchKeyword) {
     const response = await listSupplier({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       supplierName: normalizedKeyword
     })
-  supplierList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "supplierId", "supplierName", () => "供应商资料缺失")
+    ;(response.rows || []).forEach(item => appendUniqueSelectOption(supplierList.value, item, "supplierId"))
   } finally {
     supplierListLoading.value = false
   }
@@ -596,9 +598,10 @@ async function loadWarehouseOptionList(searchKeyword) {
     const response = await listWarehouse({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       warehouseName: normalizedKeyword
     })
-    warehouseList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "warehouseId", "warehouseName", () => "仓库资料缺失")
+    ;(response.rows || []).forEach(item => appendUniqueSelectOption(warehouseList.value, item, "warehouseId"))
   } finally {
     warehouseListLoading.value = false
   }
@@ -612,9 +615,10 @@ async function loadProductOptionList(searchKeyword) {
     const response = await listProduct({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       productName: normalizedKeyword
     })
-    productList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "productId", "productName", () => "商品资料缺失")
+    ;(response.rows || []).forEach(item => appendUniqueSelectOption(productList.value, item, "productId"))
   } finally {
     productListLoading.value = false
   }
@@ -888,9 +892,19 @@ function handleSelectionChange(selection) {
   ids.value = selection.map(purchaseReturn => purchaseReturn.purchaseReturnId)
 }
 
+function handleFormWarehouseChange(warehouseId) {
+  ;(inlineReturnItems.value || []).forEach(item => { item.locationId = undefined })
+  if (warehouseId) {
+    loadLocationsByWarehouse(warehouseId)
+  } else {
+    locationList.value = []
+  }
+}
+
 // 打开新增采购退货弹窗。
 function handleAdd() {
   reset()
+  locationList.value = []
   loadSourcePurchaseOrders()
   open.value = true
   title.value = "新增采购退货单"
@@ -907,6 +921,9 @@ async function handleUpdate(row) {
   const response = await getPurchaseReturn(purchaseReturnId)
   form.value = response.data
   await ensurePurchaseReturnReferenceOptionsLoaded([form.value])
+  if (form.value.warehouseId) {
+    await loadLocationsByWarehouse(form.value.warehouseId)
+  }
   open.value = true
   title.value = "修改采购退货单"
 }

@@ -205,6 +205,11 @@ function handleQuery() {
 function resetQuery() {
   dateRange.value = []
   proxy.resetForm("queryRef")
+  queryParams.value.productName = undefined
+  queryParams.value.customerId = undefined
+  if (Object.keys(route.query || {}).length > 0) {
+    router.replace({ path: route.path, query: {} })
+  }
   handleQuery()
 }
 
@@ -217,9 +222,27 @@ function handleExport() {
   proxy.download("business/report/saleExport", params, `sale_report_${Date.now()}.xlsx`)
 }
 
-if (route.query.productName) {
-  queryParams.value.productName = String(route.query.productName)
+function applyRouteQueryAndLoad() {
+  queryParams.value.productName = route.query.productName ? String(route.query.productName) : undefined
+  if (route.query.customerId) {
+    queryParams.value.customerId = Number(route.query.customerId)
+  }
+  getList()
 }
+
+const router = useRouter()
 getCustomerOptions()
-getList()
+applyRouteQueryAndLoad()
+
+watch(() => route.fullPath, (curr, prev) => {
+  if (curr !== prev && route.path === "/finance/saleReport") {
+    applyRouteQueryAndLoad()
+  }
+})
+
+onActivated(() => {
+  if (route.query.productName || route.query.customerId) {
+    applyRouteQueryAndLoad()
+  }
+})
 </script>

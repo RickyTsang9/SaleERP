@@ -27,7 +27,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                ic.audit_by, ic.audit_time, ic.reject_reason, ic.create_by, ic.create_time, ic.update_by, ic.update_time, ic.remark
         from wms_inventory_check ic
         left join md_warehouse mw on mw.warehouse_id = ic.warehouse_id
-        left join sys_user su on su.user_name = ic.create_by
+        left join sys_user su on su.user_name = ic.create_by and su.del_flag = '0'
     </sql>
 
     <select id="selectWmsInventoryCheckById" parameterType="Long" resultMap="WmsInventoryCheckResult">

@@ -42,7 +42,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from wms_outbound wo
         left join md_customer mc on mc.customer_id = wo.customer_id
         left join md_warehouse mw on mw.warehouse_id = wo.warehouse_id
-        left join sys_user su on su.user_name = wo.create_by
+        left join sys_user su on su.user_name = wo.create_by and su.del_flag = '0'
     </sql>
 
     <select id="selectWmsOutboundById" parameterType="Long" resultMap="WmsOutboundResult">

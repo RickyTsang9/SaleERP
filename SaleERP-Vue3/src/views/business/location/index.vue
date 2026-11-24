@@ -9,7 +9,7 @@
       :badge="`共 ${total} 个库位`"
     >
       <template #actions>
-        <el-button icon="Upload" plain @click="handleImport" v-hasPermi="['business:location:add']">批量导入</el-button>
+        <el-button icon="Upload" plain @click="handleImport" v-hasPermi="['business:location:import', 'business:location:add']">批量导入</el-button>
         <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:location:export']">导出</el-button>
         <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:location:add']">新增库位</el-button>
       </template>
@@ -201,7 +201,7 @@
   </div>
 </template>
 
-<script setup name="BusinessLocation">
+<script setup name="Location">
 import { listLocation, getLocation, addLocation, updateLocation, delLocation } from "@/api/business/location"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
@@ -300,6 +300,7 @@ async function loadWarehouseOptionList(searchKeyword) {
     const response = await listWarehouse({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       warehouseName: normalizeRemoteKeyword(searchKeyword)
     })
     const warehouseRowList = response.rows || []

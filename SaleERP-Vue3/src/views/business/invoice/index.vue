@@ -261,7 +261,7 @@
   </div>
 </template>
 
-<script setup name="BusinessInvoice">
+<script setup name="Invoice">
 import { useRoute, useRouter } from "vue-router"
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listInvoice, getInvoiceSummary, getInvoiceSourceOptions, getInvoice, addInvoice, updateInvoice, voidInvoice } from "@/api/business/invoice"
@@ -438,6 +438,11 @@ function handleQuery() {
 
 function resetQuery() {
   proxy.resetForm("queryRef")
+  queryParams.value.invoiceDirection = undefined
+  queryParams.value.sourceOrderNo = undefined
+  if (Object.keys(route.query || {}).length > 0) {
+    router.replace({ path: route.path, query: {} })
+  }
   handleQuery()
 }
 
@@ -583,10 +588,25 @@ function handleExport() {
   proxy.download("business/invoice/export", { ...queryParams.value }, `invoice_${Date.now()}.xlsx`)
 }
 
-if (route.query.invoiceDirection) {
-  queryParams.value.invoiceDirection = String(route.query.invoiceDirection)
+function applyRouteQueryAndRefresh() {
+  queryParams.value.invoiceDirection = route.query.invoiceDirection ? String(route.query.invoiceDirection) : undefined
+  queryParams.value.sourceOrderNo = route.query.sourceOrderNo ? String(route.query.sourceOrderNo) : undefined
+  refreshAll()
 }
-refreshAll()
+
+applyRouteQueryAndRefresh()
+
+watch(() => route.fullPath, (curr, prev) => {
+  if (curr !== prev && route.path === "/finance/invoice") {
+    applyRouteQueryAndRefresh()
+  }
+})
+
+onActivated(() => {
+  if (route.query.invoiceDirection || route.query.sourceOrderNo) {
+    applyRouteQueryAndRefresh()
+  }
+})
 </script>
 
 <style scoped lang="scss">

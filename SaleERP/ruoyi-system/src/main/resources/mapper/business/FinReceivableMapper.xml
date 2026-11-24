@@ -38,12 +38,21 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from fin_receivable fr
         left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
         left join md_customer mc on mc.customer_id = coalesce(fr.customer_id, so.customer_id)
-        left join sys_user su on su.user_name = coalesce(nullif(fr.create_by, ''), so.create_by)
+        left join sys_user su on su.user_name = coalesce(nullif(fr.create_by, ''), so.create_by) and su.del_flag = '0'
     </sql>
 
     <select id="selectFinReceivableById" parameterType="Long" resultMap="FinReceivableResult">
         <include refid="selectFinReceivableVo"/>
         where fr.receivable_id = #{receivableId}
+    </select>
+
+    <select id="selectFinReceivableByIdForUpdate" parameterType="Long" resultMap="FinReceivableResult">
+        select fr.receivable_id, fr.sale_order_id, fr.customer_id, fr.amount_due, fr.amount_paid,
+               fr.amount_due - ifnull(fr.amount_paid, 0) as remain_amount,
+               fr.status, fr.due_date, fr.create_by, fr.create_time, fr.update_by, fr.update_time, fr.remark
+        from fin_receivable fr
+        where fr.receivable_id = #{receivableId}
+        for update
     </select>
 
     <select id="selectFinReceivableBySaleOrderId" parameterType="Long" resultMap="FinReceivableResult">

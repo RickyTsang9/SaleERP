@@ -183,7 +183,7 @@ public class MdSupplierServiceImpl implements IMdSupplierService
                     item.setSupplierId(exist.getSupplierId());
                     item.setUpdateBy(operName);
                     item.setUpdateTime(DateUtils.getNowDate());
-                    mdSupplierMapper.updateMdSupplier(item);
+                    this.updateMdSupplier(item);
                     successNum++;
                     successMsg.append("<br/>" + successNum + "、供应商 " + item.getSupplierName() + " 更新成功");
                 }

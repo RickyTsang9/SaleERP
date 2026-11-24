@@ -36,7 +36,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         left join wms_purchase_order purchase_order on purchase_order.purchase_order_id = inbound.purchase_order_id
         left join md_supplier ms on ms.supplier_id = inbound.supplier_id
         left join md_warehouse mw on mw.warehouse_id = inbound.warehouse_id
-        left join sys_user su on su.user_name = inbound.create_by
+        left join sys_user su on su.user_name = inbound.create_by and su.del_flag = '0'
     </sql>
 
     <select id="selectWmsInboundById" parameterType="Long" resultMap="WmsInboundResult">

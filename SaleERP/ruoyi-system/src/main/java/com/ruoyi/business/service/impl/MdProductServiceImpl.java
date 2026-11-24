@@ -43,7 +43,6 @@ public class MdProductServiceImpl implements IMdProductService
      * @return 商品列表
      */
     @Override
-    @DataScope(deptAlias = "su", userAlias = "su", permission = "business:product:list")
     public List<MdProduct> selectMdProductList(MdProduct mdProduct)
     {
         return mdProductMapper.selectMdProductList(mdProduct);

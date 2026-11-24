@@ -108,24 +108,24 @@
         <el-table-column label="操作" align="center" fixed="right" width="218">
           <template #default="scope">
             <div class="erp-row-actions">
-              <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
+              <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['business:purchaseOrder:query']">详情</el-button>
               <el-button link type="primary" icon="Connection" @click="handlePurchaseOrderChain(scope.row)" v-hasPermi="['business:purchaseOrder:query']">链路</el-button>
-              <el-button link type="primary" icon="Printer" @click="handlePrint(scope.row)">打印</el-button>
+              <el-button link type="primary" icon="Printer" @click="handlePrint(scope.row)" v-hasPermi="['business:purchaseOrder:query']">打印</el-button>
               <el-dropdown trigger="click">
                 <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="isEditablePurchaseOrderStatus(scope.row.status)" @click="handleUpdate(scope.row)">修改订单</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === 'draft'" @click="handleSubmitOrder(scope.row)">提交审核</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === '0'" @click="handleAudit(scope.row)">审核通过</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === '0'" @click="handleRejectOrder(scope.row)">审核驳回</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === '1' && Number(scope.row.inboundQuantity || 0) <= 0" @click="handleReverseAuditOrder(scope.row)">反审核</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === '2'" @click="handleForceCloseOrder(scope.row)">短装结案</el-dropdown-item>
-                    <el-dropdown-item v-if="canViewLinkedInbound(scope.row.status)" @click="handleViewInbound(scope.row)">查看入库</el-dropdown-item>
-                    <el-dropdown-item v-if="canViewLinkedPayable(scope.row.status)" @click="handleViewPayable(scope.row)">查看应付</el-dropdown-item>
-                    <el-dropdown-item @click="handleViewSupplier(scope.row)">供应商资料</el-dropdown-item>
-                    <el-dropdown-item v-if="canCancelPurchaseOrderStatus(scope.row.status)" @click="handleCancel(scope.row)">作废订单</el-dropdown-item>
-                    <el-dropdown-item v-if="isEditablePurchaseOrderStatus(scope.row.status)" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                    <el-dropdown-item v-if="isEditablePurchaseOrderStatus(scope.row.status)" v-hasPermi="['business:purchaseOrder:edit']" @click="handleUpdate(scope.row)">修改订单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" v-hasPermi="['business:purchaseOrder:edit']" @click="handleSubmitOrder(scope.row)">提交审核</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '0'" v-hasPermi="['business:purchaseOrder:audit']" @click="handleAudit(scope.row)">审核通过</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '0'" v-hasPermi="['business:purchaseOrder:audit']" @click="handleRejectOrder(scope.row)">审核驳回</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '1' && Number(scope.row.inboundQuantity || 0) <= 0" v-hasPermi="['business:purchaseOrder:audit']" @click="handleReverseAuditOrder(scope.row)">反审核</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '2'" v-hasPermi="['business:purchaseOrder:audit']" @click="handleForceCloseOrder(scope.row)">短装结案</el-dropdown-item>
+                    <el-dropdown-item v-if="canViewLinkedInbound(scope.row.status)" v-hasPermi="['business:inbound:list']" @click="handleViewInbound(scope.row)">查看入库</el-dropdown-item>
+                    <el-dropdown-item v-if="canViewLinkedPayable(scope.row.status)" v-hasPermi="['business:payable:list']" @click="handleViewPayable(scope.row)">查看应付</el-dropdown-item>
+                    <el-dropdown-item v-hasPermi="['business:supplier:list']" @click="handleViewSupplier(scope.row)">供应商资料</el-dropdown-item>
+                    <el-dropdown-item v-if="canCancelPurchaseOrderStatus(scope.row.status)" v-hasPermi="['business:purchaseOrder:edit']" @click="handleCancel(scope.row)">作废订单</el-dropdown-item>
+                    <el-dropdown-item v-if="isEditablePurchaseOrderStatus(scope.row.status)" v-hasPermi="['business:purchaseOrder:remove']" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -476,7 +476,7 @@
   </div>
 </template>
 
-<script setup name="BusinessPurchaseOrder">
+<script setup name="PurchaseOrder">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listPurchaseOrder, getPurchaseOrder, delPurchaseOrder, addPurchaseOrder, updatePurchaseOrder, submitPurchaseOrder, auditPurchaseOrder, rejectPurchaseOrder, reverseAuditPurchaseOrder, forceClosePurchaseOrder, cancelPurchaseOrder, getPurchaseOrderChain } from "@/api/business/purchaseOrder"
 import { listSupplier, getSupplier } from "@/api/business/supplier"
@@ -607,6 +607,7 @@ async function loadSupplierOptionList(searchKeyword) {
     const response = await listSupplier({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       supplierName: normalizeRemoteKeyword(searchKeyword)
     })
     const supplierRowList = response.rows || []
@@ -625,6 +626,7 @@ async function loadProductOptionList(searchKeyword) {
     const response = await listProduct({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       productName: normalizeRemoteKeyword(searchKeyword)
     })
     const productRowList = response.rows || []
@@ -843,7 +845,7 @@ function reset() {
     supplierId: undefined,
     purchaseDate: buildCurrentDateValue(),
     totalAmount: "0.00",
-    status: "0",
+    status: "draft",
     remark: undefined
   }
   wmsPurchaseOrderItemList.value = []
@@ -983,7 +985,9 @@ function handlePurchaseOrderChain(row) {
       chainNodeList: response.data?.chainNodeList || [],
       inboundList: response.data?.inboundList || [],
       payableList: response.data?.payableList || [],
-      paymentList: response.data?.paymentList || []
+      paymentList: response.data?.paymentList || [],
+      purchaseReturnList: response.data?.purchaseReturnList || [],
+      invoiceList: response.data?.invoiceList || []
     }
     ensurePurchaseOrderReferenceOptionsLoaded([purchaseOrderChainData.value.purchaseOrder])
   }).finally(() => {

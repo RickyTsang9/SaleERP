@@ -187,7 +187,7 @@ export function useReportGovernance({
   const canManageAnnualBudgetPlan = computed(() => {
     const permissionCodeList = userStore.permissions || []
     if (permissionCodeList.includes("*:*:*")) return true
-    return canManageDashboardTarget.value || permissionCodeList.includes("business:report:edit")
+    return permissionCodeList.includes("business:report:edit")
   })
 
   const canApproveAnnualBudgetPlan = computed(() => {

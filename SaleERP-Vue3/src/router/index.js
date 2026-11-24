@@ -90,12 +90,6 @@ export const constantRoutes = [
     hidden: true,
     children: [
       {
-        path: 'purchaseOrder',
-        component: () => import('@/views/business/purchaseOrder/index.vue'),
-        name: 'PurchaseOrder',
-        meta: { title: '采购订单' }
-      },
-      {
         path: 'supplier',
         redirect: to => ({ path: '/base/supplier', query: to.query })
       }
@@ -109,31 +103,6 @@ export const constantRoutes = [
       {
         path: 'todoCenter',
         redirect: to => ({ path: '/todoCenter', query: to.query })
-      },
-      {
-        path: 'payable',
-        component: () => import('@/views/business/payable/index.vue'),
-        name: 'Payable',
-        meta: { title: '应付台账' }
-      },
-      {
-        path: 'payment',
-        component: () => import('@/views/business/payment/index.vue'),
-        name: 'Payment',
-        meta: { title: '付款流水' }
-      }
-    ]
-  },
-  {
-    path: '/business',
-    component: Layout,
-    hidden: true,
-    children: [
-      {
-        path: 'report',
-        component: () => import('@/views/business/report/index.vue'),
-        name: 'BusinessReportAlias',
-        meta: { title: '经营看板', activeMenu: '/finance/report' }
       }
     ]
   }

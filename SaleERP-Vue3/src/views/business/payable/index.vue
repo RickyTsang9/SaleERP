@@ -242,7 +242,7 @@
   </div>
 </template>
 
-<script setup name="BusinessPayable">
+<script setup name="Payable">
 import { listPayable, getPayable, updatePayable } from "@/api/business/payable";
 import { addPayment, batchAddPayment } from "@/api/business/payment";
 import { listAccount } from "@/api/business/account";

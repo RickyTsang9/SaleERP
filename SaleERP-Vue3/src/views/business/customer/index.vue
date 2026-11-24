@@ -109,6 +109,7 @@
               v-model="scope.row.status"
               active-value="0"
               inactive-value="1"
+              :disabled="!checkPermi(['business:customer:edit'])"
               @change="handleStatusChange(scope.row)"
             />
           </template>
@@ -346,10 +347,11 @@
   </div>
 </template>
 
-<script setup name="BusinessCustomer">
+<script setup name="Customer">
 import { listCustomer, getCustomer, getCustomerProfile, addCustomer, updateCustomer, delCustomer, changeCustomerStatus, importTemplate as downloadImportTemplate } from "@/api/business/customer"
 import { getToken } from "@/utils/auth"
 import { parseTime } from "@/utils/ruoyi"
+import { checkPermi } from "@/utils/permission"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()

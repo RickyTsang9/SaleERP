@@ -16,6 +16,8 @@ import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.framework.web.service.PermissionService;
 
 /**
  * 管理层年度预算计划Controller
@@ -30,6 +32,31 @@ public class BizDecisionBudgetPlanController extends BaseController
     @Autowired
     private IBizDecisionBudgetPlanService bizDecisionBudgetPlanService;
 
+    @Autowired
+    private PermissionService permissionService;
+
+    private boolean canViewProfit()
+    {
+        try
+        {
+            return SecurityUtils.isAdmin(getUserId()) || permissionService.hasPermi("business:report:profit");
+        }
+        catch (Exception ignored)
+        {
+            return false;
+        }
+    }
+
+    private void maskBudgetPlanIfUnauthorized(BizDecisionBudgetPlan plan)
+    {
+        if (plan == null || canViewProfit())
+        {
+            return;
+        }
+        plan.setGrossProfitBudgetAmount(null);
+        plan.setGrossProfitMonthlyPlanList(null);
+    }
+
     /**
      * 查询指定年度预算计划
      */
@@ -37,7 +64,9 @@ public class BizDecisionBudgetPlanController extends BaseController
     @GetMapping("/current/{budgetYear}")
     public AjaxResult current(@PathVariable Integer budgetYear)
     {
-        return AjaxResult.success(bizDecisionBudgetPlanService.selectCurrentBizDecisionBudgetPlan(budgetYear));
+        BizDecisionBudgetPlan plan = bizDecisionBudgetPlanService.selectCurrentBizDecisionBudgetPlan(budgetYear);
+        maskBudgetPlanIfUnauthorized(plan);
+        return AjaxResult.success(plan);
     }
 
     /**
@@ -49,6 +78,13 @@ public class BizDecisionBudgetPlanController extends BaseController
     {
         List<BizDecisionBudgetPlan> budgetPlanVersionList =
             bizDecisionBudgetPlanService.selectBizDecisionBudgetPlanVersionList(budgetYear);
+        if (!canViewProfit() && budgetPlanVersionList != null)
+        {
+            for (BizDecisionBudgetPlan plan : budgetPlanVersionList)
+            {
+                maskBudgetPlanIfUnauthorized(plan);
+            }
+        }
         return AjaxResult.success(budgetPlanVersionList);
     }
 

@@ -218,7 +218,7 @@
   </div>
 </template>
 
-<script setup name="BusinessCustomerFollow">
+<script setup name="CustomerFollow">
 import { listCustomerFollow, getCustomerFollow, delCustomerFollow, addCustomerFollow, updateCustomerFollow } from "@/api/business/customerFollow";
 import { listCustomer, getCustomer } from "@/api/business/customer";
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect";
@@ -358,6 +358,7 @@ async function loadCustomerOptionList(searchKeyword) {
     const response = await listCustomer({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       customerName: normalizeRemoteKeyword(searchKeyword)
     });
     const customerRowList = response.rows || [];

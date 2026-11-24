@@ -1,15 +1,22 @@
 package com.ruoyi.business.service.impl;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.business.domain.MdLocation;
+import com.ruoyi.business.domain.MdProduct;
 import com.ruoyi.business.domain.WmsInventoryCheck;
 import com.ruoyi.business.domain.WmsInventoryCheckItem;
+import com.ruoyi.business.mapper.MdLocationMapper;
+import com.ruoyi.business.mapper.MdProductMapper;
 import com.ruoyi.business.mapper.WmsInventoryCheckItemMapper;
 import com.ruoyi.business.mapper.WmsInventoryCheckMapper;
 import com.ruoyi.business.service.IWmsInventoryCheckItemService;
+import com.ruoyi.business.service.support.BizComplianceHelper;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 
@@ -29,6 +36,15 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
 
     @Autowired
     private WmsInventoryCheckMapper wmsInventoryCheckMapper;
+
+    @Autowired(required = false)
+    private MdProductMapper mdProductMapper;
+
+    @Autowired(required = false)
+    private MdLocationMapper mdLocationMapper;
+
+    @Autowired(required = false)
+    private BizComplianceHelper complianceHelper;
 
     /**
      * 查询盘点明细
@@ -64,8 +80,8 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
     @Transactional(rollbackFor = Exception.class)
     public int insertWmsInventoryCheckItem(WmsInventoryCheckItem wmsInventoryCheckItem)
     {
-        validateDraftCheck(wmsInventoryCheckItem.getCheckId());
-        prepareInventoryCheckItemForSave(wmsInventoryCheckItem);
+        WmsInventoryCheck databaseCheck = validateDraftCheck(wmsInventoryCheckItem.getCheckId());
+        prepareInventoryCheckItemForSave(databaseCheck, wmsInventoryCheckItem, null);
         int rows = wmsInventoryCheckItemMapper.insertWmsInventoryCheckItem(wmsInventoryCheckItem);
         refreshCheckHeaderTotals(wmsInventoryCheckItem.getCheckId());
         return rows;
@@ -86,9 +102,9 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
         {
             throw new ServiceException("盘点明细不存在");
         }
-        validateDraftCheck(databaseInventoryCheckItem.getCheckId());
+        WmsInventoryCheck databaseCheck = validateDraftCheck(databaseInventoryCheckItem.getCheckId());
         wmsInventoryCheckItem.setCheckId(databaseInventoryCheckItem.getCheckId());
-        prepareInventoryCheckItemForSave(wmsInventoryCheckItem);
+        prepareInventoryCheckItemForSave(databaseCheck, wmsInventoryCheckItem, databaseInventoryCheckItem);
         int rows = wmsInventoryCheckItemMapper.updateWmsInventoryCheckItem(wmsInventoryCheckItem);
         refreshCheckHeaderTotals(databaseInventoryCheckItem.getCheckId());
         return rows;
@@ -179,7 +195,7 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
      *
      * @param checkId 盘点单编号
      */
-    private void validateDraftCheck(Long checkId)
+    private WmsInventoryCheck validateDraftCheck(Long checkId)
     {
         if (checkId == null)
         {
@@ -194,14 +210,18 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
         {
             throw new ServiceException("仅草稿状态盘点单允许维护明细");
         }
+        return databaseInventoryCheck;
     }
 
     /**
      * 保存前校验盘点明细字段并重算差异数据
      *
+     * @param databaseCheck 所属盘点单主表
      * @param wmsInventoryCheckItem 盘点明细
+     * @param existingItem 原有盘点明细（新增时为null）
      */
-    private void prepareInventoryCheckItemForSave(WmsInventoryCheckItem wmsInventoryCheckItem)
+    private void prepareInventoryCheckItemForSave(WmsInventoryCheck databaseCheck,
+        WmsInventoryCheckItem wmsInventoryCheckItem, WmsInventoryCheckItem existingItem)
     {
         if (wmsInventoryCheckItem == null)
         {
@@ -223,9 +243,45 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
         {
             throw new ServiceException("盘点明细实盘数量不能为空");
         }
+        if (complianceHelper != null)
+        {
+            complianceHelper.assertEntityEnabled("md_product", "product_id", wmsInventoryCheckItem.getProductId(), "商品");
+            complianceHelper.assertEntityEnabled("md_location", "location_id", wmsInventoryCheckItem.getLocationId(), "库位");
+        }
+        if (mdLocationMapper != null && databaseCheck != null && databaseCheck.getWarehouseId() != null)
+        {
+            MdLocation loc = mdLocationMapper.selectMdLocationById(wmsInventoryCheckItem.getLocationId());
+            if (loc != null && loc.getWarehouseId() != null
+                && !Objects.equals(loc.getWarehouseId(), databaseCheck.getWarehouseId()))
+            {
+                throw new ServiceException("盘点明细所选库位不属于当前盘点仓库");
+            }
+        }
         BigDecimal stockQuantity = wmsInventoryCheckItem.getStockQty() == null ? BigDecimal.ZERO : wmsInventoryCheckItem.getStockQty();
         BigDecimal actualQuantity = wmsInventoryCheckItem.getActualQty();
-        BigDecimal priceValue = wmsInventoryCheckItem.getPrice() == null ? BigDecimal.ZERO : wmsInventoryCheckItem.getPrice();
+        BigDecimal priceValue = wmsInventoryCheckItem.getPrice();
+        // 当无毛利/成本查看权限的前端用户提交脱敏后的 null 或 0 单价时，服务端自动保留原成本单价或回填商品成本价
+        if (priceValue == null
+            || (priceValue.compareTo(BigDecimal.ZERO) == 0 && existingItem != null
+                && existingItem.getPrice() != null && existingItem.getPrice().compareTo(BigDecimal.ZERO) > 0))
+        {
+            if (existingItem != null && existingItem.getPrice() != null)
+            {
+                priceValue = existingItem.getPrice();
+            }
+        }
+        if ((priceValue == null || priceValue.compareTo(BigDecimal.ZERO) == 0) && mdProductMapper != null)
+        {
+            MdProduct product = mdProductMapper.selectMdProductById(wmsInventoryCheckItem.getProductId());
+            if (product != null && product.getCostPrice() != null && product.getCostPrice().compareTo(BigDecimal.ZERO) > 0)
+            {
+                priceValue = product.getCostPrice();
+            }
+        }
+        if (priceValue == null)
+        {
+            priceValue = BigDecimal.ZERO;
+        }
         if (stockQuantity.compareTo(BigDecimal.ZERO) < 0)
         {
             throw new ServiceException("盘点明细账面数量不能小于0");
@@ -240,7 +296,8 @@ public class WmsInventoryCheckItemServiceImpl implements IWmsInventoryCheckItemS
         }
         BigDecimal diffQuantity = actualQuantity.subtract(stockQuantity);
         wmsInventoryCheckItem.setStockQty(stockQuantity);
+        wmsInventoryCheckItem.setPrice(priceValue);
         wmsInventoryCheckItem.setDiffQty(diffQuantity);
-        wmsInventoryCheckItem.setDiffAmount(diffQuantity.multiply(priceValue));
+        wmsInventoryCheckItem.setDiffAmount(diffQuantity.multiply(priceValue).setScale(2, RoundingMode.HALF_UP));
     }
 }

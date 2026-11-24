@@ -60,6 +60,9 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
     @Autowired
     private FinPayableMapper finPayableMapper;
 
+    @Autowired(required = false)
+    private FinInvoiceService finInvoiceService;
+
     @Autowired
     private IWmsStockService wmsStockService;
 
@@ -207,6 +210,14 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
         for (WmsPurchaseReturnItem wmsPurchaseReturnItem : purchaseReturnItemList)
         {
             validatePurchaseReturnItem(wmsPurchaseReturnItem);
+            if (bizComplianceHelper != null)
+            {
+                bizComplianceHelper.assertEntityEnabled("md_product", "product_id", wmsPurchaseReturnItem.getProductId(), "商品");
+                if (wmsPurchaseReturnItem.getLocationId() != null)
+                {
+                    bizComplianceHelper.assertEntityEnabled("md_location", "location_id", wmsPurchaseReturnItem.getLocationId(), "库位");
+                }
+            }
             if (wmsPurchaseReturnItem.getLocationId() != null || StringUtils.isNotEmpty(wmsPurchaseReturnItem.getBatchNo()))
             {
                 BigDecimal[] qtys = wmsStockService.deductAvailableStockByKeyAtomically(
@@ -298,6 +309,10 @@ public class WmsPurchaseReturnServiceImpl implements IWmsPurchaseReturnService
         if (updateCount == 0)
         {
             throw new ServiceException("采购退货单状态已变更，请刷新后重试");
+        }
+        if (finInvoiceService != null && databasePurchaseReturn.getPurchaseOrderId() != null)
+        {
+            finInvoiceService.syncOrderInvoiceStatus("purchase", databasePurchaseReturn.getPurchaseOrderId());
         }
         return updateCount;
     }

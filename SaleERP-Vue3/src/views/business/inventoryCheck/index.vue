@@ -62,14 +62,17 @@
         </el-table-column>
         <el-table-column label="盈亏数量" align="right" prop="totalDiffQty" width="105">
           <template #default="scope">
-            <span class="erp-amount" :class="Number(scope.row.totalDiffQty || 0) > 0 ? 'is-positive' : (Number(scope.row.totalDiffQty || 0) < 0 ? 'is-danger' : '')">
+            <span v-if="blindCheckMode && scope.row.status !== 'audited'" class="erp-cell-sub">***</span>
+            <span v-else class="erp-amount" :class="Number(scope.row.totalDiffQty || 0) > 0 ? 'is-positive' : (Number(scope.row.totalDiffQty || 0) < 0 ? 'is-danger' : '')">
               {{ scope.row.totalDiffQty }}
             </span>
           </template>
         </el-table-column>
         <el-table-column label="盈亏金额" align="right" prop="totalDiffAmount" width="120">
           <template #default="scope">
-            <span class="erp-amount" :class="Number(scope.row.totalDiffAmount || 0) > 0 ? 'is-positive' : (Number(scope.row.totalDiffAmount || 0) < 0 ? 'is-danger' : '')">
+            <span v-if="blindCheckMode && scope.row.status !== 'audited'" class="erp-cell-sub">***</span>
+            <span v-else-if="scope.row.totalDiffAmount === null || scope.row.totalDiffAmount === undefined" class="erp-cell-sub">权限脱敏</span>
+            <span v-else class="erp-amount" :class="Number(scope.row.totalDiffAmount || 0) > 0 ? 'is-positive' : (Number(scope.row.totalDiffAmount || 0) < 0 ? 'is-danger' : '')">
               ¥{{ Number(scope.row.totalDiffAmount || 0).toFixed(2) }}
             </span>
           </template>
@@ -95,6 +98,7 @@
             <el-button link type="primary" icon="Upload" :disabled="!isDraftStatus(scope.row.status)" @click="handleSubmit(scope.row)" v-hasPermi="['business:inventoryCheck:edit']">提交</el-button>
             <el-button link type="success" icon="CircleCheck" :disabled="!isSubmittedStatus(scope.row.status)" @click="handleAudit(scope.row)" v-hasPermi="['business:inventoryCheck:audit']">审核</el-button>
             <el-button v-if="isSubmittedStatus(scope.row.status)" link type="warning" icon="RefreshLeft" @click="handleReject(scope.row)" v-hasPermi="['business:inventoryCheck:audit']">驳回</el-button>
+            <el-button v-if="canCancelStatus(scope.row.status)" link type="info" icon="CircleClose" @click="handleCancelOrder(scope.row)" v-hasPermi="['business:inventoryCheck:edit']">作废</el-button>
             <el-button link type="danger" icon="Delete" :disabled="!isDraftStatus(scope.row.status)" @click="handleDelete(scope.row)" v-hasPermi="['business:inventoryCheck:remove']">删除</el-button>
           </template>
         </el-table-column>
@@ -189,7 +193,7 @@
         <el-col :span="1.5">
           <el-button v-if="isInventoryCheckItemEditable()" type="danger" plain icon="Delete" :disabled="inventoryCheckItemMultiple" @click="handleDeleteInventoryCheckItem" v-hasPermi="['business:inventoryCheck:remove']">删除明细</el-button>
         </el-col>
-        <el-col :span="10" v-if="isInventoryCheckItemEditable()">
+        <el-col :span="10" v-if="isInventoryCheckItemEditable()" v-hasPermi="['business:inventoryCheck:add', 'business:inventoryCheck:edit']">
           <el-input
             v-model="checkScanCode"
             placeholder="扫码或输入商品编码按回车（自动实盘 +1）"
@@ -231,10 +235,14 @@
             <span>{{ blindCheckMode ? '***' : scope.row.diffQty }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="单价" align="right" prop="price" width="76" />
+        <el-table-column label="单价" align="right" prop="price" width="76">
+          <template #default="scope">
+            <span>{{ scope.row.price === null || scope.row.price === undefined ? '脱敏' : scope.row.price }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="差异金额" align="right" prop="diffAmount" width="90">
           <template #default="scope">
-            <span>{{ blindCheckMode ? '***' : scope.row.diffAmount }}</span>
+            <span>{{ blindCheckMode ? '***' : (scope.row.diffAmount === null || scope.row.diffAmount === undefined ? '脱敏' : scope.row.diffAmount) }}</span>
           </template>
         </el-table-column>
         <el-table-column v-if="isInventoryCheckItemEditable()" label="操作" width="140" fixed="right" align="center">
@@ -282,7 +290,7 @@
               <el-input v-model="inventoryCheckItemForm.batchNo" placeholder="请输入批次号" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="12" v-if="!blindCheckMode">
             <el-form-item label="账面数量" prop="stockQty">
               <el-input-number v-model="inventoryCheckItemForm.stockQty" :min="0" :precision="2" controls-position="right" style="width: 100%" @change="calculateInventoryCheckItemDiffFields" />
             </el-form-item>
@@ -294,13 +302,13 @@
               <el-input-number v-model="inventoryCheckItemForm.actualQty" :min="0" :precision="2" controls-position="right" style="width: 100%" @change="calculateInventoryCheckItemDiffFields" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="12" v-if="!blindCheckMode">
             <el-form-item label="差异数量" prop="diffQty">
               <el-input-number v-model="inventoryCheckItemForm.diffQty" :precision="2" controls-position="right" style="width: 100%" :disabled="true" />
             </el-form-item>
           </el-col>
         </el-row>
-        <el-row>
+        <el-row v-if="!blindCheckMode">
           <el-col :span="12">
             <el-form-item label="单价" prop="price">
               <el-input-number v-model="inventoryCheckItemForm.price" :min="0" :precision="2" controls-position="right" style="width: 100%" @change="calculateInventoryCheckItemDiffFields" />
@@ -325,7 +333,7 @@
   </div>
 </template>
 
-<script setup name="BusinessInventoryCheck">
+<script setup name="InventoryCheck">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listInventoryCheck, getInventoryCheck, addInventoryCheck, updateInventoryCheck, delInventoryCheck, submitInventoryCheck, auditInventoryCheck, rejectInventoryCheck, loadInventoryCheckStockSnapshot, cancelInventoryCheck } from "@/api/business/inventoryCheck"
 import { listInventoryCheckItem, getInventoryCheckItem, addInventoryCheckItem, updateInventoryCheckItem, delInventoryCheckItem } from "@/api/business/inventoryCheckItem"
@@ -337,6 +345,7 @@ import { parseTime } from "@/utils/ruoyi"
 
 const { proxy } = getCurrentInstance()
 const route = useRoute()
+const router = useRouter()
 
 const inventoryCheckList = ref([])
 const warehouseList = ref([])
@@ -444,6 +453,7 @@ function loadWarehouseOptionList(searchKeyword) {
   listWarehouse({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     warehouseName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const warehouseRowList = response.rows || []
@@ -461,6 +471,7 @@ function loadProductOptionList(searchKeyword) {
   listProduct({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     productName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const productRowList = response.rows || []
@@ -472,12 +483,14 @@ function loadProductOptionList(searchKeyword) {
   })
 }
 
-// 远程加载库位下拉选项，按需补充库位名称数据，减少盘点明细编辑时的识别成本。
+// 远程加载库位下拉选项，按当前盘点单所属仓库限定范围，避免跨仓选库位。
 function loadLocationOptionList(searchKeyword) {
   locationListLoading.value = true
   listLocation({
     pageNum: 1,
-    pageSize: 20,
+    pageSize: 50,
+    status: "0",
+    warehouseId: currentCheckWarehouseId.value || form.value.warehouseId || undefined,
     locationName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const locationRowList = response.rows || []
@@ -577,7 +590,11 @@ function buildProductSelectOptionList() {
 
 // 组合库位下拉选项，兼容历史盘点明细中主数据缺失时的兜底回显。
 function buildLocationSelectOptionList() {
-  return buildSelectOptionList(locationList.value, [inventoryCheckItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
+  const targetWarehouseId = currentCheckWarehouseId.value || form.value.warehouseId
+  const filtered = targetWarehouseId
+    ? locationList.value.filter(loc => (!loc.warehouseId || Number(loc.warehouseId) === Number(targetWarehouseId)) && loc.status !== "1")
+    : locationList.value.filter(loc => loc.status !== "1")
+  return buildSelectOptionList(filtered, [inventoryCheckItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据仓库编号返回仓库名称，减少盘点单列表中的纯编号展示。
@@ -726,8 +743,15 @@ function handleQuery() {
   getList()
 }
 
+const currentCheckWarehouseId = ref(undefined)
+
 function resetQuery() {
   proxy.resetForm("queryRef")
+  queryParams.value.status = undefined
+  queryParams.value.checkNo = undefined
+  if (Object.keys(route.query || {}).length > 0) {
+    router.replace({ path: route.path, query: {} })
+  }
   handleQuery()
 }
 
@@ -762,7 +786,9 @@ function handleUpdate(row) {
 // 打开盘点明细弹窗时同步主单状态，后续明细的增删改权限都以主单状态为准。
 function handleOpenInventoryCheckItem(row) {
   currentCheckId.value = row.checkId
+  currentCheckWarehouseId.value = row.warehouseId
   currentInventoryCheckStatus.value = row.status
+  loadLocationOptionList()
   inventoryCheckItemTitle.value = "库存盘点明细 - " + row.checkNo
   inventoryCheckItemOpen.value = true
   checkScanCode.value = ""
@@ -1055,14 +1081,22 @@ function shouldAutoOpenInventoryCheckFromRoute() {
   return route.query.mode === "create"
 }
 
-// 初始化页面基础数据和列表，并在需要时自动打开新建盘点单弹窗。
+// 初始化页面基础数据和列表，并在需要时自动解析状态/单号参数或打开新建盘点单弹窗。
 function initializePage() {
+  queryParams.value.status = route.query.status ? String(route.query.status) : undefined
+  queryParams.value.checkNo = route.query.checkNo ? String(route.query.checkNo) : undefined
   initBasicData()
   getList()
   if (shouldAutoOpenInventoryCheckFromRoute()) {
     handleAdd()
   }
 }
+
+onActivated(() => {
+  if (route.query.status || route.query.checkNo || route.query.mode === "create") {
+    initializePage()
+  }
+})
 
 // 监听路由参数变化，保证首页重复进入盘点页时新增入口会重新生效。
 watch(() => route.fullPath, (currentRouteFullPath, previousRouteFullPath) => {

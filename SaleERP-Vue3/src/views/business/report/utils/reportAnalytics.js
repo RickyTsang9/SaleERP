@@ -848,8 +848,12 @@ export function buildCustomerProfitAnalysisData(saleReportRowList = [], saleOrde
     const amountValue = normalizeNumberValue(getFirstDefinedValue(saleReportRow, ["amount"]))
     const quantityValue = normalizeNumberValue(getFirstDefinedValue(saleReportRow, ["quantity"]))
     const productCode = getFirstDefinedValue(saleReportRow, ["productCode", "product_code"])
-    const costPriceValue = normalizeNumberValue(productCostPriceMap[productCode])
-    const grossProfitAmountValue = amountValue - quantityValue * costPriceValue
+    const rawReportGrossProfit = saleReportRow?.grossProfit !== undefined ? saleReportRow.grossProfit : saleReportRow?.gross_profit
+    const rawCostPrice = productCostPriceMap[productCode]
+    const profitMasked = rawReportGrossProfit === null || (rawReportGrossProfit === undefined && (rawCostPrice === null || rawCostPrice === undefined))
+    const grossProfitAmountValue = profitMasked
+      ? null
+      : (rawReportGrossProfit !== undefined ? normalizeNumberValue(rawReportGrossProfit) : amountValue - quantityValue * normalizeNumberValue(rawCostPrice))
 
     if (!groupedCustomerMap[customerKey])
     {
@@ -858,7 +862,8 @@ export function buildCustomerProfitAnalysisData(saleReportRowList = [], saleOrde
         targetName: customerName,
         customerLevel: customerDetailMap[customerId]?.customerLevel || "未分级",
         saleAmount: 0,
-        grossProfitAmount: 0,
+        grossProfitAmount: profitMasked ? null : 0,
+        profitMasked: profitMasked,
         dueAmount: 0,
         paidAmount: 0,
         remainAmount: 0,
@@ -868,7 +873,15 @@ export function buildCustomerProfitAnalysisData(saleReportRowList = [], saleOrde
     }
 
     groupedCustomerMap[customerKey].saleAmount += amountValue
-    groupedCustomerMap[customerKey].grossProfitAmount += grossProfitAmountValue
+    if (profitMasked || groupedCustomerMap[customerKey].profitMasked)
+    {
+      groupedCustomerMap[customerKey].profitMasked = true
+      groupedCustomerMap[customerKey].grossProfitAmount = null
+    }
+    else
+    {
+      groupedCustomerMap[customerKey].grossProfitAmount += grossProfitAmountValue
+    }
     if (orderNo)
     {
       groupedCustomerMap[customerKey].orderNoSet.add(orderNo)
@@ -889,8 +902,8 @@ export function buildCustomerProfitAnalysisData(saleReportRowList = [], saleOrde
       targetName: groupedCustomer.targetName,
       customerLevel: groupedCustomer.customerLevel,
       saleAmount: groupedCustomer.saleAmount,
-      grossProfitAmount: groupedCustomer.grossProfitAmount,
-      grossMarginRate: calculateRateValue(groupedCustomer.grossProfitAmount, groupedCustomer.saleAmount),
+      grossProfitAmount: groupedCustomer.profitMasked ? null : groupedCustomer.grossProfitAmount,
+      grossMarginRate: groupedCustomer.profitMasked ? null : calculateRateValue(groupedCustomer.grossProfitAmount, groupedCustomer.saleAmount),
       saleShareRate: calculateRateValue(groupedCustomer.saleAmount, totalSaleAmount),
       dueAmount: dueAmountValue,
       paidAmount: paidAmountValue,
@@ -1061,7 +1074,7 @@ export function buildInventoryDecisionAnalysisData(stockRowList = [], stockLogRo
     return previousAmountValue + normalizeNumberValue(inventoryProductSummary.recentOutboundCostAmount)
   }, 0)
   const slowMovingProductList = inventoryProductSummaryList
-    .filter(inventoryProductSummary => inventoryProductSummary.slowMovingDayCount >= 60 && normalizeNumberValue(inventoryProductSummary.stockValueAmount) > 0)
+    .filter(inventoryProductSummary => inventoryProductSummary.slowMovingDayCount >= 60 && normalizeNumberValue(inventoryProductSummary.quantity) > 0)
     .sort((leftInventoryProductSummary, rightInventoryProductSummary) => {
       if (normalizeCountValue(rightInventoryProductSummary.slowMovingDayCount) !== normalizeCountValue(leftInventoryProductSummary.slowMovingDayCount))
       {
@@ -1086,11 +1099,12 @@ export function buildInventoryDecisionAnalysisData(stockRowList = [], stockLogRo
 // 生成统一的经营贡献排行列表，便于品类、区域和销售员三个维度复用同一套表格展示。
 export function buildContributionRankingList(groupedContributionMap = {}) {
   return Object.values(groupedContributionMap).map(groupedContribution => {
+    const masked = groupedContribution.profitMasked || groupedContribution.grossProfitAmount === null
     return {
       targetName: groupedContribution.targetName,
       saleAmount: groupedContribution.saleAmount,
-      grossProfitAmount: groupedContribution.grossProfitAmount,
-      grossMarginRate: calculateRateValue(groupedContribution.grossProfitAmount, groupedContribution.saleAmount),
+      grossProfitAmount: masked ? null : groupedContribution.grossProfitAmount,
+      grossMarginRate: masked ? null : calculateRateValue(groupedContribution.grossProfitAmount, groupedContribution.saleAmount),
       orderCount: groupedContribution.orderNoSet.size
     }
   }).sort((leftContribution, rightContribution) => {
@@ -1122,14 +1136,20 @@ export function buildOrganizationContributionAnalysisData(saleReportRowList = []
     const saleAmountValue = normalizeNumberValue(getFirstDefinedValue(saleReportRow, ["amount"]))
     const quantityValue = normalizeNumberValue(getFirstDefinedValue(saleReportRow, ["quantity"]))
     const productCode = getFirstDefinedValue(saleReportRow, ["productCode", "product_code"])
-    const grossProfitAmountValue = saleAmountValue - quantityValue * normalizeNumberValue(productCostPriceMap[productCode])
+    const rawReportGrossProfit = saleReportRow?.grossProfit !== undefined ? saleReportRow.grossProfit : saleReportRow?.gross_profit
+    const rawCostPrice = productCostPriceMap[productCode]
+    const profitMasked = rawReportGrossProfit === null || (rawReportGrossProfit === undefined && (rawCostPrice === null || rawCostPrice === undefined))
+    const grossProfitAmountValue = profitMasked
+      ? null
+      : (rawReportGrossProfit !== undefined ? normalizeNumberValue(rawReportGrossProfit) : saleAmountValue - quantityValue * normalizeNumberValue(rawCostPrice))
 
     if (!categoryContributionMap[categoryName])
     {
       categoryContributionMap[categoryName] = {
         targetName: categoryName,
         saleAmount: 0,
-        grossProfitAmount: 0,
+        grossProfitAmount: profitMasked ? null : 0,
+        profitMasked: profitMasked,
         orderNoSet: new Set()
       }
     }
@@ -1138,7 +1158,8 @@ export function buildOrganizationContributionAnalysisData(saleReportRowList = []
       regionContributionMap[regionName] = {
         targetName: regionName,
         saleAmount: 0,
-        grossProfitAmount: 0,
+        grossProfitAmount: profitMasked ? null : 0,
+        profitMasked: profitMasked,
         orderNoSet: new Set()
       }
     }
@@ -1147,17 +1168,27 @@ export function buildOrganizationContributionAnalysisData(saleReportRowList = []
       salespersonContributionMap[salespersonName] = {
         targetName: salespersonName,
         saleAmount: 0,
-        grossProfitAmount: 0,
+        grossProfitAmount: profitMasked ? null : 0,
+        profitMasked: profitMasked,
         orderNoSet: new Set()
       }
     }
 
     categoryContributionMap[categoryName].saleAmount += saleAmountValue
-    categoryContributionMap[categoryName].grossProfitAmount += grossProfitAmountValue
     regionContributionMap[regionName].saleAmount += saleAmountValue
-    regionContributionMap[regionName].grossProfitAmount += grossProfitAmountValue
     salespersonContributionMap[salespersonName].saleAmount += saleAmountValue
-    salespersonContributionMap[salespersonName].grossProfitAmount += grossProfitAmountValue
+    for (const bucket of [categoryContributionMap[categoryName], regionContributionMap[regionName], salespersonContributionMap[salespersonName]])
+    {
+      if (profitMasked || bucket.profitMasked)
+      {
+        bucket.profitMasked = true
+        bucket.grossProfitAmount = null
+      }
+      else
+      {
+        bucket.grossProfitAmount += grossProfitAmountValue
+      }
+    }
 
     if (orderNo)
     {
@@ -1276,9 +1307,10 @@ export function buildCashScenarioBaseData(receivableRowList = [], payableRowList
 // 根据当前经营指标生成管理层经营简报，帮助周会和月会快速形成结论。
 export function buildExecutiveBriefData(managementOverview, riskOverview, customerProfitAnalysis, inventoryDecisionAnalysis, decisionBudgetOverview) {
   const concentrationData = customerProfitAnalysis.concentration || {}
-  const summaryText = `${buildSaleAmountSummaryText(managementOverview.currentMonthSaleAmount, managementOverview.previousMonthSaleAmount, managementOverview.saleGrowthRate)}，毛利率 ${formatRateValue(managementOverview.currentMonthGrossProfitRate)}，回款率 ${formatRateValue(managementOverview.currentMonthCollectionRate)}。`
+  const profitMasked = managementOverview.currentMonthGrossProfitAmount === null || managementOverview.currentMonthGrossProfitAmount === undefined
+  const summaryText = `${buildSaleAmountSummaryText(managementOverview.currentMonthSaleAmount, managementOverview.previousMonthSaleAmount, managementOverview.saleGrowthRate)}，毛利率 ${profitMasked ? "权限脱敏" : formatRateValue(managementOverview.currentMonthGrossProfitRate)}，回款率 ${formatRateValue(managementOverview.currentMonthCollectionRate)}。`
   const highlightTextList = [
-    `本月毛利额为 ￥${formatAmountValue(managementOverview.currentMonthGrossProfitAmount)}，采购额为 ￥${formatAmountValue(managementOverview.currentMonthPurchaseAmount)}。`,
+    `本月毛利额为 ${profitMasked ? "权限脱敏" : `￥${formatAmountValue(managementOverview.currentMonthGrossProfitAmount)}`}，采购额为 ￥${formatAmountValue(managementOverview.currentMonthPurchaseAmount)}。`,
     `前 3 大客户销售占比为 ${formatRateValue(concentrationData.top3ShareRate)}，高价值客户集中在 ${customerProfitAnalysis.topCustomerList?.[0]?.targetName || "暂无"}。`,
     `当前库存货值为 ￥${formatAmountValue(inventoryDecisionAnalysis.totalStockValueAmount)}，近 30 天出库成本为 ￥${formatAmountValue(inventoryDecisionAnalysis.recentOutboundCostAmount)}。`
   ]

@@ -239,8 +239,13 @@ public class FinAccountPeriodService
         {
             complianceHelper.assertPeriodOpen(bizDate, "资金账户互转");
         }
-        FinAccount fromAcc = finAccountPeriodMapper.selectFinAccountById(fromAccountId);
-        FinAccount toAcc = finAccountPeriodMapper.selectFinAccountById(toAccountId);
+        // 按账户ID升序预加行锁，消除双向并发互转 (A->B 与 B->A) 的 AB-BA 死锁
+        Long firstLockId = Math.min(fromAccountId, toAccountId);
+        Long secondLockId = Math.max(fromAccountId, toAccountId);
+        FinAccount firstAcc = finAccountPeriodMapper.selectFinAccountByIdForUpdate(firstLockId);
+        FinAccount secondAcc = finAccountPeriodMapper.selectFinAccountByIdForUpdate(secondLockId);
+        FinAccount fromAcc = Objects.equals(fromAccountId, firstLockId) ? firstAcc : secondAcc;
+        FinAccount toAcc = Objects.equals(toAccountId, firstLockId) ? firstAcc : secondAcc;
         if (fromAcc == null || toAcc == null)
         {
             throw new ServiceException("转出或转入结算账户不存在");

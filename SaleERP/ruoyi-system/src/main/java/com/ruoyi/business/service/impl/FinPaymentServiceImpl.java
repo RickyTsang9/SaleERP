@@ -56,7 +56,17 @@ public class FinPaymentServiceImpl implements IFinPaymentService
     public int insertFinPayment(FinPayment finPayment)
     {
         Long payableId = finPayment == null ? null : finPayment.getPayableId();
-        FinPayable finPayable = payableId == null ? null : finPayableMapper.selectFinPayableByPayableId(payableId);
+        FinPayable lockedPayable = payableId == null ? null : finPayableMapper.selectFinPayableByPayableIdForUpdate(payableId);
+        FinPayable finPayable = lockedPayable != null
+            ? finPayableMapper.selectFinPayableByPayableId(payableId)
+            : (payableId == null ? null : finPayableMapper.selectFinPayableByPayableId(payableId));
+        if (lockedPayable != null && finPayable != null)
+        {
+            finPayable.setAmountDue(lockedPayable.getAmountDue());
+            finPayable.setAmountPaid(lockedPayable.getAmountPaid());
+            finPayable.setRemainAmount(lockedPayable.getRemainAmount());
+            finPayable.setStatus(lockedPayable.getStatus());
+        }
         validatePaymentBeforeSave(finPayment, finPayable);
         if (complianceHelper != null)
         {
@@ -237,6 +247,7 @@ public class FinPaymentServiceImpl implements IFinPaymentService
         if (complianceHelper != null)
         {
             complianceHelper.assertPeriodOpen(payment.getPaymentTime(), "冲红付款记录");
+            complianceHelper.assertPeriodOpen(new Date(), "冲红付款记录（当期资金流水）");
         }
         String reason = StringUtils.isEmpty(voidReason) ? "财务付款冲红纠错" : voidReason.trim();
         String operator = "system";
@@ -365,7 +376,8 @@ public class FinPaymentServiceImpl implements IFinPaymentService
         {
             return;
         }
-        FinPayable finPayable = finPayableMapper.selectFinPayableByPayableId(payableId);
+        FinPayable locked = finPayableMapper.selectFinPayableByPayableIdForUpdate(payableId);
+        FinPayable finPayable = locked != null ? locked : finPayableMapper.selectFinPayableByPayableId(payableId);
         if (finPayable == null)
         {
             return;

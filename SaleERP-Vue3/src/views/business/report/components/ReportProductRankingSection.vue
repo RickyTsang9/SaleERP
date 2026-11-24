@@ -39,8 +39,12 @@
           </div>
           <div class="product-ranking-kpi-card">
             <div class="kpi-label">预估毛利合计</div>
-            <div class="kpi-value kpi-value--success">¥{{ formatMoney(summaryMetrics.totalGrossProfit) }}</div>
-            <div class="kpi-sub">综合毛利率 {{ formatRate(summaryMetrics.overallGrossMarginRate) }}%</div>
+            <div class="kpi-value kpi-value--success">
+              {{ summaryMetrics.profitMasked ? '权限脱敏' : `¥${formatMoney(summaryMetrics.totalGrossProfit)}` }}
+            </div>
+            <div class="kpi-sub">
+              {{ summaryMetrics.profitMasked ? '需具备成本毛利查看权限' : `综合毛利率 ${formatRate(summaryMetrics.overallGrossMarginRate)}%` }}
+            </div>
           </div>
           <div class="product-ranking-kpi-card">
             <div class="kpi-label">退货风险监控</div>
@@ -75,14 +79,16 @@
           </el-table-column>
           <el-table-column label="预估毛利" prop="grossProfitAmount" width="104" align="right">
             <template #default="scope">
-              <span :class="Number(scope.row.grossProfitAmount || 0) >= 0 ? 'text-profit-pos' : 'text-profit-neg'">
+              <span v-if="scope.row.grossProfitAmount === null || scope.row.grossProfitAmount === undefined" class="erp-cell-sub">权限脱敏</span>
+              <span v-else :class="Number(scope.row.grossProfitAmount || 0) >= 0 ? 'text-profit-pos' : 'text-profit-neg'">
                 ¥{{ formatMoney(scope.row.grossProfitAmount) }}
               </span>
             </template>
           </el-table-column>
           <el-table-column label="毛利率" prop="grossMarginRate" width="78" align="center">
             <template #default="scope">
-              <el-tag size="small" :type="getMarginTagType(scope.row.grossMarginRate)" effect="plain">
+              <span v-if="scope.row.grossMarginRate === null || scope.row.grossMarginRate === undefined" class="erp-cell-sub">脱敏</span>
+              <el-tag v-else size="small" :type="getMarginTagType(scope.row.grossMarginRate)" effect="plain">
                 {{ formatRate(scope.row.grossMarginRate) }}%
               </el-tag>
             </template>
@@ -102,7 +108,7 @@
           </el-table-column>
           <el-table-column label="操作" width="76" align="center" fixed="right">
             <template #default="scope">
-              <el-button link type="primary" icon="DataAnalysis" @click="openProductProfile(scope.row)">画像</el-button>
+              <el-button link type="primary" icon="DataAnalysis" v-hasPermi="['business:product:query']" @click="openProductProfile(scope.row)">画像</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -119,7 +125,7 @@
                 编码：{{ profileData.product.productCode || "-" }} · 规格：{{ profileData.product.productSpec || "-" }} · 分类：{{ profileData.product.categoryName || "-" }}
               </div>
               <div class="ranking-profile-meta">
-                成本价：¥{{ formatMoney(profileData.product.costPrice) }} · 销售价：¥{{ formatMoney(profileData.product.salePrice) }}
+                成本价：{{ profileData.product.costPrice === null || profileData.product.costPrice === undefined ? '权限脱敏' : `¥${formatMoney(profileData.product.costPrice)}` }} · 销售价：¥{{ formatMoney(profileData.product.salePrice) }}
               </div>
             </div>
             <el-tag :type="getWarningTagType(profileData.summary?.warningStatus)" effect="dark">
@@ -135,8 +141,12 @@
             </div>
             <div class="ranking-profile-kpi">
               <div class="kpi-label">预估毛利</div>
-              <div class="kpi-value kpi-value--success">¥{{ formatMoney(profileData.summary?.grossProfitAmount) }}</div>
-              <div class="kpi-sub">毛利率 {{ formatRate(profileData.summary?.grossMarginRate) }}%</div>
+              <div class="kpi-value kpi-value--success">
+                {{ profileData.summary?.grossProfitAmount === null || profileData.summary?.grossProfitAmount === undefined ? '权限脱敏' : `¥${formatMoney(profileData.summary?.grossProfitAmount)}` }}
+              </div>
+              <div class="kpi-sub">
+                {{ profileData.summary?.grossMarginRate === null || profileData.summary?.grossMarginRate === undefined ? '需成本毛利权限' : `毛利率 ${formatRate(profileData.summary?.grossMarginRate)}%` }}
+              </div>
             </div>
             <div class="ranking-profile-kpi">
               <div class="kpi-label">退货率</div>
@@ -172,6 +182,7 @@
 <script setup>
 import { listProductRanking } from "@/api/business/report"
 import { getProductProfile } from "@/api/business/product"
+import { checkPermi } from "@/utils/permission"
 
 const loading = ref(false)
 const sortBy = ref("saleAmount")
@@ -184,9 +195,11 @@ const profileData = ref(null)
 
 const summaryMetrics = computed(() => {
   const list = rankingList.value || []
+  const canViewProfit = checkPermi(['business:report:profit'])
   let totalSaleAmount = 0
   let totalSaleQty = 0
   let totalGrossProfit = 0
+  let hasMaskedRow = !canViewProfit
   let totalReturnAmount = 0
   let totalStockQty = 0
   let highReturnCount = 0
@@ -194,7 +207,11 @@ const summaryMetrics = computed(() => {
   for (const row of list) {
     totalSaleAmount += Number(row.saleAmount || 0)
     totalSaleQty += Number(row.saleQty || 0)
-    totalGrossProfit += Number(row.grossProfitAmount || 0)
+    if (row.grossProfitAmount === null || row.grossProfitAmount === undefined) {
+      hasMaskedRow = true
+    } else {
+      totalGrossProfit += Number(row.grossProfitAmount || 0)
+    }
     totalReturnAmount += Number(row.returnAmount || 0)
     totalStockQty += Number(row.stockQty || 0)
     if (Number(row.returnRate || 0) >= 5) {
@@ -204,12 +221,14 @@ const summaryMetrics = computed(() => {
       fastTurnoverCount += 1
     }
   }
+  const profitMasked = hasMaskedRow && list.length > 0 || !canViewProfit
   const overallGrossMarginRate = totalSaleAmount > 0 ? (totalGrossProfit * 100) / totalSaleAmount : 0
   return {
     totalSaleAmount,
     totalSaleQty,
-    totalGrossProfit,
-    overallGrossMarginRate,
+    totalGrossProfit: profitMasked ? null : totalGrossProfit,
+    overallGrossMarginRate: profitMasked ? null : overallGrossMarginRate,
+    profitMasked,
     totalReturnAmount,
     totalStockQty,
     highReturnCount,

@@ -107,11 +107,11 @@
                 <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="scope.row.purchaseOrderId" @click="handleViewPurchaseOrder(scope.row)">查看采购单</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === 'draft'" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === 'submitted'" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status !== 'audited' && scope.row.status !== 'cancelled'" @click="handleCancel(scope.row)">作废单据</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === 'draft'" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.purchaseOrderId" v-hasPermi="['business:purchaseOrder:list']" @click="handleViewPurchaseOrder(scope.row)">查看采购单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" v-hasPermi="['business:inbound:edit']" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'submitted'" v-hasPermi="['business:inbound:audit']" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status !== 'audited' && scope.row.status !== 'cancelled'" v-hasPermi="['business:inbound:edit']" @click="handleCancel(scope.row)">作废单据</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" v-hasPermi="['business:inbound:remove']" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -269,7 +269,7 @@
             v-hasPermi="['business:inbound:remove']"
           >删除明细</el-button>
         </el-col>
-        <el-col :span="12" v-if="isInboundItemEditable()">
+        <el-col :span="12" v-if="isInboundItemEditable()" v-hasPermi="['business:inbound:add', 'business:inbound:edit']">
           <el-input
             v-model="inboundScanCode"
             placeholder="扫码入库：扫描/输入条码或商品编码按回车（自动匹配+1）"
@@ -410,7 +410,7 @@
   </div>
 </template>
 
-<script setup name="BusinessInbound">
+<script setup name="Inbound">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listInbound, getInbound, addInbound, updateInbound, delInbound, submitInbound, auditInbound, rejectInbound, cancelInbound } from "@/api/business/inbound"
 import { listInboundItem, getInboundItem, addInboundItem, updateInboundItem, delInboundItem } from "@/api/business/inboundItem"
@@ -444,6 +444,7 @@ const inboundItemList = ref([])
 const currentInboundId = ref(undefined)
 const currentInboundStatus = ref(undefined)
 const currentInboundPurchaseOrderId = ref(undefined)
+const currentInboundWarehouseId = ref(undefined)
 const selectedInboundItemIds = ref([])
 const inboundItemMultiple = ref(true)
 const inboundItemFormOpen = ref(false)
@@ -607,6 +608,7 @@ function loadSupplierOptionList(searchKeyword) {
   listSupplier({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     supplierName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const supplierRowList = response.rows || []
@@ -624,6 +626,7 @@ function loadWarehouseOptionList(searchKeyword) {
   listWarehouse({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     warehouseName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const warehouseRowList = response.rows || []
@@ -641,6 +644,7 @@ function loadProductOptionList(searchKeyword) {
   listProduct({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     productName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const productRowList = response.rows || []
@@ -652,12 +656,14 @@ function loadProductOptionList(searchKeyword) {
   })
 }
 
-// 远程加载库位下拉选项，按需补充库位名称数据，减少页面初始加载压力。
+// 远程加载库位下拉选项，按当前入库单仓库限定范围，防止跨仓错选库位。
 function loadLocationOptionList(searchKeyword) {
   locationListLoading.value = true
   listLocation({
     pageNum: 1,
-    pageSize: 20,
+    pageSize: 50,
+    status: "0",
+    warehouseId: currentInboundWarehouseId.value || form.value.warehouseId || undefined,
     locationName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const locationRowList = response.rows || []
@@ -844,7 +850,11 @@ function buildProductSelectOptionList() {
 
 // 组合库位下拉选项，兼容历史入库明细中主数据缺失时的兜底回显。
 function buildLocationSelectOptionList() {
-  return buildSelectOptionList(locationList.value, [inboundItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
+  const targetWarehouseId = currentInboundWarehouseId.value || form.value.warehouseId
+  const filtered = targetWarehouseId
+    ? locationList.value.filter(loc => (!loc.warehouseId || Number(loc.warehouseId) === Number(targetWarehouseId)) && loc.status !== "1")
+    : locationList.value.filter(loc => loc.status !== "1")
+  return buildSelectOptionList(filtered, [inboundItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据供应商编号和来源采购订单返回供应商名称，优先展示回补后的正式供应商名称。
@@ -1118,6 +1128,8 @@ function handleOpenInboundItem(row) {
   currentInboundId.value = row.inboundId
   currentInboundStatus.value = row.status
   currentInboundPurchaseOrderId.value = row.purchaseOrderId
+  currentInboundWarehouseId.value = row.warehouseId
+  loadLocationOptionList()
   inboundItemTitle.value = "入库明细 - " + row.inboundNo + "（" + getInboundStatusLabel(row.status) + "）"
   inboundItemOpen.value = true
   inboundScanCode.value = ""

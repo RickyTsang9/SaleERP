@@ -49,7 +49,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from wms_transfer a
         left join md_warehouse mwo on mwo.warehouse_id = a.out_warehouse_id
         left join md_warehouse mwi on mwi.warehouse_id = a.in_warehouse_id
-        left join sys_user su on su.user_name = a.create_by
+        left join sys_user su on su.user_name = a.create_by and su.del_flag = '0'
     </sql>
 
     <select id="selectWmsTransferList" parameterType="WmsTransfer" resultMap="WmsTransferResult">

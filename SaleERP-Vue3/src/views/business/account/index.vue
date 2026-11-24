@@ -402,7 +402,7 @@
   </div>
 </template>
 
-<script setup name="BusinessAccountPeriod">
+<script setup name="Account">
 import {
   listAccount,
   getAccountSummary,

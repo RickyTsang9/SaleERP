@@ -115,6 +115,9 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
     private JdbcTemplate jdbcTemplate;
 
     @Autowired(required = false)
+    private FinInvoiceService finInvoiceService;
+
+    @Autowired(required = false)
     private BizComplianceHelper complianceHelper;
 
     @Autowired(required = false)
@@ -443,6 +446,40 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         // 标准 ERP 锁库机制：销售单财务审核仅原子锁定可用库存 (locked_quantity)，仓库审核出库单时才扣减实物库存
         for (WmsSaleOrderItem wmsSaleOrderItem : itemList)
         {
+            // 若行内快速建单未指定库位或批次，审核锁库前自动按 FEFO 绑定可用库位与批次，彻底消除后续出库空库位死锁
+            if (wmsSaleOrderItem.getLocationId() == null || StringUtils.isEmpty(wmsSaleOrderItem.getBatchNo()))
+            {
+                List<WmsStock> candidates = wmsStockMapper.selectFefoCandidateBatches(
+                    databaseSaleOrder.getWarehouseId(), wmsSaleOrderItem.getProductId()
+                );
+                WmsStock matchedCandidate = null;
+                BigDecimal needQty = wmsSaleOrderItem.getQuantity() == null ? BigDecimal.ZERO : wmsSaleOrderItem.getQuantity();
+                if (candidates != null)
+                {
+                    for (WmsStock candidate : candidates)
+                    {
+                        BigDecimal q = candidate.getQuantity() == null ? BigDecimal.ZERO : candidate.getQuantity();
+                        BigDecimal l = candidate.getLockedQuantity() == null ? BigDecimal.ZERO : candidate.getLockedQuantity();
+                        BigDecimal f = candidate.getFrozenQuantity() == null ? BigDecimal.ZERO : candidate.getFrozenQuantity();
+                        if (candidate.getLocationId() != null && StringUtils.isNotEmpty(candidate.getBatchNo())
+                            && q.subtract(l).subtract(f).compareTo(needQty) >= 0)
+                        {
+                            matchedCandidate = candidate;
+                            break;
+                        }
+                    }
+                }
+                if (matchedCandidate != null)
+                {
+                    wmsSaleOrderItem.setLocationId(matchedCandidate.getLocationId());
+                    wmsSaleOrderItem.setBatchNo(matchedCandidate.getBatchNo());
+                    wmsSaleOrderItemMapper.updateWmsSaleOrderItem(wmsSaleOrderItem);
+                }
+            }
+            if (complianceHelper != null && wmsSaleOrderItem.getLocationId() != null)
+            {
+                complianceHelper.assertEntityEnabled("md_location", "location_id", wmsSaleOrderItem.getLocationId(), "库位");
+            }
             wmsStockService.lockStockByKeyAtomically(
                 databaseSaleOrder.getWarehouseId(),
                 wmsSaleOrderItem.getProductId(),
@@ -472,6 +509,12 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
             finReceivable.setDueDate(dueCalendar.getTime());
             finReceivableMapper.insertFinReceivable(finReceivable);
         }
+        else if ((databaseReceivable.getAmountDue() == null || databaseReceivable.getAmountDue().compareTo(BigDecimal.ZERO) == 0)
+            && (databaseReceivable.getAmountPaid() == null || databaseReceivable.getAmountPaid().compareTo(BigDecimal.ZERO) == 0))
+        {
+            finReceivableMapper.updateFinReceivableAmounts(
+                databaseReceivable.getReceivableId(), databaseSaleOrder.getTotalAmount(), BigDecimal.ZERO, "unpaid");
+        }
         saveStatusHistory(
             saleOrderId, databaseSaleOrder.getStatus(), STATUS_AUDITED, "finance_audit", "finance", auditComment, auditUsername);
         pushSaleOrderAuditMessage(
@@ -498,6 +541,26 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         if (complianceHelper != null)
         {
             complianceHelper.assertPeriodOpen(databaseSaleOrder.getAuditTime(), "财务回退销售单");
+            complianceHelper.assertPeriodOpen(new Date(), "财务回退销售单");
+        }
+        if (jdbcTemplate != null)
+        {
+            Long activeInvoiceCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM fin_invoice WHERE invoice_direction = 'sale' AND source_order_id = ? AND status IN ('draft', 'issued')",
+                Long.class, saleOrderId
+            );
+            if (activeInvoiceCount != null && activeInvoiceCount > 0L)
+            {
+                throw new ServiceException("销售单已关联有效销项发票，请先红冲作废或删除发票草稿后再财务回退");
+            }
+            Long activeReturnCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM wms_sale_return WHERE sale_order_id = ? AND status <> 'cancelled'",
+                Long.class, saleOrderId
+            );
+            if (activeReturnCount != null && activeReturnCount > 0L)
+            {
+                throw new ServiceException("销售单已关联销售退货单，不允许财务回退");
+            }
         }
         FinReceivable databaseReceivable = finReceivableMapper.selectFinReceivableBySaleOrderId(saleOrderId);
         if (databaseReceivable != null)
@@ -507,7 +570,19 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
             {
                 throw new ServiceException("销售单存在回款记录，不允许财务回退");
             }
-            finReceivableMapper.deleteFinReceivableById(databaseReceivable.getReceivableId());
+            Long receiptHistoryCount = jdbcTemplate == null ? 0L : jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM fin_receipt WHERE receivable_id = ?",
+                Long.class, databaseReceivable.getReceivableId()
+            );
+            if (receiptHistoryCount != null && receiptHistoryCount > 0L)
+            {
+                // 存在已冲红历史回款流水时保留台账归零，避免产生悬空外键
+                finReceivableMapper.updateFinReceivableAmounts(databaseReceivable.getReceivableId(), BigDecimal.ZERO, BigDecimal.ZERO, "paid");
+            }
+            else
+            {
+                finReceivableMapper.deleteFinReceivableById(databaseReceivable.getReceivableId());
+            }
         }
         validateNoLinkedOutboundForFinanceRollback(databaseSaleOrder);
         List<WmsSaleOrderItem> itemList = wmsSaleOrderItemMapper.selectWmsSaleOrderItemsByOrderId(saleOrderId);
@@ -622,6 +697,7 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         }
         if (complianceHelper != null)
         {
+            complianceHelper.assertPeriodOpen(databaseSaleOrder.getAuditTime(), "销售单短装结案");
             complianceHelper.assertPeriodOpen(new Date(), "销售单短装结案");
         }
         Long pendingByOrderId = wmsOutboundMapper.selectPendingLinkedOutboundCountBySaleOrderId(saleOrderId, null);
@@ -661,6 +737,17 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
                 );
             }
         }
+        if (jdbcTemplate != null)
+        {
+            BigDecimal activeInvoiceTotal = jdbcTemplate.queryForObject(
+                "SELECT IFNULL(SUM(total_amount), 0) FROM fin_invoice WHERE invoice_direction = 'sale' AND source_order_id = ? AND status IN ('draft', 'issued')",
+                BigDecimal.class, saleOrderId
+            );
+            if (activeInvoiceTotal != null && activeInvoiceTotal.compareTo(actualShippedAmount) > 0)
+            {
+                throw new ServiceException("该销售单已登记销项发票金额（¥" + activeInvoiceTotal + "）大于实际发货金额（¥" + actualShippedAmount + "），请先红冲超额发票后再短装结案");
+            }
+        }
         FinReceivable receivable = finReceivableMapper.selectFinReceivableBySaleOrderId(saleOrderId);
         if (receivable != null)
         {
@@ -698,6 +785,10 @@ public class WmsSaleOrderServiceImpl implements IWmsSaleOrderService
         if (updateCount == 0)
         {
             throw new ServiceException("销售单状态已变更，请刷新后重试");
+        }
+        if (finInvoiceService != null)
+        {
+            finInvoiceService.syncOrderInvoiceStatus("sale", saleOrderId);
         }
         saveStatusHistory(saleOrderId, STATUS_AUDITED, STATUS_CLOSED, "force_close", "finance", closeComment, operatorName);
         pushSaleOrderAuditMessage(

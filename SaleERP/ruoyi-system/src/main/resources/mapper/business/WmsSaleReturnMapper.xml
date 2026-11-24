@@ -35,7 +35,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         left join wms_sale_order so on so.sale_order_id = s.sale_order_id
         left join md_customer mc on mc.customer_id = s.customer_id
         left join md_warehouse mw on mw.warehouse_id = s.warehouse_id
-        left join sys_user su on su.user_name = s.create_by
+        left join sys_user su on su.user_name = s.create_by and su.del_flag = '0'
     </sql>
 
     <select id="selectWmsSaleReturnById" parameterType="Long" resultMap="WmsSaleReturnResult">

@@ -61,11 +61,11 @@ public class BizOperationReportTask
 
         AjaxResult dashboard = bizReportService.getDashboardData();
         BigDecimal totalSale = toBigDecimal(dashboard.get("totalSaleAmount"));
-        BigDecimal totalReceivable = toBigDecimal(dashboard.get("receivableAmount"));
-        BigDecimal totalReceived = toBigDecimal(dashboard.get("receivedAmount"));
+        BigDecimal totalReceivable = toBigDecimal(dashboard.get("totalReceivableAmount"));
+        BigDecimal totalReceived = toBigDecimal(dashboard.get("totalReceivedAmount"));
         BigDecimal collectionRate = totalReceivable.compareTo(BigDecimal.ZERO) > 0
             ? totalReceived.multiply(new BigDecimal("100")).divide(totalReceivable, 2, RoundingMode.HALF_UP)
-            : new BigDecimal("100.00");
+            : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         @SuppressWarnings("unchecked")
         Map<String, Object> managementOverview = dashboard.get("managementOverview") instanceof Map
             ? (Map<String, Object>) dashboard.get("managementOverview")

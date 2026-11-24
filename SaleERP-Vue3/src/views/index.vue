@@ -12,38 +12,38 @@
         <p class="home-hero__desc">聚合销售营收、应收回款、库存健康度与审批流转状态，一键直达高频核心业务。</p>
 
         <div class="home-hero__quick">
-          <el-button type="primary" size="small" @click="navigateTo(businessRoutePathMap.saleOrder, { mode: 'create' })">
+          <el-button type="primary" size="small" v-hasPermi="['business:saleOrder:add']" @click="navigateTo(businessRoutePathMap.saleOrder, { mode: 'create' })">
             <el-icon><ShoppingCart /></el-icon> 开销售单
           </el-button>
-          <el-button plain size="small" @click="navigateTo(businessRoutePathMap.inbound, { mode: 'create' })">
+          <el-button plain size="small" v-hasPermi="['business:inbound:add']" @click="navigateTo(businessRoutePathMap.inbound, { mode: 'create' })">
             <el-icon><Goods /></el-icon> 采购入库
           </el-button>
-          <el-button plain size="small" @click="navigateTo(businessRoutePathMap.inventoryCheck, { mode: 'create' })">
+          <el-button plain size="small" v-hasPermi="['business:inventoryCheck:add']" @click="navigateTo(businessRoutePathMap.inventoryCheck, { mode: 'create' })">
             <el-icon><Box /></el-icon> 盘点库存
           </el-button>
-          <el-button plain size="small" @click="navigateTo('/inventory/mobileWms')">
+          <el-button plain size="small" v-hasPermi="['business:stock:list']" @click="navigateTo('/inventory/mobileWms')">
             <el-icon><Iphone /></el-icon> 移动PDA
           </el-button>
-          <el-button plain size="small" @click="navigateTo(businessRoutePathMap.customer, { mode: 'create' })">
+          <el-button plain size="small" v-hasPermi="['business:customer:add']" @click="navigateTo(businessRoutePathMap.customer, { mode: 'create' })">
             <el-icon><User /></el-icon> 新增客户
           </el-button>
         </div>
       </div>
 
       <div class="home-hero__summary">
-        <div class="hero-pill" @click="navigateTo('/todoCenter')">
+        <div class="hero-pill" v-hasPermi="['business:todoCenter:list']" @click="navigateTo('/todoCenter')">
           <span class="hero-pill__label">待处理事项</span>
           <strong class="hero-pill__val erp-num" :class="{ 'is-urgent': pendingTaskCount > 0 }">
             {{ pendingTaskCount }}
           </strong>
           <span class="hero-pill__sub">进入待办中心 →</span>
         </div>
-        <div class="hero-pill" @click="navigateTo(businessRoutePathMap.receivable)">
-          <span class="hero-pill__label">应收回款率</span>
+        <div class="hero-pill" v-if="canViewDashboard" v-hasPermi="['business:receivable:list']" @click="navigateTo(businessRoutePathMap.receivable)">
+          <span class="hero-pill__label">累计应收回款率</span>
           <strong class="hero-pill__val erp-num is-indigo">{{ receivableRateText }}</strong>
           <span class="hero-pill__sub">查看回款台账 →</span>
         </div>
-        <div class="hero-pill" @click="navigateTo('/finance/report')">
+        <div class="hero-pill" v-if="canViewDashboard" @click="navigateTo('/finance/report')">
           <span class="hero-pill__label">经营驾驶舱</span>
           <strong class="hero-pill__val">实时同步</strong>
           <span class="hero-pill__sub">深度财务分析 →</span>
@@ -52,13 +52,13 @@
     </section>
 
     <!-- Primary Financial KPIs -->
-    <erp-stat-strip :items="financialStatItems" :columns="4" @select="handleStatSelect" />
+    <erp-stat-strip v-if="canViewDashboard" :items="financialStatItems" :columns="4" @select="handleStatSelect" />
 
     <!-- Operational Pulse KPIs -->
-    <erp-stat-strip :items="operationalStatItems" :columns="4" @select="handleStatSelect" />
+    <erp-stat-strip v-if="canViewDashboard" :items="operationalStatItems" :columns="4" @select="handleStatSelect" />
 
     <!-- Action Workbench -->
-    <section class="erp-section-card workbench-section">
+    <section v-if="canViewDashboard" class="erp-section-card workbench-section">
       <div class="section-head">
         <div>
           <h2 class="section-title">今日待办优先队列</h2>
@@ -91,7 +91,7 @@
     </section>
 
     <!-- Charts Analytics Row -->
-    <el-row :gutter="16">
+    <el-row v-if="canViewDashboard" :gutter="16">
       <el-col :xs="24" :lg="8">
         <el-card shadow="never" class="chart-card">
           <template #header>
@@ -193,9 +193,10 @@
 <script setup name="Index">
 import { ref, computed, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getDashboard } from '@/api/business/report'
+import { getDashboard, getTodoCenter } from '@/api/business/report'
 import * as echarts from 'echarts'
 import { parseTime } from '@/utils/ruoyi'
+import { checkPermi } from '@/utils/permission'
 import { businessDashboardRoutePathMap, normalizeDashboardSummaryData } from '@/utils/businessDashboard'
 import { useDashboardMessageCenter } from '@/composables/useDashboardMessageCenter'
 import useSettingsStore from '@/store/modules/settings'
@@ -243,7 +244,14 @@ const todayText = computed(() => {
   })
 })
 
+const canViewDashboard = computed(() => checkPermi(['business:report:view']))
+const canViewTodoCenter = computed(() => checkPermi(['business:todoCenter:list']))
+const todoCenterTotalCount = ref(null)
+
 const pendingTaskCount = computed(() => {
+  if (todoCenterTotalCount.value !== null) {
+    return todoCenterTotalCount.value
+  }
   return Number(dashboardData.value.pendingSaleOrderCount || 0)
     + Number(dashboardData.value.pendingInboundCount || 0)
     + Number(dashboardData.value.pendingOutboundCount || 0)
@@ -268,10 +276,10 @@ function formatMoney(val) {
 const financialStatItems = computed(() => [
   {
     key: 'sale',
-    label: '总销售额',
+    label: '累计净销售额',
     prefix: '¥',
     value: formatMoney(dashboardData.value.totalSaleAmount),
-    hint: '点击进入销售订单列表',
+    hint: '已扣除审核退货 · 点击查看销售单',
     icon: 'Money',
     tone: 'indigo',
     clickable: true,
@@ -279,10 +287,10 @@ const financialStatItems = computed(() => [
   },
   {
     key: 'receivable',
-    label: '应收总额',
+    label: '累计应收总额',
     prefix: '¥',
     value: formatMoney(dashboardData.value.totalReceivableAmount),
-    hint: '查看全部客户应收台账',
+    hint: '历史已入账累计应收 · 查看应收台账',
     icon: 'Wallet',
     tone: 'blue',
     clickable: true,
@@ -290,10 +298,10 @@ const financialStatItems = computed(() => [
   },
   {
     key: 'received',
-    label: '已收总额',
+    label: '累计已收总额',
     prefix: '¥',
     value: formatMoney(dashboardData.value.totalReceivedAmount),
-    hint: `综合回款率 ${receivableRateText.value}`,
+    hint: `累计回款率 ${receivableRateText.value}`,
     icon: 'CreditCard',
     tone: 'emerald',
     clickable: true,
@@ -595,10 +603,21 @@ const handleStatSelect = (item) => {
 }
 
 const fetchData = () => {
+  if (canViewTodoCenter.value) {
+    getTodoCenter().then(res => {
+      const total = res?.data?.summary?.totalCount
+      if (total !== undefined && total !== null) {
+        todoCenterTotalCount.value = Number(total)
+      }
+    }).catch(() => {})
+  }
+  if (!canViewDashboard.value) {
+    return
+  }
   getDashboard().then(res => {
     dashboardData.value = normalizeDashboardSummaryData(res)
     updateCharts(dashboardData.value.saleTrend, dashboardData.value.topCustomer, dashboardData.value.productCategorySales)
-  })
+  }).catch(() => {})
 }
 
 watch(() => [settingsStore.isDark, settingsStore.theme], () => {

@@ -61,9 +61,13 @@ public class WmsStockController extends BaseController
     @PostMapping("/export")
     public void export(javax.servlet.http.HttpServletResponse response, WmsStock wmsStock)
     {
-        List<WmsStock> wmsStockList = wmsStockService.selectWmsStockList(wmsStock);
+        boolean warningOnly = wmsStock != null && wmsStock.getParams() != null
+            && "1".equals(String.valueOf(wmsStock.getParams().get("warningOnly")));
+        List<WmsStock> wmsStockList = warningOnly
+            ? wmsStockService.selectWmsStockWarningList(wmsStock)
+            : wmsStockService.selectWmsStockList(wmsStock);
         ExcelUtil<WmsStock> util = new ExcelUtil<WmsStock>(WmsStock.class);
-        util.exportExcel(response, wmsStockList, "库存台账数据");
+        util.exportExcel(response, wmsStockList, warningOnly ? "库存预警数据" : "库存台账数据");
     }
 
     @PreAuthorize("@ss.hasAnyPermi('business:stock:list,business:saleOrder:add,business:saleOrder:edit,business:outbound:add,business:outbound:edit')")

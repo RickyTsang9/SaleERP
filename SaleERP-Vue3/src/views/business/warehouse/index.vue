@@ -151,7 +151,7 @@
   </div>
 </template>
 
-<script setup name="BusinessWarehouse">
+<script setup name="Warehouse">
 import { listWarehouse, getWarehouse, addWarehouse, updateWarehouse, delWarehouse } from "@/api/business/warehouse"
 import { parseTime } from "@/utils/ruoyi"
 

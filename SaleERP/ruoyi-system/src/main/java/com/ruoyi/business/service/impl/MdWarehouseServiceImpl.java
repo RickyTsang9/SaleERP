@@ -48,6 +48,14 @@ public class MdWarehouseServiceImpl implements IMdWarehouseService
             {
                 throw new ServiceException("该仓库当前仍有在库库存（" + remainStock + "），禁止停用");
             }
+            Long activeTransferCount = complianceHelper.queryLong(
+                "SELECT COUNT(1) FROM wms_transfer WHERE (out_warehouse_id = ? OR in_warehouse_id = ?) AND status IN ('0', 'in_transit')",
+                mdWarehouse.getWarehouseId(), mdWarehouse.getWarehouseId()
+            );
+            if (activeTransferCount > 0)
+            {
+                throw new ServiceException("该仓库存在待审核或在途调拨单（" + activeTransferCount + " 笔），请先完成签收或撤回后再停用");
+            }
         }
         return mdWarehouseMapper.updateMdWarehouse(mdWarehouse);
     }

@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.ruoyi.business.domain.FinInvoice;
 import com.ruoyi.business.domain.FinPayable;
 import com.ruoyi.business.domain.FinPayment;
@@ -64,6 +66,12 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
 
     @Autowired(required = false)
     private FinInvoiceMapper finInvoiceMapper;
+
+    @Autowired(required = false)
+    private FinInvoiceService finInvoiceService;
+
+    @Autowired(required = false)
+    private JdbcTemplate jdbcTemplate;
 
     /**
      * 查询采购订单
@@ -206,6 +214,7 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         }
         if (complianceHelper != null)
         {
+            complianceHelper.assertPeriodOpen(databasePurchaseOrder.getPurchaseDate(), "审核采购订单");
             complianceHelper.assertPeriodOpen(new java.util.Date(), "审核采购订单");
             complianceHelper.assertNotSelfAudit(databasePurchaseOrder.getCreateBy(), "采购订单审核");
             complianceHelper.assertEntityEnabled("md_supplier", "supplier_id", databasePurchaseOrder.getSupplierId(), "供应商");
@@ -268,8 +277,10 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         }
         if (complianceHelper != null)
         {
+            complianceHelper.assertPeriodOpen(po.getPurchaseDate(), "反审核采购订单");
             complianceHelper.assertPeriodOpen(new java.util.Date(), "反审核采购订单");
         }
+        assertNoActiveInvoiceOrReturnForPurchaseOrder(purchaseOrderId, "反审核");
         WmsInbound inboundQuery = new WmsInbound();
         inboundQuery.setPurchaseOrderId(purchaseOrderId);
         List<WmsInbound> inbounds = wmsInboundMapper.selectWmsInboundList(inboundQuery);
@@ -283,26 +294,10 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
                 }
             }
         }
-        FinPayable payableQuery = new FinPayable();
-        payableQuery.setPurchaseOrderId(purchaseOrderId);
-        List<FinPayable> payables = finPayableMapper.selectFinPayableList(payableQuery);
-        if (payables != null)
-        {
-            for (FinPayable p : payables)
-            {
-                BigDecimal paid = p.getAmountPaid() == null ? BigDecimal.ZERO : p.getAmountPaid();
-                if (paid.compareTo(BigDecimal.ZERO) > 0)
-                {
-                    throw new ServiceException("该采购订单关联应付账款已发生付款（¥" + paid + "），请先冲红付款记录");
-                }
-            }
-            for (FinPayable p : payables)
-            {
-                finPayableMapper.deleteFinPayableByPayableId(p.getPayableId());
-            }
-        }
+        String operator = SecurityUtils.getUsername();
+        clearUnpaidPayablesSafely(purchaseOrderId, operator, "采购订单反审核归零");
         int rows = wmsPurchaseOrderMapper.updateWmsPurchaseOrderStatus(
-            purchaseOrderId, STATUS_AUDITED, STATUS_DRAFT, SecurityUtils.getUsername());
+            purchaseOrderId, STATUS_AUDITED, STATUS_DRAFT, operator);
         if (rows == 0)
         {
             throw new ServiceException("采购订单状态已变更，请刷新后重试");
@@ -325,6 +320,7 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         }
         if (complianceHelper != null)
         {
+            complianceHelper.assertPeriodOpen(po.getPurchaseDate(), "短装结案采购订单");
             complianceHelper.assertPeriodOpen(new java.util.Date(), "短装结案采购订单");
         }
         WmsInbound inboundQuery = new WmsInbound();
@@ -343,6 +339,17 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
                 {
                     auditedInboundAmount = auditedInboundAmount.add(in.getTotalAmount());
                 }
+            }
+        }
+        if (jdbcTemplate != null)
+        {
+            BigDecimal activeInvoiceTotal = jdbcTemplate.queryForObject(
+                "SELECT IFNULL(SUM(total_amount), 0) FROM fin_invoice WHERE invoice_direction = 'purchase' AND source_order_id = ? AND status IN ('draft', 'issued')",
+                BigDecimal.class, purchaseOrderId
+            );
+            if (activeInvoiceTotal != null && activeInvoiceTotal.compareTo(auditedInboundAmount) > 0)
+            {
+                throw new ServiceException("该采购单已登记进项发票金额（¥" + activeInvoiceTotal + "）大于实际入库金额（¥" + auditedInboundAmount + "），请先红冲超额发票后再短装结案");
             }
         }
         String operator = SecurityUtils.getUsername();
@@ -371,6 +378,7 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
                 {
                     p.setAmountDue(targetDue);
                     BigDecimal remain = targetDue.subtract(paid);
+                    p.setRemainAmount(remain);
                     p.setStatus(remain.compareTo(BigDecimal.ZERO) <= 0 ? "2" : (paid.compareTo(BigDecimal.ZERO) > 0 ? "1" : "0"));
                     p.setRemark((StringUtils.isEmpty(p.getRemark()) ? "" : p.getRemark() + "；") + "采购单短装结案按实收调减应付至¥" + targetDue);
                     p.setUpdateBy(operator);
@@ -380,6 +388,7 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
                 {
                     BigDecimal overpaid = paid.subtract(targetDue);
                     p.setAmountDue(paid);
+                    p.setRemainAmount(BigDecimal.ZERO);
                     p.setStatus("2");
                     p.setRemark((StringUtils.isEmpty(p.getRemark()) ? "" : p.getRemark() + "；") + "采购单短装结案，多付¥" + overpaid + "转红字待退款");
                     p.setUpdateBy(operator);
@@ -390,6 +399,7 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
                     refundPayable.setSupplierId(po.getSupplierId());
                     refundPayable.setAmountDue(overpaid.negate());
                     refundPayable.setAmountPaid(BigDecimal.ZERO);
+                    refundPayable.setRemainAmount(overpaid.negate());
                     refundPayable.setStatus("0");
                     refundPayable.setRemark("采购单[" + po.getOrderNo() + "]短装结案多付款待供应商退款");
                     refundPayable.setCreateBy(operator);
@@ -398,6 +408,10 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
                 }
                 break;
             }
+        }
+        if (finInvoiceService != null)
+        {
+            finInvoiceService.syncOrderInvoiceStatus("purchase", purchaseOrderId);
         }
         return rows;
     }
@@ -427,10 +441,13 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         }
         if (complianceHelper != null)
         {
+            complianceHelper.assertPeriodOpen(databasePurchaseOrder.getPurchaseDate(), "作废采购订单");
             complianceHelper.assertPeriodOpen(new java.util.Date(), "作废采购订单");
         }
+        String updateUsername = SecurityUtils.getUsername();
         if (STATUS_AUDITED.equals(databasePurchaseOrder.getStatus()))
         {
+            assertNoActiveInvoiceOrReturnForPurchaseOrder(purchaseOrderId, "作废");
             WmsInbound inboundQuery = new WmsInbound();
             inboundQuery.setPurchaseOrderId(purchaseOrderId);
             List<WmsInbound> inbounds = wmsInboundMapper.selectWmsInboundList(inboundQuery);
@@ -444,26 +461,8 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
                     }
                 }
             }
-            FinPayable payableQuery = new FinPayable();
-            payableQuery.setPurchaseOrderId(purchaseOrderId);
-            List<FinPayable> payables = finPayableMapper.selectFinPayableList(payableQuery);
-            if (payables != null)
-            {
-                for (FinPayable p : payables)
-                {
-                    BigDecimal paid = p.getAmountPaid() == null ? BigDecimal.ZERO : p.getAmountPaid();
-                    if (paid.compareTo(BigDecimal.ZERO) > 0)
-                    {
-                        throw new ServiceException("该采购单已发生付款，请先冲红付款后再作废");
-                    }
-                }
-                for (FinPayable p : payables)
-                {
-                    finPayableMapper.deleteFinPayableByPayableId(p.getPayableId());
-                }
-            }
+            clearUnpaidPayablesSafely(purchaseOrderId, updateUsername, "采购订单作废归零");
         }
-        String updateUsername = SecurityUtils.getUsername();
         int updateCount = wmsPurchaseOrderMapper.updateWmsPurchaseOrderStatus(
             purchaseOrderId, databasePurchaseOrder.getStatus(), STATUS_CANCELLED, updateUsername);
         if (updateCount == 0)
@@ -471,6 +470,70 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
             throw new ServiceException("采购订单状态已变更，请刷新后重试");
         }
         return updateCount;
+    }
+
+    private void assertNoActiveInvoiceOrReturnForPurchaseOrder(Long purchaseOrderId, String actionLabel)
+    {
+        if (jdbcTemplate == null || purchaseOrderId == null)
+        {
+            return;
+        }
+        Long activeInvoiceCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM fin_invoice WHERE invoice_direction = 'purchase' AND source_order_id = ? AND status IN ('draft', 'issued')",
+            Long.class, purchaseOrderId
+        );
+        if (activeInvoiceCount != null && activeInvoiceCount > 0L)
+        {
+            throw new ServiceException("该采购订单已关联有效进项发票，请先红冲作废或删除发票草稿后再" + actionLabel);
+        }
+        Long activeReturnCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM wms_purchase_return WHERE purchase_order_id = ? AND status <> 'cancelled'",
+            Long.class, purchaseOrderId
+        );
+        if (activeReturnCount != null && activeReturnCount > 0L)
+        {
+            throw new ServiceException("该采购订单已关联采购退货单，禁止" + actionLabel);
+        }
+    }
+
+    private void clearUnpaidPayablesSafely(Long purchaseOrderId, String operator, String zeroRemark)
+    {
+        FinPayable payableQuery = new FinPayable();
+        payableQuery.setPurchaseOrderId(purchaseOrderId);
+        List<FinPayable> payables = finPayableMapper.selectFinPayableList(payableQuery);
+        if (payables == null || payables.isEmpty())
+        {
+            return;
+        }
+        for (FinPayable p : payables)
+        {
+            BigDecimal paid = p.getAmountPaid() == null ? BigDecimal.ZERO : p.getAmountPaid();
+            if (paid.compareTo(BigDecimal.ZERO) > 0)
+            {
+                throw new ServiceException("该采购订单关联应付账款已发生付款（¥" + paid + "），请先冲红付款记录");
+            }
+        }
+        for (FinPayable p : payables)
+        {
+            Long paymentHistoryCount = jdbcTemplate == null ? 0L : jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM fin_payment WHERE payable_id = ?",
+                Long.class, p.getPayableId()
+            );
+            if (paymentHistoryCount != null && paymentHistoryCount > 0L)
+            {
+                p.setAmountDue(BigDecimal.ZERO);
+                p.setAmountPaid(BigDecimal.ZERO);
+                p.setRemainAmount(BigDecimal.ZERO);
+                p.setStatus("2");
+                p.setRemark((StringUtils.isEmpty(p.getRemark()) ? "" : p.getRemark() + "；") + zeroRemark);
+                p.setUpdateBy(operator);
+                finPayableMapper.updateFinPayable(p);
+            }
+            else
+            {
+                finPayableMapper.deleteFinPayableByPayableId(p.getPayableId());
+            }
+        }
     }
 
     /**
@@ -572,9 +635,9 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
         {
             return 0;
         }
-        if (!STATUS_DRAFT.equals(databasePurchaseOrder.getStatus()) && !STATUS_PENDING_AUDIT.equals(databasePurchaseOrder.getStatus()))
+        if (!STATUS_DRAFT.equals(databasePurchaseOrder.getStatus()))
         {
-            throw new ServiceException("仅草稿或待审核状态采购订单允许删除");
+            throw new ServiceException("仅草稿状态采购订单允许删除，待审核单据请先驳回");
         }
         wmsPurchaseOrderMapper.deleteWmsPurchaseOrderItemByPurchaseOrderId(purchaseOrderId);
         return wmsPurchaseOrderMapper.deleteWmsPurchaseOrderByPurchaseOrderId(purchaseOrderId);
@@ -711,7 +774,7 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
     {
         BigDecimal quantityValue = wmsPurchaseOrderItem.getQuantity() == null ? BigDecimal.ZERO : wmsPurchaseOrderItem.getQuantity();
         BigDecimal priceValue = wmsPurchaseOrderItem.getPrice() == null ? BigDecimal.ZERO : wmsPurchaseOrderItem.getPrice();
-        return quantityValue.multiply(priceValue);
+        return quantityValue.multiply(priceValue).setScale(2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -724,11 +787,21 @@ public class WmsPurchaseOrderServiceImpl implements IWmsPurchaseOrderService
     {
         FinPayable existingFinPayable =
             finPayableMapper.selectFinPayableByPurchaseOrderId(databasePurchaseOrder.getPurchaseOrderId());
+        BigDecimal amountDue = databasePurchaseOrder.getTotalAmount() == null ? BigDecimal.ZERO : databasePurchaseOrder.getTotalAmount();
         if (existingFinPayable != null)
         {
+            if ((existingFinPayable.getAmountDue() == null || existingFinPayable.getAmountDue().compareTo(BigDecimal.ZERO) == 0)
+                && (existingFinPayable.getAmountPaid() == null || existingFinPayable.getAmountPaid().compareTo(BigDecimal.ZERO) == 0))
+            {
+                existingFinPayable.setAmountDue(amountDue);
+                existingFinPayable.setAmountPaid(BigDecimal.ZERO);
+                existingFinPayable.setRemainAmount(amountDue);
+                existingFinPayable.setStatus("0");
+                existingFinPayable.setUpdateBy(createUsername);
+                finPayableMapper.updateFinPayable(existingFinPayable);
+            }
             return;
         }
-        BigDecimal amountDue = databasePurchaseOrder.getTotalAmount() == null ? BigDecimal.ZERO : databasePurchaseOrder.getTotalAmount();
         FinPayable finPayable = new FinPayable();
         finPayable.setPurchaseOrderId(databasePurchaseOrder.getPurchaseOrderId());
         finPayable.setSupplierId(databasePurchaseOrder.getSupplierId());

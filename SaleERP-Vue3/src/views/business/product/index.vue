@@ -77,7 +77,8 @@
         </el-table-column>
         <el-table-column label="成本价" align="right" prop="costPrice" width="96">
           <template #default="scope">
-            <span class="erp-num">¥{{ formatMoney(scope.row.costPrice) }}</span>
+            <span v-if="scope.row.costPrice === null || scope.row.costPrice === undefined" class="erp-cell-sub">权限脱敏</span>
+            <span v-else class="erp-num">¥{{ formatMoney(scope.row.costPrice) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="标准售价" align="right" prop="salePrice" width="98">
@@ -91,6 +92,7 @@
               v-model="scope.row.status"
               active-value="0"
               inactive-value="1"
+              :disabled="!checkPermi(['business:product:edit'])"
               @change="handleStatusChange(scope.row)"
             />
           </template>
@@ -305,10 +307,11 @@
   </div>
 </template>
 
-<script setup name="BusinessProduct">
+<script setup name="Product">
 import { listProduct, getProduct, getProductProfile, addProduct, updateProduct, delProduct, changeProductStatus, importTemplate as downloadImportTemplate } from "@/api/business/product"
 import { getToken } from "@/utils/auth"
 import { parseTime } from "@/utils/ruoyi"
+import { checkPermi } from "@/utils/permission"
 
 const { proxy } = getCurrentInstance()
 const router = useRouter()
@@ -389,18 +392,27 @@ const productStatItems = computed(() => {
   const rows = productList.value || []
   const enabledCount = rows.filter(r => r.status === '0').length
   const barcodeCount = rows.filter(r => Boolean(r.barCode)).length
-  const avgMargin = rows.length
-    ? rows.reduce((sum, r) => {
+  const canViewProfit = checkPermi(['business:report:profit'])
+  const costVisibleRows = rows.filter(r => r.costPrice !== null && r.costPrice !== undefined)
+  const avgMargin = canViewProfit && costVisibleRows.length
+    ? costVisibleRows.reduce((sum, r) => {
         const s = Number(r.salePrice || 0)
         const c = Number(r.costPrice || 0)
         return sum + (s > 0 ? ((s - c) / s) * 100 : 0)
-      }, 0) / rows.length
-    : 0
+      }, 0) / costVisibleRows.length
+    : null
   return [
     { label: '商品档案总数', value: total.value, suffix: '款', hint: '系统全量 SKU 档案', icon: 'Goods', tone: 'indigo' },
     { label: '本页在售商品', value: enabledCount, suffix: `/ ${rows.length}`, hint: '启用状态可正常开单', icon: 'CircleCheck', tone: 'emerald' },
     { label: '本页条码覆盖', value: barcodeCount, suffix: '款', hint: '支持 PDA 扫码识别', icon: 'FullScreen', tone: 'blue' },
-    { label: '本页参考毛利率', value: avgMargin.toFixed(1), suffix: '%', hint: '按标准售价与成本估算', icon: 'TrendCharts', tone: 'violet' }
+    {
+      label: '本页参考毛利率',
+      value: avgMargin === null ? '权限脱敏' : avgMargin.toFixed(1),
+      suffix: avgMargin === null ? '' : '%',
+      hint: avgMargin === null ? '需具备成本毛利查看权限' : '按标准售价与成本估算',
+      icon: 'TrendCharts',
+      tone: 'violet'
+    }
   ]
 })
 

@@ -110,8 +110,8 @@
                 <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="scope.row.purchaseOrderId" @click="handleViewPurchaseOrder(scope.row)">查看采购单</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status !== 'voided'" divided @click="handleVoidPayment(scope.row)"><span style="color: var(--el-color-danger)">冲红作废</span></el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.purchaseOrderId" v-hasPermi="['business:purchaseOrder:list']" @click="handleViewPurchaseOrder(scope.row)">查看采购单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status !== 'voided'" v-hasPermi="['business:payment:edit']" divided @click="handleVoidPayment(scope.row)"><span style="color: var(--el-color-danger)">冲红作废</span></el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -133,7 +133,7 @@
   </div>
 </template>
 
-<script setup name="BusinessPayment">
+<script setup name="Payment">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listPayment, voidPayment } from "@/api/business/payment"
 import { listAccount } from "@/api/business/account"

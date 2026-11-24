@@ -107,7 +107,7 @@
   </div>
 </template>
 
-<script setup name="BusinessTodoCenter">
+<script setup name="TodoCenter">
 import { getTodoCenter } from "@/api/business/report"
 import { parseTime } from "@/utils/ruoyi"
 

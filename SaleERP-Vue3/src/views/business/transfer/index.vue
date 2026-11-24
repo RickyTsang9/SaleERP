@@ -85,17 +85,17 @@
               <el-button v-if="scope.row.status === '0'" link type="success" icon="CircleCheck" @click="handleAudit(scope.row)" v-hasPermi="['business:transfer:audit']">审核调出</el-button>
               <el-button v-else-if="scope.row.status === 'in_transit'" link type="success" icon="Select" @click="handleReceiveTransfer(scope.row)" v-hasPermi="['business:transfer:audit', 'business:transfer:edit']">签收</el-button>
               <el-button v-else-if="scope.row.status === 'draft'" link type="primary" icon="Upload" @click="handleSubmitTransfer(scope.row)" v-hasPermi="['business:transfer:edit']">提交</el-button>
-              <el-button link type="primary" icon="View" @click="handleView(scope.row)">详情</el-button>
-              <el-button link type="info" icon="Printer" @click="handlePrintTransfer(scope.row)">打印</el-button>
+              <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['business:transfer:query']">详情</el-button>
+              <el-button link type="info" icon="Printer" @click="handlePrintTransfer(scope.row)" v-hasPermi="['business:transfer:query']">打印</el-button>
               <el-dropdown v-if="isEditableTransferStatus(scope.row.status) || scope.row.status === '0' || scope.row.status === 'in_transit' || canCancelTransferStatus(scope.row.status)" trigger="click">
                 <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="isEditableTransferStatus(scope.row.status)" @click="handleUpdate(scope.row)">修改调拨单</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === '0'" @click="handleRejectTransfer(scope.row)">驳回至草稿</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === 'in_transit'" @click="handleRecallTransfer(scope.row)"><span style="color: var(--el-color-danger)">在途撤回</span></el-dropdown-item>
-                    <el-dropdown-item v-if="canCancelTransferStatus(scope.row.status)" @click="handleCancelOrder(scope.row)">作废单据</el-dropdown-item>
-                    <el-dropdown-item v-if="isEditableTransferStatus(scope.row.status)" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                    <el-dropdown-item v-if="isEditableTransferStatus(scope.row.status)" v-hasPermi="['business:transfer:edit']" @click="handleUpdate(scope.row)">修改调拨单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === '0'" v-hasPermi="['business:transfer:audit']" @click="handleRejectTransfer(scope.row)">驳回至草稿</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'in_transit'" v-hasPermi="['business:transfer:audit', 'business:transfer:edit']" @click="handleRecallTransfer(scope.row)"><span style="color: var(--el-color-danger)">在途撤回</span></el-dropdown-item>
+                    <el-dropdown-item v-if="canCancelTransferStatus(scope.row.status)" v-hasPermi="['business:transfer:edit']" @click="handleCancelOrder(scope.row)">作废单据</el-dropdown-item>
+                    <el-dropdown-item v-if="isEditableTransferStatus(scope.row.status)" v-hasPermi="['business:transfer:remove']" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -212,14 +212,40 @@
       </template>
     </el-dialog>
 
+    <el-dialog title="确认签收并指定入库库位" v-model="receiveDialogOpen" width="460px" append-to-body>
+      <el-form label-width="96px">
+        <el-form-item label="调拨单号">
+          <span class="erp-code-chip">{{ receiveTargetRow?.transferNo }}</span>
+        </el-form-item>
+        <el-form-item label="调入仓库">
+          <span>{{ receiveTargetRow?.inWarehouseName || getWarehouseName(receiveTargetRow?.inWarehouseId) }}</span>
+        </el-form-item>
+        <el-form-item label="目标库位">
+          <el-select v-model="receiveInLocationId" placeholder="可选：选择调入仓库目标库位（留空则默认首库位）" clearable filterable style="width: 100%">
+            <el-option
+              v-for="loc in receiveLocationOptions"
+              :key="loc.locationId"
+              :label="`${loc.locationName} (${loc.locationCode || loc.locationId})`"
+              :value="loc.locationId"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="receiveDialogOpen = false">取 消</el-button>
+        <el-button type="primary" :loading="receiveSubmitting" @click="submitReceiveTransfer">确认签收入库</el-button>
+      </template>
+    </el-dialog>
+
     <document-print-dialog ref="printDialogRef" />
   </div>
 </template>
 
-<script setup name="BusinessTransfer">
+<script setup name="Transfer">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listTransfer, getTransfer, delTransfer, addTransfer, updateTransfer, submitTransfer, auditTransfer, receiveTransfer, rejectTransfer, recallTransfer, cancelTransfer } from "@/api/business/transfer"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
+import { listLocation } from "@/api/business/location"
 import { listProduct, getProduct } from "@/api/business/product"
 import { appendUniqueSelectOption, buildSelectOptionList, normalizeRemoteKeyword } from "@/utils/remoteSelect"
 import { parseTime } from "@/utils/ruoyi"
@@ -228,6 +254,11 @@ const { proxy } = getCurrentInstance()
 
 const transferList = ref([])
 const printDialogRef = ref(null)
+const receiveDialogOpen = ref(false)
+const receiveSubmitting = ref(false)
+const receiveTargetRow = ref(null)
+const receiveInLocationId = ref(undefined)
+const receiveLocationOptions = ref([])
 
 async function handlePrintTransfer(row) {
   const res = await getTransfer(row.transferId)
@@ -371,9 +402,10 @@ async function loadWarehouseOptionList(searchKeyword) {
     const response = await listWarehouse({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       warehouseName: normalizedKeyword
     })
-    warehouseList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "warehouseId", "warehouseName", () => "仓库资料缺失")
+    ;(response.rows || []).forEach(item => appendUniqueSelectOption(warehouseList.value, item, "warehouseId"))
   } finally {
     warehouseListLoading.value = false
   }
@@ -387,9 +419,10 @@ async function loadProductOptionList(searchKeyword) {
     const response = await listProduct({
       pageNum: 1,
       pageSize: 20,
+      status: "0",
       productName: normalizedKeyword
     })
-    productList.value = normalizedKeyword ? response.rows || [] : buildSelectOptionList(response.rows || [], [], "productId", "productName", () => "商品资料缺失")
+    ;(response.rows || []).forEach(item => appendUniqueSelectOption(productList.value, item, "productId"))
   } finally {
     productListLoading.value = false
   }
@@ -766,13 +799,33 @@ function handleSubmitTransfer(row) {
   }).catch(() => {})
 }
 
-function handleReceiveTransfer(row) {
-  proxy.$modal.confirm(`确认调入仓已核对无误并签收在途调拨单"${row.transferNo}"？签收后库存将正式入账调入仓。`).then(() => {
-    return receiveTransfer(row.transferId)
-  }).then(() => {
+async function handleReceiveTransfer(row) {
+  receiveTargetRow.value = row
+  receiveInLocationId.value = undefined
+  receiveLocationOptions.value = []
+  receiveDialogOpen.value = true
+  if (row?.inWarehouseId) {
+    try {
+      const res = await listLocation({ pageNum: 1, pageSize: 100, warehouseId: row.inWarehouseId, status: "0" })
+      receiveLocationOptions.value = res.rows || []
+      if (receiveLocationOptions.value.length > 0) {
+        receiveInLocationId.value = receiveLocationOptions.value[0].locationId
+      }
+    } catch (e) {}
+  }
+}
+
+async function submitReceiveTransfer() {
+  if (!receiveTargetRow.value?.transferId) return
+  receiveSubmitting.value = true
+  try {
+    await receiveTransfer(receiveTargetRow.value.transferId, receiveInLocationId.value)
     proxy.$modal.msgSuccess("调入签收完成，库存已入账")
+    receiveDialogOpen.value = false
     getList()
-  }).catch(() => {})
+  } finally {
+    receiveSubmitting.value = false
+  }
 }
 
 function handleRejectTransfer(row) {

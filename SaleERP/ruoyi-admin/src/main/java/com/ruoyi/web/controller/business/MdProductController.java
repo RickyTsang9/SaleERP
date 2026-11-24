@@ -76,6 +76,13 @@ public class MdProductController extends BaseController
     public void export(javax.servlet.http.HttpServletResponse response, MdProduct mdProduct)
     {
         List<MdProduct> mdProductList = mdProductService.selectMdProductList(mdProduct);
+        if (!canViewCostPrice() && mdProductList != null)
+        {
+            for (MdProduct item : mdProductList)
+            {
+                item.setCostPrice(null);
+            }
+        }
         ExcelUtil<MdProduct> util = new ExcelUtil<MdProduct>(MdProduct.class);
         util.exportExcel(response, mdProductList, "商品资料数据");
     }

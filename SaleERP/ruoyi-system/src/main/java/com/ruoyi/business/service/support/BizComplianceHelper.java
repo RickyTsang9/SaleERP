@@ -68,17 +68,38 @@ public class BizComplianceHelper
             return;
         }
         String status = null;
+        String delFlag = null;
         try
         {
-            status = jdbcTemplate.queryForObject(
-                "SELECT status FROM " + tableName + " WHERE " + idColumn + " = ?",
-                String.class,
+            java.util.Map<String, Object> row = jdbcTemplate.queryForMap(
+                "SELECT status, del_flag FROM " + tableName + " WHERE " + idColumn + " = ?",
                 id
             );
+            status = row.get("status") == null ? null : String.valueOf(row.get("status"));
+            delFlag = row.get("del_flag") == null ? null : String.valueOf(row.get("del_flag"));
         }
         catch (org.springframework.dao.EmptyResultDataAccessException emptyEx)
         {
             throw new ServiceException(entityLabel + "（编号：" + id + "）不存在");
+        }
+        catch (org.springframework.jdbc.BadSqlGrammarException noDelFlagCol)
+        {
+            try
+            {
+                status = jdbcTemplate.queryForObject(
+                    "SELECT status FROM " + tableName + " WHERE " + idColumn + " = ?",
+                    String.class,
+                    id
+                );
+            }
+            catch (org.springframework.dao.EmptyResultDataAccessException emptyEx)
+            {
+                throw new ServiceException(entityLabel + "（编号：" + id + "）不存在");
+            }
+        }
+        if ("2".equals(delFlag))
+        {
+            throw new ServiceException(entityLabel + "（编号：" + id + "）已删除，禁止参与业务操作");
         }
         if ("1".equals(status))
         {

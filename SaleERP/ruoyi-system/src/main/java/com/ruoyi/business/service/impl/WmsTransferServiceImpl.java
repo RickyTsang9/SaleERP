@@ -162,6 +162,7 @@ public class WmsTransferServiceImpl implements IWmsTransferService
         }
         if (complianceHelper != null)
         {
+            complianceHelper.assertPeriodOpen(databaseTransfer.getTransferDate(), "审核库存调拨");
             complianceHelper.assertPeriodOpen(new Date(), "审核库存调拨");
             complianceHelper.assertNotSelfAudit(databaseTransfer.getCreateBy(), "库存调拨审核");
             complianceHelper.assertEntityEnabled("md_warehouse", "warehouse_id", databaseTransfer.getOutWarehouseId(), "调出仓库");
@@ -189,6 +190,14 @@ public class WmsTransferServiceImpl implements IWmsTransferService
             if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
             {
                 throw new ServiceException("调拨明细信息不完整");
+            }
+            if (complianceHelper != null)
+            {
+                complianceHelper.assertEntityEnabled("md_product", "product_id", item.getProductId(), "商品");
+                if (item.getOutLocationId() != null)
+                {
+                    complianceHelper.assertEntityEnabled("md_location", "location_id", item.getOutLocationId(), "调出库位");
+                }
             }
             BigDecimal unitCost = resolveProductCost(item.getProductId());
             BigDecimal remainTransferQty = item.getQuantity();
@@ -588,6 +597,7 @@ public class WmsTransferServiceImpl implements IWmsTransferService
         }
         MdLocation q = new MdLocation();
         q.setWarehouseId(warehouseId);
+        q.setStatus("0");
         List<MdLocation> locations = mdLocationMapper.selectMdLocationList(q);
         return locations != null && !locations.isEmpty() ? locations.get(0).getLocationId() : null;
     }

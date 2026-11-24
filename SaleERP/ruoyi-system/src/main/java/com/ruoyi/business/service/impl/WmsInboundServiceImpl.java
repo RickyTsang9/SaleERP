@@ -161,6 +161,15 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         {
             throw new ServiceException("入库明细不能为空");
         }
+        for (WmsInboundItem item : inboundItemList)
+        {
+            if (item.getProductId() == null || item.getLocationId() == null
+                || StringUtils.isEmpty(item.getBatchNo())
+                || item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0)
+            {
+                throw new ServiceException("存在未填写上架库位、批次号或数量的入库明细，请完善后再提交审核");
+            }
+        }
         validateLinkedPurchaseOrderItems(databaseInbound, inboundItemList);
         int updateCount = wmsInboundMapper.updateWmsInboundStatus(
             inboundId, STATUS_DRAFT, STATUS_SUBMITTED, null, SecurityUtils.getUsername());
@@ -188,6 +197,14 @@ public class WmsInboundServiceImpl implements IWmsInboundService
         {
             complianceHelper.assertPeriodOpen(new Date(), "审核采购入库单");
             complianceHelper.assertNotSelfAudit(databaseInbound.getCreateBy(), "入库单审核");
+            if (databaseInbound.getSupplierId() != null)
+            {
+                complianceHelper.assertEntityEnabled("md_supplier", "supplier_id", databaseInbound.getSupplierId(), "供应商");
+            }
+            if (databaseInbound.getWarehouseId() != null)
+            {
+                complianceHelper.assertEntityEnabled("md_warehouse", "warehouse_id", databaseInbound.getWarehouseId(), "仓库");
+            }
         }
         List<WmsInboundItem> inboundItemList = wmsInboundItemMapper.selectWmsInboundItemList(buildInboundItemQuery(inboundId));
         if (inboundItemList == null || inboundItemList.isEmpty())
@@ -207,6 +224,11 @@ public class WmsInboundServiceImpl implements IWmsInboundService
                 || wmsInboundItem.getQuantity() == null)
             {
                 throw new ServiceException("入库明细信息不完整");
+            }
+            if (complianceHelper != null)
+            {
+                complianceHelper.assertEntityEnabled("md_product", "product_id", wmsInboundItem.getProductId(), "商品");
+                complianceHelper.assertEntityEnabled("md_location", "location_id", wmsInboundItem.getLocationId(), "库位");
             }
             // 按移动加权平均法重算商品单位成本价（入库前先读取全仓旧库存）
             recalculateMovingWeightedAverageCost(wmsInboundItem, auditUsername);

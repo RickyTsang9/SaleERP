@@ -57,7 +57,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                a.status, a.reject_reason, a.remark, a.create_by, a.create_time, a.update_by, a.update_time
         from wms_purchase_order a
         left join md_supplier ms on ms.supplier_id = a.supplier_id
-        left join sys_user su on su.user_name = a.create_by
+        left join sys_user su on su.user_name = a.create_by and su.del_flag = '0'
         left join (
             select purchase_order_id, sum(quantity) as total_quantity
             from wms_purchase_order_item

@@ -15,6 +15,11 @@ public interface FinReceivableMapper
     public FinReceivable selectFinReceivableById(Long receivableId);
 
     /**
+     * 加行级悲观锁查询应收台账（防止并发回款/冲红覆盖余额）
+     */
+    public FinReceivable selectFinReceivableByIdForUpdate(Long receivableId);
+
+    /**
      * 根据销售单查询应收台账
      *
      * @param saleOrderId 销售单主键

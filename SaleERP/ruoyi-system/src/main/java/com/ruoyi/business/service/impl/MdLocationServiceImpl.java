@@ -113,7 +113,7 @@ public class MdLocationServiceImpl implements IMdLocationService
                 {
                     item.setLocationId(exist.getLocationId());
                     item.setUpdateBy(operName);
-                    mdLocationMapper.updateMdLocation(item);
+                    this.updateMdLocation(item);
                     successNum++;
                 }
                 else

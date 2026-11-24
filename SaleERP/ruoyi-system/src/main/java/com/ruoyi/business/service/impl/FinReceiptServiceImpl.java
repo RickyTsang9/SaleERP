@@ -120,7 +120,16 @@ public class FinReceiptServiceImpl implements IFinReceiptService
     public int insertFinReceipt(FinReceipt finReceipt)
     {
         Long receivableId = finReceipt == null ? null : finReceipt.getReceivableId();
-        FinReceivable finReceivable = receivableId == null ? null : finReceivableMapper.selectFinReceivableById(receivableId);
+        FinReceivable lockedReceivable = receivableId == null ? null : finReceivableMapper.selectFinReceivableByIdForUpdate(receivableId);
+        FinReceivable finReceivable = lockedReceivable != null
+            ? finReceivableMapper.selectFinReceivableById(receivableId)
+            : (receivableId == null ? null : finReceivableMapper.selectFinReceivableById(receivableId));
+        if (lockedReceivable != null && finReceivable != null)
+        {
+            finReceivable.setAmountDue(lockedReceivable.getAmountDue());
+            finReceivable.setAmountPaid(lockedReceivable.getAmountPaid());
+            finReceivable.setStatus(lockedReceivable.getStatus());
+        }
         validateReceiptBeforeSave(finReceipt, finReceivable);
         if (complianceHelper != null)
         {
@@ -323,6 +332,7 @@ public class FinReceiptServiceImpl implements IFinReceiptService
         if (complianceHelper != null)
         {
             complianceHelper.assertPeriodOpen(receipt.getPaymentTime(), "冲红回款记录");
+            complianceHelper.assertPeriodOpen(new Date(), "冲红回款记录（当期资金流水）");
         }
         String reason = StringUtils.isEmpty(voidReason) ? "财务冲红纠错" : voidReason.trim();
         String operator = "system";
@@ -357,7 +367,8 @@ public class FinReceiptServiceImpl implements IFinReceiptService
 
         if (receipt.getReceivableId() != null)
         {
-            FinReceivable finReceivable = finReceivableMapper.selectFinReceivableById(receipt.getReceivableId());
+            FinReceivable lockedRec = finReceivableMapper.selectFinReceivableByIdForUpdate(receipt.getReceivableId());
+            FinReceivable finReceivable = lockedRec != null ? lockedRec : finReceivableMapper.selectFinReceivableById(receipt.getReceivableId());
             if (finReceivable != null)
             {
                 BigDecimal validPaid = finReceiptMapper.selectValidReceiptSumByReceivableId(receipt.getReceivableId());

@@ -107,8 +107,8 @@
                 <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="scope.row.saleOrderId" @click="handleViewSaleOrder(scope.row)">查看销售单</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status !== 'voided'" divided @click="handleVoidReceipt(scope.row)"><span style="color: var(--el-color-danger)">冲红作废</span></el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.saleOrderId" v-hasPermi="['business:saleOrder:list']" @click="handleViewSaleOrder(scope.row)">查看销售单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status !== 'voided'" v-hasPermi="['business:receipt:edit']" divided @click="handleVoidReceipt(scope.row)"><span style="color: var(--el-color-danger)">冲红作废</span></el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -130,7 +130,7 @@
   </div>
 </template>
 
-<script setup name="BusinessReceipt">
+<script setup name="Receipt">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listReceipt, voidReceipt } from "@/api/business/receipt"
 import { listAccount } from "@/api/business/account"

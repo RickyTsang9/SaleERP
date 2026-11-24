@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.business;
 
 import java.util.List;
+import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,7 +22,9 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.framework.web.service.PermissionService;
 
 @RestController
 @RequestMapping("/business/saleOrder")
@@ -29,6 +32,21 @@ public class WmsSaleOrderController extends BaseController
 {
     @Autowired
     private IWmsSaleOrderService wmsSaleOrderService;
+
+    @Autowired
+    private PermissionService permissionService;
+
+    private boolean canViewCostPrice()
+    {
+        try
+        {
+            return SecurityUtils.isAdmin(getUserId()) || permissionService.hasPermi("business:report:profit");
+        }
+        catch (Exception ignored)
+        {
+            return false;
+        }
+    }
 
     @PreAuthorize("@ss.hasPermi('business:saleOrder:list')")
     @GetMapping("/list")
@@ -88,7 +106,12 @@ public class WmsSaleOrderController extends BaseController
     @GetMapping("/suggestPrice")
     public AjaxResult suggestPrice(Long customerId, Long productId)
     {
-        return success(wmsSaleOrderService.suggestCustomerProductPrice(customerId, productId));
+        Map<String, Object> result = wmsSaleOrderService.suggestCustomerProductPrice(customerId, productId);
+        if (result != null && !canViewCostPrice())
+        {
+            result.put("costPrice", null);
+        }
+        return success(result);
     }
 
     @PreAuthorize("@ss.hasAnyPermi('business:saleOrder:print,business:saleOrder:query,business:saleOrder:list')")

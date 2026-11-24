@@ -63,7 +63,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from wms_sale_order s
         left join md_customer mc on mc.customer_id = s.customer_id
         left join md_warehouse mw on mw.warehouse_id = s.warehouse_id
-        left join sys_user su on su.user_name = s.create_by
+        left join sys_user su on su.user_name = s.create_by and su.del_flag = '0'
         left join (
             select sale_order_id,
                    sum(amount_due) as receivable_amount,

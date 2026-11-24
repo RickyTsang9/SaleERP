@@ -1,6 +1,7 @@
 package com.ruoyi.business.service.impl;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -10,10 +11,12 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.business.domain.MdLocation;
 import com.ruoyi.business.domain.WmsInbound;
 import com.ruoyi.business.domain.WmsInboundItem;
 import com.ruoyi.business.domain.WmsPurchaseOrder;
 import com.ruoyi.business.domain.WmsPurchaseOrderItem;
+import com.ruoyi.business.mapper.MdLocationMapper;
 import com.ruoyi.business.mapper.WmsInboundMapper;
 import com.ruoyi.business.mapper.WmsInboundItemMapper;
 import com.ruoyi.business.service.IWmsInboundItemService;
@@ -33,6 +36,9 @@ public class WmsInboundItemServiceImpl implements IWmsInboundItemService
 
     @Autowired
     private IWmsPurchaseOrderService wmsPurchaseOrderService;
+
+    @Autowired(required = false)
+    private MdLocationMapper mdLocationMapper;
 
     @Override
     public WmsInboundItem selectWmsInboundItemById(Long inboundItemId)
@@ -170,6 +176,15 @@ public class WmsInboundItemServiceImpl implements IWmsInboundItemService
         {
             throw new ServiceException("入库单价不能小于0");
         }
+        if (wmsInboundItem.getLocationId() != null && mdLocationMapper != null && databaseInbound.getWarehouseId() != null)
+        {
+            MdLocation loc = mdLocationMapper.selectMdLocationById(wmsInboundItem.getLocationId());
+            if (loc != null && loc.getWarehouseId() != null
+                && !Objects.equals(loc.getWarehouseId(), databaseInbound.getWarehouseId()))
+            {
+                throw new ServiceException("入库明细所选库位不属于当前入库仓库");
+            }
+        }
         if (databaseInbound.getPurchaseOrderId() != null)
         {
             applyPurchaseOrderItemConstraint(databaseInbound, wmsInboundItem);
@@ -282,7 +297,7 @@ public class WmsInboundItemServiceImpl implements IWmsInboundItemService
     {
         BigDecimal safeQuantityValue = quantityValue == null ? BigDecimal.ZERO : quantityValue;
         BigDecimal safePriceValue = priceValue == null ? BigDecimal.ZERO : priceValue;
-        return safeQuantityValue.multiply(safePriceValue);
+        return safeQuantityValue.multiply(safePriceValue).setScale(2, RoundingMode.HALF_UP);
     }
 
     /**

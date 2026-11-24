@@ -614,12 +614,14 @@
                 </el-table-column>
                 <el-table-column label="毛利额" align="right" min-width="110">
                   <template #default="scope">
-                    <span>￥{{ formatAmountValue(scope.row.grossProfitAmount) }}</span>
+                    <span v-if="scope.row.grossProfitAmount === null || scope.row.grossProfitAmount === undefined" class="erp-cell-sub">权限脱敏</span>
+                    <span v-else>￥{{ formatAmountValue(scope.row.grossProfitAmount) }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column label="毛利率" align="center" min-width="90">
                   <template #default="scope">
-                    <span>{{ formatRateValue(scope.row.grossMarginRate) }}</span>
+                    <span v-if="scope.row.grossMarginRate === null || scope.row.grossMarginRate === undefined" class="erp-cell-sub">权限脱敏</span>
+                    <span v-else>{{ formatRateValue(scope.row.grossMarginRate) }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column label="逾期金额" align="right" min-width="110">
@@ -729,12 +731,14 @@
                 </el-table-column>
                 <el-table-column label="毛利额" align="right" min-width="110">
                   <template #default="scope">
-                    <span>￥{{ formatAmountValue(scope.row.grossProfitAmount) }}</span>
+                    <span v-if="scope.row.grossProfitAmount === null || scope.row.grossProfitAmount === undefined" class="erp-cell-sub">权限脱敏</span>
+                    <span v-else>￥{{ formatAmountValue(scope.row.grossProfitAmount) }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column label="毛利率" align="center" min-width="90">
                   <template #default="scope">
-                    <span>{{ formatRateValue(scope.row.grossMarginRate) }}</span>
+                    <span v-if="scope.row.grossMarginRate === null || scope.row.grossMarginRate === undefined" class="erp-cell-sub">权限脱敏</span>
+                    <span v-else>{{ formatRateValue(scope.row.grossMarginRate) }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column label="单据数" align="center" prop="orderCount" width="80" />
@@ -843,7 +847,8 @@
               </el-table-column>
               <el-table-column label="毛利预算" align="right" min-width="100">
                 <template #default="scope">
-                  <span>￥{{ formatAmountValue(scope.row.grossProfitBudgetAmount) }}</span>
+                  <span v-if="scope.row.grossProfitBudgetAmount === null || scope.row.grossProfitBudgetAmount === undefined" class="erp-cell-sub">权限脱敏</span>
+                  <span v-else>￥{{ formatAmountValue(scope.row.grossProfitBudgetAmount) }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="回款预算" align="right" min-width="100">
@@ -972,7 +977,8 @@
               </el-table-column>
               <el-table-column label="毛利额" align="right" min-width="120">
                 <template #default="scope">
-                  <span>￥{{ formatAmountValue(scope.row.grossProfitAmount) }}</span>
+                  <span v-if="scope.row.grossProfitAmount === null || scope.row.grossProfitAmount === undefined" class="erp-cell-sub">权限脱敏</span>
+                  <span v-else>￥{{ formatAmountValue(scope.row.grossProfitAmount) }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="回款率" align="center" min-width="100">
@@ -1398,8 +1404,9 @@
   </div>
 </template>
 
-<script setup name="BusinessReport">
+<script setup name="Report">
 import * as echarts from 'echarts'
+import { checkPermi } from '@/utils/permission'
 import { getDashboard, listSaleReport, listReconciliation, listInvoiceTax, getCashFlowForecast } from '@/api/business/report'
 import { listProduct } from '@/api/business/product'
 import { listReceivable } from '@/api/business/receivable'
@@ -1573,19 +1580,19 @@ const businessRoutePathMap = businessDashboardRoutePathMap
 const dashboardOverviewShortcutCardList = computed(() => [
   {
     shortcutType: "saleOrderSummary",
-    title: "销售总额",
+    title: "累计净销售额",
     value: `￥${formatAmountValue(dashboardData.value.totalSaleAmount)}`,
     actionText: "点击查看销售单"
   },
   {
     shortcutType: "receivableSummary",
-    title: "应收总额",
+    title: "累计应收总额",
     value: `￥${formatAmountValue(dashboardData.value.totalReceivableAmount)}`,
     actionText: "点击查看应收台账"
   },
   {
     shortcutType: "receiptSummary",
-    title: "已收总额",
+    title: "累计已收总额",
     value: `￥${formatAmountValue(dashboardData.value.totalReceivedAmount)}`,
     actionText: "点击查看回款记录"
   },
@@ -2581,19 +2588,18 @@ async function loadDecisionSupportData() {
   {
     const currentMonthRange = buildMonthRange(0)
     const settledResultList = await Promise.allSettled([
-      fetchPagedRowList(listSaleReport, {
-        startDate: currentMonthRange.startDate,
-        endDate: currentMonthRange.endDate
-      }),
-      fetchPagedRowList(listSaleOrder),
-      fetchPagedRowList(listCustomer),
-      fetchPagedRowList(listReceivable),
-      fetchPagedRowList(listProduct),
-      fetchPagedRowList(listStock),
-      fetchPagedRowList(listStockLog),
-      fetchPagedRowList(listReceipt),
-      fetchPagedRowList(listPayment),
-      fetchPagedRowList(listPayable)
+      checkPermi(['business:report:sale', 'business:report:view'])
+        ? fetchPagedRowList(listSaleReport, { startDate: currentMonthRange.startDate, endDate: currentMonthRange.endDate })
+        : Promise.resolve([]),
+      checkPermi(['business:saleOrder:list']) ? fetchPagedRowList(listSaleOrder) : Promise.resolve([]),
+      checkPermi(['business:customer:list']) ? fetchPagedRowList(listCustomer) : Promise.resolve([]),
+      checkPermi(['business:receivable:list']) ? fetchPagedRowList(listReceivable) : Promise.resolve([]),
+      checkPermi(['business:product:list']) ? fetchPagedRowList(listProduct) : Promise.resolve([]),
+      checkPermi(['business:stock:list']) ? fetchPagedRowList(listStock) : Promise.resolve([]),
+      checkPermi(['business:stockLog:list']) ? fetchPagedRowList(listStockLog) : Promise.resolve([]),
+      checkPermi(['business:receipt:list']) ? fetchPagedRowList(listReceipt) : Promise.resolve([]),
+      checkPermi(['business:payment:list']) ? fetchPagedRowList(listPayment) : Promise.resolve([]),
+      checkPermi(['business:payable:list']) ? fetchPagedRowList(listPayable) : Promise.resolve([])
     ])
 
     const saleReportRowList = getSettledResultValue(settledResultList[0], [])

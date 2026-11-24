@@ -7,11 +7,14 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.business.domain.MdLocation;
 import com.ruoyi.business.domain.WmsSaleOrder;
 import com.ruoyi.business.domain.WmsSaleOrderItem;
+import com.ruoyi.business.mapper.MdLocationMapper;
 import com.ruoyi.business.mapper.WmsSaleOrderMapper;
 import com.ruoyi.business.mapper.WmsSaleOrderItemMapper;
 import com.ruoyi.business.service.IWmsSaleOrderItemService;
+import com.ruoyi.business.service.support.BizComplianceHelper;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 
@@ -25,6 +28,12 @@ public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
 
     @Autowired
     private WmsSaleOrderMapper wmsSaleOrderMapper;
+
+    @Autowired(required = false)
+    private MdLocationMapper mdLocationMapper;
+
+    @Autowired(required = false)
+    private BizComplianceHelper complianceHelper;
 
     @Override
     public WmsSaleOrderItem selectWmsSaleOrderItemById(Long saleOrderItemId)
@@ -173,6 +182,21 @@ public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
         {
             throw new ServiceException("销售单价不能小于0");
         }
+        if (complianceHelper != null)
+        {
+            complianceHelper.assertEntityEnabled("md_product", "product_id", wmsSaleOrderItem.getProductId(), "商品");
+            complianceHelper.assertEntityEnabled("md_location", "location_id", wmsSaleOrderItem.getLocationId(), "库位");
+        }
+        if (mdLocationMapper != null && wmsSaleOrderItem.getSaleOrderId() != null)
+        {
+            WmsSaleOrder order = wmsSaleOrderMapper.selectWmsSaleOrderById(wmsSaleOrderItem.getSaleOrderId());
+            MdLocation loc = mdLocationMapper.selectMdLocationById(wmsSaleOrderItem.getLocationId());
+            if (order != null && order.getWarehouseId() != null && loc != null && loc.getWarehouseId() != null
+                && !order.getWarehouseId().equals(loc.getWarehouseId()))
+            {
+                throw new ServiceException("所选库位不属于销售订单所属仓库，禁止跨仓绑定库位");
+            }
+        }
         wmsSaleOrderItem.setAmount(calculateSaleOrderItemAmount(wmsSaleOrderItem));
     }
 
@@ -186,7 +210,7 @@ public class WmsSaleOrderItemServiceImpl implements IWmsSaleOrderItemService
     {
         BigDecimal quantityValue = wmsSaleOrderItem.getQuantity() == null ? BigDecimal.ZERO : wmsSaleOrderItem.getQuantity();
         BigDecimal priceValue = wmsSaleOrderItem.getPrice() == null ? BigDecimal.ZERO : wmsSaleOrderItem.getPrice();
-        return quantityValue.multiply(priceValue);
+        return quantityValue.multiply(priceValue).setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     /**

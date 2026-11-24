@@ -15,7 +15,9 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.framework.web.service.PermissionService;
 
 @RestController
 @RequestMapping("/business/stockLog")
@@ -24,12 +26,44 @@ public class WmsStockLogController extends BaseController
     @Autowired
     private IWmsStockLogService wmsStockLogService;
 
+    @Autowired
+    private PermissionService permissionService;
+
+    private boolean canViewCost()
+    {
+        try
+        {
+            return SecurityUtils.isAdmin(getUserId()) || permissionService.hasPermi("business:report:profit");
+        }
+        catch (Exception ignored)
+        {
+            return false;
+        }
+    }
+
+    private void maskStockLogCostIfUnauthorized(WmsStockLog log)
+    {
+        if (log == null || canViewCost())
+        {
+            return;
+        }
+        log.setPrice(null);
+        log.setAmount(null);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:stockLog:list')")
     @GetMapping("/list")
     public TableDataInfo list(WmsStockLog wmsStockLog)
     {
         startPage();
         List<WmsStockLog> wmsStockLogList = wmsStockLogService.selectWmsStockLogList(wmsStockLog);
+        if (!canViewCost() && wmsStockLogList != null)
+        {
+            for (WmsStockLog item : wmsStockLogList)
+            {
+                maskStockLogCostIfUnauthorized(item);
+            }
+        }
         return getDataTable(wmsStockLogList);
     }
 
@@ -39,6 +73,13 @@ public class WmsStockLogController extends BaseController
     public void export(javax.servlet.http.HttpServletResponse response, WmsStockLog wmsStockLog)
     {
         List<WmsStockLog> wmsStockLogList = wmsStockLogService.selectWmsStockLogList(wmsStockLog);
+        if (!canViewCost() && wmsStockLogList != null)
+        {
+            for (WmsStockLog item : wmsStockLogList)
+            {
+                maskStockLogCostIfUnauthorized(item);
+            }
+        }
         ExcelUtil<WmsStockLog> util = new ExcelUtil<WmsStockLog>(WmsStockLog.class);
         util.exportExcel(response, wmsStockLogList, "库存流水数据");
     }
@@ -47,6 +88,8 @@ public class WmsStockLogController extends BaseController
     @GetMapping("/{stockLogId}")
     public AjaxResult getInfo(@PathVariable Long stockLogId)
     {
-        return success(wmsStockLogService.selectWmsStockLogById(stockLogId));
+        WmsStockLog log = wmsStockLogService.selectWmsStockLogById(stockLogId);
+        maskStockLogCostIfUnauthorized(log);
+        return success(log);
     }
 }

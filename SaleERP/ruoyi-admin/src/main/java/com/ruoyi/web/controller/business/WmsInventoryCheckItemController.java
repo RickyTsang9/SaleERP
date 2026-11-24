@@ -19,7 +19,9 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.framework.web.service.PermissionService;
 
 @RestController
 @RequestMapping("/business/inventoryCheckItem")
@@ -28,12 +30,44 @@ public class WmsInventoryCheckItemController extends BaseController
     @Autowired
     private IWmsInventoryCheckItemService wmsInventoryCheckItemService;
 
+    @Autowired
+    private PermissionService permissionService;
+
+    private boolean canViewCost()
+    {
+        try
+        {
+            return SecurityUtils.isAdmin(getUserId()) || permissionService.hasPermi("business:report:profit");
+        }
+        catch (Exception ignored)
+        {
+            return false;
+        }
+    }
+
+    private void maskCheckItemCostIfUnauthorized(WmsInventoryCheckItem item)
+    {
+        if (item == null || canViewCost())
+        {
+            return;
+        }
+        item.setPrice(null);
+        item.setDiffAmount(null);
+    }
+
     @PreAuthorize("@ss.hasPermi('business:inventoryCheck:list')")
     @GetMapping("/list")
     public TableDataInfo list(WmsInventoryCheckItem wmsInventoryCheckItem)
     {
         startPage();
         List<WmsInventoryCheckItem> wmsInventoryCheckItemList = wmsInventoryCheckItemService.selectWmsInventoryCheckItemList(wmsInventoryCheckItem);
+        if (!canViewCost() && wmsInventoryCheckItemList != null)
+        {
+            for (WmsInventoryCheckItem item : wmsInventoryCheckItemList)
+            {
+                maskCheckItemCostIfUnauthorized(item);
+            }
+        }
         return getDataTable(wmsInventoryCheckItemList);
     }
 
@@ -43,6 +77,13 @@ public class WmsInventoryCheckItemController extends BaseController
     public void export(javax.servlet.http.HttpServletResponse response, WmsInventoryCheckItem wmsInventoryCheckItem)
     {
         List<WmsInventoryCheckItem> wmsInventoryCheckItemList = wmsInventoryCheckItemService.selectWmsInventoryCheckItemList(wmsInventoryCheckItem);
+        if (!canViewCost() && wmsInventoryCheckItemList != null)
+        {
+            for (WmsInventoryCheckItem item : wmsInventoryCheckItemList)
+            {
+                maskCheckItemCostIfUnauthorized(item);
+            }
+        }
         ExcelUtil<WmsInventoryCheckItem> util = new ExcelUtil<WmsInventoryCheckItem>(WmsInventoryCheckItem.class);
         util.exportExcel(response, wmsInventoryCheckItemList, "库存盘点明细数据");
     }
@@ -51,7 +92,9 @@ public class WmsInventoryCheckItemController extends BaseController
     @GetMapping("/{checkItemId}")
     public AjaxResult getInfo(@PathVariable Long checkItemId)
     {
-        return success(wmsInventoryCheckItemService.selectWmsInventoryCheckItemById(checkItemId));
+        WmsInventoryCheckItem item = wmsInventoryCheckItemService.selectWmsInventoryCheckItemById(checkItemId);
+        maskCheckItemCostIfUnauthorized(item);
+        return success(item);
     }
 
     @PreAuthorize("@ss.hasPermi('business:inventoryCheck:add')")

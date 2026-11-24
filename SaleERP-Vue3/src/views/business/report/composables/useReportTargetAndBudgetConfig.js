@@ -439,7 +439,9 @@ export function useReportTargetAndBudgetConfig({
 
   const dashboardTargetCardList = computed(() => {
     return dashboardTargetMetaList.map(dashboardTargetMeta => {
-      const currentValue = normalizeNumberValue(managementOverviewData.value[dashboardTargetMeta.currentValueField])
+      const rawCurrentValue = managementOverviewData.value[dashboardTargetMeta.currentValueField]
+      const isProfitMasked = rawCurrentValue === null
+      const currentValue = normalizeNumberValue(rawCurrentValue)
       const targetValue = getDashboardTargetValue(dashboardTargetMeta.key)
       const targetValueConfigured = targetValue !== undefined
       const paceGapValue = calculateDashboardTargetPaceGapValue(
@@ -451,24 +453,24 @@ export function useReportTargetAndBudgetConfig({
       const actualProgressPercentage = targetValueConfigured && normalizeNumberValue(targetValue) > 0
         ? currentValue / normalizeNumberValue(targetValue) * 100
         : 0
-      const progressPercentage = Number(Math.min(100, Math.max(0, actualProgressPercentage)).toFixed(2))
+      const progressPercentage = isProfitMasked ? 0 : Number(Math.min(100, Math.max(0, actualProgressPercentage)).toFixed(2))
       const progressStatus = getDashboardTargetProgressStatus(currentValue, targetValue)
-      const tagType = progressStatus === "exception" ? "danger" : progressStatus
+      const tagType = isProfitMasked ? "info" : (progressStatus === "exception" ? "danger" : progressStatus)
       return {
         key: dashboardTargetMeta.key,
         title: dashboardTargetMeta.title,
-        currentValueText: formatDashboardTargetDisplayValue(dashboardTargetMeta.key, currentValue),
-        targetValueText: targetValueConfigured ? formatDashboardTargetDisplayValue(dashboardTargetMeta.key, targetValue) : "未设置",
-        progressText: targetValueConfigured ? `达成率 ${actualProgressPercentage.toFixed(2)}%` : "未配置",
+        currentValueText: isProfitMasked ? "权限脱敏" : formatDashboardTargetDisplayValue(dashboardTargetMeta.key, currentValue),
+        targetValueText: isProfitMasked ? "权限脱敏" : (targetValueConfigured ? formatDashboardTargetDisplayValue(dashboardTargetMeta.key, targetValue) : "未设置"),
+        progressText: isProfitMasked ? "权限脱敏" : (targetValueConfigured ? `达成率 ${actualProgressPercentage.toFixed(2)}%` : "未配置"),
         progressPercentage,
         progressStatus,
         tagType,
         paceGapValue,
-        paceTagType: targetValueConfigured ? getDashboardTargetPaceTagType(dashboardTargetMeta.key, paceGapValue) : "info",
-        paceTagText: targetValueConfigured ? buildDashboardTargetPaceTagText(dashboardTargetMeta.key, paceGapValue) : "未设目标",
-        differenceText: buildDashboardTargetDifferenceText(dashboardTargetMeta.key, currentValue, targetValue),
-        paceText: buildDashboardTargetPaceText(dashboardTargetMeta.key, currentValue, targetValue, currentMonthProgressData.value.monthProgressRate),
-        forecastText: buildDashboardTargetForecastText(dashboardTargetMeta.key, currentValue, targetValue, currentMonthProgressData.value.monthProgressRate)
+        paceTagType: isProfitMasked ? "info" : (targetValueConfigured ? getDashboardTargetPaceTagType(dashboardTargetMeta.key, paceGapValue) : "info"),
+        paceTagText: isProfitMasked ? "权限脱敏" : (targetValueConfigured ? buildDashboardTargetPaceTagText(dashboardTargetMeta.key, paceGapValue) : "未设目标"),
+        differenceText: isProfitMasked ? "需具备成本毛利查看权限" : buildDashboardTargetDifferenceText(dashboardTargetMeta.key, currentValue, targetValue),
+        paceText: isProfitMasked ? "权限脱敏" : buildDashboardTargetPaceText(dashboardTargetMeta.key, currentValue, targetValue, currentMonthProgressData.value.monthProgressRate),
+        forecastText: isProfitMasked ? "权限脱敏" : buildDashboardTargetForecastText(dashboardTargetMeta.key, currentValue, targetValue, currentMonthProgressData.value.monthProgressRate)
       }
     })
   })
@@ -683,7 +685,9 @@ export function useReportTargetAndBudgetConfig({
 
   const decisionBudgetCardList = computed(() => {
     return decisionBudgetMetaList.map(decisionBudgetMeta => {
-      const actualValue = normalizeNumberValue(decisionBudgetOverviewData.value[decisionBudgetMeta.actualValueField])
+      const rawActualValue = decisionBudgetOverviewData.value[decisionBudgetMeta.actualValueField]
+      const isProfitMasked = rawActualValue === null
+      const actualValue = normalizeNumberValue(rawActualValue)
       const budgetValue = getDecisionBudgetValue(decisionBudgetMeta.key)
       const budgetValueConfigured = budgetValue !== undefined
       const forecastValue = calculateDecisionBudgetForecastValue(actualValue, decisionBudgetMeta.unitType, currentMonthProgressData.value.monthProgressRate)
@@ -691,16 +695,16 @@ export function useReportTargetAndBudgetConfig({
       return {
         key: decisionBudgetMeta.key,
         title: decisionBudgetMeta.title,
-        actualValueText: formatDecisionBudgetDisplayValue(decisionBudgetMeta.key, actualValue),
-        budgetValueText: budgetValueConfigured ? formatDecisionBudgetDisplayValue(decisionBudgetMeta.key, budgetValue) : "未设置",
-        forecastValueText: formatDecisionBudgetDisplayValue(decisionBudgetMeta.key, forecastValue),
-        completionRateText: budgetValueConfigured ? `完成率 ${calculateRateValue(actualValue, budgetValue).toFixed(2)}%` : "未配置",
-        forecastRateText: budgetValueConfigured ? `预测达成 ${calculateRateValue(forecastValue, budgetValue).toFixed(2)}%` : "待配置",
-        tagType: budgetValueConfigured ? getDecisionBudgetPaceTagType(paceGapValue, decisionBudgetMeta.unitType) : "info",
-        paceTagText: budgetValueConfigured ? buildDecisionBudgetPaceTagText(paceGapValue, decisionBudgetMeta.unitType) : "未设预算",
-        differenceText: buildDecisionBudgetDifferenceText(decisionBudgetMeta.key, actualValue, budgetValue),
-        forecastText: buildDecisionBudgetForecastText(decisionBudgetMeta.key, forecastValue, budgetValue),
-        progressPercentage: budgetValueConfigured ? Number(Math.min(100, Math.max(0, calculateRateValue(actualValue, budgetValue))).toFixed(2)) : 0,
+        actualValueText: isProfitMasked ? "权限脱敏" : formatDecisionBudgetDisplayValue(decisionBudgetMeta.key, actualValue),
+        budgetValueText: isProfitMasked ? "权限脱敏" : (budgetValueConfigured ? formatDecisionBudgetDisplayValue(decisionBudgetMeta.key, budgetValue) : "未设置"),
+        forecastValueText: isProfitMasked ? "权限脱敏" : formatDecisionBudgetDisplayValue(decisionBudgetMeta.key, forecastValue),
+        completionRateText: isProfitMasked ? "权限脱敏" : (budgetValueConfigured ? `完成率 ${calculateRateValue(actualValue, budgetValue).toFixed(2)}%` : "未配置"),
+        forecastRateText: isProfitMasked ? "权限脱敏" : (budgetValueConfigured ? `预测达成 ${calculateRateValue(forecastValue, budgetValue).toFixed(2)}%` : "待配置"),
+        tagType: isProfitMasked ? "info" : (budgetValueConfigured ? getDecisionBudgetPaceTagType(paceGapValue, decisionBudgetMeta.unitType) : "info"),
+        paceTagText: isProfitMasked ? "权限脱敏" : (budgetValueConfigured ? buildDecisionBudgetPaceTagText(paceGapValue, decisionBudgetMeta.unitType) : "未设预算"),
+        differenceText: isProfitMasked ? "需具备成本毛利查看权限" : buildDecisionBudgetDifferenceText(decisionBudgetMeta.key, actualValue, budgetValue),
+        forecastText: isProfitMasked ? "权限脱敏" : buildDecisionBudgetForecastText(decisionBudgetMeta.key, forecastValue, budgetValue),
+        progressPercentage: isProfitMasked ? 0 : (budgetValueConfigured ? Number(Math.min(100, Math.max(0, calculateRateValue(actualValue, budgetValue))).toFixed(2)) : 0),
         paceGapValue
       }
     })

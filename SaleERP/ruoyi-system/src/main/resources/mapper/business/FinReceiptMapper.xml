@@ -38,7 +38,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
         left join md_customer mc on mc.customer_id = coalesce(fr.customer_id, so.customer_id)
         left join fin_account fa on fa.account_id = fr.account_id
-        left join sys_user su on su.user_name = fr.create_by
+        left join sys_user su on su.user_name = fr.create_by and su.del_flag = '0'
     </sql>
 
     <sql id="selectFinReceiptLegacyVo">
@@ -50,7 +50,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from fin_receipt fr
         left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
         left join md_customer mc on mc.customer_id = coalesce(fr.customer_id, so.customer_id)
-        left join sys_user su on su.user_name = fr.create_by
+        left join sys_user su on su.user_name = fr.create_by and su.del_flag = '0'
     </sql>
 
     <sql id="selectFinReceiptWithoutMethodVo">
@@ -62,7 +62,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from fin_receipt fr
         left join wms_sale_order so on so.sale_order_id = fr.sale_order_id
         left join md_customer mc on mc.customer_id = coalesce(fr.customer_id, so.customer_id)
-        left join sys_user su on su.user_name = fr.create_by
+        left join sys_user su on su.user_name = fr.create_by and su.del_flag = '0'
     </sql>
 
     <select id="selectFinReceiptById" parameterType="Long" resultMap="FinReceiptResult">

@@ -31,8 +31,8 @@
 
       <!-- 模式 1：扫码收货入库 -->
       <div v-if="activeMode === 'inbound'" class="pda-panel">
-        <div class="field-label">1. 选择草稿收货入库单</div>
-        <el-select v-model="selectedInboundId" placeholder="请选择待收货草稿入库单" style="width: 100%" size="large" @change="loadInboundItems">
+        <div class="field-label">1. 选择草稿收货入库单与默认上架库位/批次</div>
+        <el-select v-model="selectedInboundId" placeholder="请选择待收货草稿入库单" style="width: 100%" size="large" @change="handleInboundOrderChange">
           <el-option
             v-for="ib in draftInboundList"
             :key="ib.inboundId"
@@ -41,7 +41,33 @@
           />
         </el-select>
 
-        <div class="field-label mt12">2. 扫描商品条码 / 输入编码回车（实收自动 +1）</div>
+        <div class="check-select-row mt12">
+          <el-select v-model="selectedInboundLocationId" placeholder="默认上架库位(扫码自动填入)" clearable size="default" style="flex: 1">
+            <el-option
+              v-for="loc in inboundLocationOptions"
+              :key="loc.locationId"
+              :label="loc.locationName"
+              :value="loc.locationId"
+            />
+          </el-select>
+          <el-input
+            v-model="inboundDefaultBatchNo"
+            placeholder="默认入库批次号（如 B20261124）"
+            clearable
+            size="default"
+            style="flex: 1"
+          />
+          <el-button
+            v-if="selectedInboundId && inboundItems.length"
+            v-hasPermi="['business:inbound:edit']"
+            type="primary"
+            plain
+            size="default"
+            @click="handleApplyDefaultInboundBinBatch"
+          >一键补齐缺省库位/批次</el-button>
+        </div>
+
+        <div class="field-label mt12">2. 扫描商品条码 / 输入编码回车（实收自动 +1，同时补齐上架库位与批次）</div>
         <div class="scan-input-box">
           <el-input
             ref="scanInputRef"
@@ -74,6 +100,7 @@
           <span>当前入库明细（{{ inboundItems.length }} 项）</span>
           <el-button
             v-if="selectedInboundId && inboundItems.length"
+            v-hasPermi="['business:inbound:edit']"
             type="success"
             size="small"
             icon="Upload"
@@ -82,17 +109,45 @@
         </div>
 
         <div v-if="inboundItems.length" class="pda-card-list">
-          <div v-for="item in inboundItems" :key="item.inboundItemId" class="pda-item-card">
+          <div v-for="item in inboundItems" :key="item.inboundItemId" class="pda-item-card pda-inbound-card">
             <div class="item-main">
               <div class="item-title">
                 {{ getProductName(item.productId) }}
                 <el-tag v-if="inboundScanCountMap[item.inboundItemId]" size="small" type="success" style="margin-left: 6px">
                   已扫码点验 {{ inboundScanCountMap[item.inboundItemId] }}
                 </el-tag>
+                <el-tag v-if="!item.locationId || !item.batchNo" size="small" type="danger" style="margin-left: 6px">
+                  待完善库位/批次
+                </el-tag>
               </div>
               <div class="item-meta">
-                批次：{{ item.batchNo || '-' }} | 效期：{{ item.expireDate ? parseTime(item.expireDate, '{y}-{m}-{d}') : '长期' }}
+                效期：{{ item.expireDate ? parseTime(item.expireDate, '{y}-{m}-{d}') : '长期' }}
                 <template v-if="item.purchaseOrderItemId && item.remainQuantity != null"> | 订单待收上限：{{ item.remainQuantity }}</template>
+              </div>
+              <div class="inbound-inline-editor">
+                <el-select
+                  v-model="item.locationId"
+                  size="small"
+                  placeholder="选择上架库位"
+                  style="width: 150px"
+                  :disabled="!canEditInbound"
+                  @change="handleInboundItemFieldSave(item)"
+                >
+                  <el-option
+                    v-for="loc in inboundLocationOptions"
+                    :key="loc.locationId"
+                    :label="loc.locationName"
+                    :value="loc.locationId"
+                  />
+                </el-select>
+                <el-input
+                  v-model="item.batchNo"
+                  size="small"
+                  placeholder="输入批次号"
+                  style="width: 150px"
+                  :disabled="!canEditInbound"
+                  @change="handleInboundItemFieldSave(item)"
+                />
               </div>
             </div>
             <div class="item-qty-box">
@@ -127,6 +182,7 @@
 
         <div class="field-label mt12">2. 扫描商品条码查询 FEFO 最优拣货库位与批次</div>
         <el-input
+          ref="scanInputRef"
           v-model="scanCode"
           size="large"
           clearable
@@ -155,7 +211,10 @@
         <div v-if="fefoResultProduct" class="fefo-guide-box">
           <div class="guide-header">
             <strong>FEFO 拣货推荐：{{ fefoResultProduct.productName }}</strong>
-            <el-tag size="small" type="primary">先到期先出库</el-tag>
+            <div>
+              <el-tag v-if="fefoNotInOutbound" size="small" type="danger" style="margin-right: 6px">非本出库单商品</el-tag>
+              <el-tag size="small" type="primary">先到期先出库</el-tag>
+            </div>
           </div>
           <div v-if="fefoBatches.length" class="pda-card-list">
             <div v-for="(b, idx) in fefoBatches" :key="b.stockId" class="pda-item-card" :class="{ 'is-top-fefo': idx === 0 }">
@@ -178,7 +237,7 @@
         <div v-if="selectedOutboundId && outboundItems.length" class="mt12">
           <div class="pda-list-header">
             <span>出库单待发清单（{{ outboundItems.length }} 项）</span>
-            <el-button type="success" size="small" icon="Upload" @click="handleSubmitOutboundFromPda">拣货完毕提交审核</el-button>
+            <el-button v-hasPermi="['business:outbound:edit']" type="success" size="small" icon="Upload" @click="handleSubmitOutboundFromPda">拣货完毕提交审核</el-button>
           </div>
           <div class="pda-card-list">
             <div v-for="it in outboundItems" :key="it.outboundItemId" class="pda-item-card">
@@ -194,7 +253,7 @@
                     已拣 {{ outboundPickCountMap[it.outboundItemId] }} / {{ it.quantity }}
                   </el-tag>
                 </div>
-                <div class="item-meta">库位：{{ it.locationId ? ('库位#' + it.locationId) : '未指定' }} | 批次：{{ it.batchNo || '-' }}</div>
+                <div class="item-meta">库位：{{ it.locationName || (it.locationId ? ('库位#' + it.locationId) : '未指定') }} | 批次：{{ it.batchNo || '-' }}</div>
               </div>
               <div class="item-qty-box">
                 <span class="qty-num">{{ it.quantity }}</span>
@@ -227,6 +286,7 @@
           </el-select>
           <el-button
             v-if="selectedCheckId"
+            v-hasPermi="['business:inventoryCheck:edit']"
             type="warning"
             plain
             size="large"
@@ -237,6 +297,7 @@
 
         <div class="field-label mt12">2. 连续扫描实物条码（每扫一次实盘数自动 +1）</div>
         <el-input
+          ref="scanInputRef"
           v-model="scanCode"
           size="large"
           clearable
@@ -266,6 +327,7 @@
           <span>现场实盘记录（{{ checkItems.length }} 项 | 盲盘保护中）</span>
           <el-button
             v-if="selectedCheckId && checkItems.length"
+            v-hasPermi="['business:inventoryCheck:edit']"
             type="success"
             size="small"
             icon="Upload"
@@ -277,7 +339,7 @@
           <div v-for="ci in checkItems" :key="ci.checkItemId" class="pda-item-card">
             <div class="item-main">
               <div class="item-title">{{ getProductName(ci.productId) }}</div>
-              <div class="item-meta">批次：{{ ci.batchNo || '-' }} | 账面数：***（盲盘隐藏）</div>
+              <div class="item-meta">库位：{{ getCheckLocationName(ci.locationId) }} | 批次：{{ ci.batchNo || '-' }} | 账面数：***（盲盘隐藏）</div>
             </div>
             <div class="item-qty-box">
               <span class="qty-num">{{ ci.actualQty ?? 0 }}</span>
@@ -291,7 +353,7 @@
   </div>
 </template>
 
-<script setup name="BusinessMobileWms">
+<script setup name="MobileWms">
 import { Iphone } from "@element-plus/icons-vue"
 import { listInbound, submitInbound } from "@/api/business/inbound"
 import { listInboundItem, updateInboundItem } from "@/api/business/inboundItem"
@@ -304,13 +366,23 @@ import { listWarehouse } from "@/api/business/warehouse"
 import { listLocation } from "@/api/business/location"
 import { recommendStockBatch } from "@/api/business/stock"
 import { parseTime } from "@/utils/ruoyi"
+import { checkPermi } from "@/utils/permission"
 
 const { proxy } = getCurrentInstance()
+
+function formatTodayCompact() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, "0")
+  const d = String(now.getDate()).padStart(2, "0")
+  return `${y}${m}${d}`
+}
 
 const narrowPreview = ref(false)
 const activeMode = ref("outbound")
 const scanCode = ref("")
 const scanning = ref(false)
+const scanInputRef = ref(null)
 
 const warehouseOptions = ref([])
 const productMap = ref({})
@@ -318,6 +390,9 @@ const quickProducts = ref([])
 
 const draftInboundList = ref([])
 const selectedInboundId = ref(undefined)
+const inboundLocationOptions = ref([])
+const selectedInboundLocationId = ref(undefined)
+const inboundDefaultBatchNo = ref(`B${formatTodayCompact()}`)
 const inboundItems = ref([])
 const inboundScanCountMap = ref({})
 
@@ -327,6 +402,7 @@ const selectedOutboundId = ref(undefined)
 const outboundItems = ref([])
 const outboundPickCountMap = ref({})
 const fefoResultProduct = ref(null)
+const fefoNotInOutbound = ref(false)
 const fefoBatches = ref([])
 
 const draftCheckList = ref([])
@@ -335,56 +411,118 @@ const selectedCheckLocationId = ref(undefined)
 const checkLocationOptions = ref([])
 const checkItems = ref([])
 
-const modeTabs = computed(() => [
-  { key: "inbound", label: "扫码收货入库", badge: `${draftInboundList.value.length} 待收` },
-  { key: "outbound", label: "FEFO 拣货出库", badge: `${draftOutboundList.value.length} 待发` },
-  { key: "check", label: "移动连续盲盘", badge: `${draftCheckList.value.length} 待盘` }
-])
+const canViewInbound = computed(() => checkPermi(["business:inbound:list"]))
+const canEditInbound = computed(() => checkPermi(["business:inbound:edit"]))
+const canViewOutbound = computed(() => checkPermi(["business:outbound:list"]))
+const canViewCheck = computed(() => checkPermi(["business:inventoryCheck:list"]))
+
+const modeTabs = computed(() => {
+  const tabs = []
+  if (canViewInbound.value) {
+    tabs.push({ key: "inbound", label: "扫码收货入库", badge: `${draftInboundList.value.length} 待收` })
+  }
+  if (canViewOutbound.value) {
+    tabs.push({ key: "outbound", label: "FEFO 拣货出库", badge: `${draftOutboundList.value.length} 待发` })
+  }
+  if (canViewCheck.value) {
+    tabs.push({ key: "check", label: "移动连续盲盘", badge: `${draftCheckList.value.length} 待盘` })
+  }
+  return tabs.length ? tabs : [
+    { key: "inbound", label: "扫码收货入库", badge: `${draftInboundList.value.length} 待收` },
+    { key: "outbound", label: "FEFO 拣货出库", badge: `${draftOutboundList.value.length} 待发` },
+    { key: "check", label: "移动连续盲盘", badge: `${draftCheckList.value.length} 待盘` }
+  ]
+})
 
 function getProductName(productId) {
   return productMap.value[productId]?.productName || `商品#${productId}`
 }
 
+function getCheckLocationName(locationId) {
+  if (!locationId) return "未指定"
+  const matched = checkLocationOptions.value.find(l => l.locationId === locationId)
+  return matched ? matched.locationName : `库位#${locationId}`
+}
+
 function switchMode(mode) {
   activeMode.value = mode
   scanCode.value = ""
+  fefoNotInOutbound.value = false
 }
 
 async function initBaseResources() {
-  const [whRes, prodRes] = await Promise.all([
-    listWarehouse({ pageNum: 1, pageSize: 50 }),
-    listProduct({ pageNum: 1, pageSize: 100 })
-  ])
-  warehouseOptions.value = whRes.rows || []
-  if (warehouseOptions.value.length && !pickWarehouseId.value) {
-    pickWarehouseId.value = warehouseOptions.value[0].warehouseId
+  const tasks = []
+  if (checkPermi(["business:warehouse:list"])) {
+    tasks.push(listWarehouse({ pageNum: 1, pageSize: 50, status: "0" }).then(whRes => {
+      warehouseOptions.value = whRes.rows || []
+      if (warehouseOptions.value.length && !pickWarehouseId.value) {
+        pickWarehouseId.value = warehouseOptions.value[0].warehouseId
+      }
+    }))
   }
-  const map = {}
-  ;(prodRes.rows || []).forEach(p => {
-    map[p.productId] = p
-  })
-  productMap.value = map
-  quickProducts.value = (prodRes.rows || []).slice(0, 4)
+  if (checkPermi(["business:product:list"])) {
+    tasks.push(listProduct({ pageNum: 1, pageSize: 100, status: "0" }).then(prodRes => {
+      const map = {}
+      ;(prodRes.rows || []).forEach(p => {
+        map[p.productId] = p
+      })
+      productMap.value = map
+      quickProducts.value = (prodRes.rows || []).slice(0, 4)
+    }))
+  }
+  await Promise.all(tasks)
 }
 
 async function loadAllDraftTasks() {
-  const [ibRes, obRes, chkRes] = await Promise.all([
-    listInbound({ pageNum: 1, pageSize: 30, status: "draft" }),
-    listOutbound({ pageNum: 1, pageSize: 30, status: "draft" }),
-    listInventoryCheck({ pageNum: 1, pageSize: 30, status: "draft" })
-  ])
-  draftInboundList.value = ibRes.rows || []
-  draftOutboundList.value = obRes.rows || []
-  draftCheckList.value = chkRes.rows || []
+  const tasks = []
+  if (canViewInbound.value) {
+    tasks.push(listInbound({ pageNum: 1, pageSize: 30, status: "draft" }).then(ibRes => {
+      draftInboundList.value = ibRes.rows || []
+    }))
+  }
+  if (canViewOutbound.value) {
+    tasks.push(listOutbound({ pageNum: 1, pageSize: 30, status: "draft" }).then(obRes => {
+      draftOutboundList.value = obRes.rows || []
+    }))
+  }
+  if (canViewCheck.value) {
+    tasks.push(listInventoryCheck({ pageNum: 1, pageSize: 30, status: "draft" }).then(chkRes => {
+      draftCheckList.value = chkRes.rows || []
+    }))
+  }
+  await Promise.all(tasks)
+
+  if (!modeTabs.value.some(t => t.key === activeMode.value) && modeTabs.value.length) {
+    activeMode.value = modeTabs.value[0].key
+  }
 
   if (draftInboundList.value.length && !selectedInboundId.value) {
     selectedInboundId.value = draftInboundList.value[0].inboundId
-    loadInboundItems()
+    await handleInboundOrderChange(selectedInboundId.value)
   }
   if (draftCheckList.value.length && !selectedCheckId.value) {
     selectedCheckId.value = draftCheckList.value[0].checkId
-    handleCheckOrderChange(selectedCheckId.value)
+    await handleCheckOrderChange(selectedCheckId.value)
   }
+}
+
+async function handleInboundOrderChange(inboundId) {
+  selectedInboundLocationId.value = undefined
+  inboundLocationOptions.value = []
+  inboundScanCountMap.value = {}
+  if (!inboundId) {
+    inboundItems.value = []
+    return
+  }
+  const ib = draftInboundList.value.find(o => o.inboundId === inboundId)
+  if (ib?.warehouseId && checkPermi(["business:location:list"])) {
+    const locRes = await listLocation({ pageNum: 1, pageSize: 100, warehouseId: ib.warehouseId, status: "0" })
+    inboundLocationOptions.value = locRes.rows || []
+    if (inboundLocationOptions.value.length) {
+      selectedInboundLocationId.value = inboundLocationOptions.value[0].locationId
+    }
+  }
+  await loadInboundItems()
 }
 
 async function handleCheckOrderChange(checkId) {
@@ -395,7 +533,7 @@ async function handleCheckOrderChange(checkId) {
     return
   }
   const chk = draftCheckList.value.find(c => c.checkId === checkId)
-  if (chk?.warehouseId) {
+  if (chk?.warehouseId && checkPermi(["business:location:list"])) {
     const locRes = await listLocation({ pageNum: 1, pageSize: 100, warehouseId: chk.warehouseId, status: "0" })
     checkLocationOptions.value = locRes.rows || []
     if (checkLocationOptions.value.length) {
@@ -414,7 +552,50 @@ async function loadInboundItems() {
   inboundItems.value = res.rows || []
 }
 
+async function handleInboundItemFieldSave(item) {
+  if (!item?.inboundItemId || !canEditInbound.value) return
+  const qty = Number(item.quantity || 0)
+  const price = Number(item.price || 0)
+  await updateInboundItem({
+    ...item,
+    locationId: item.locationId || null,
+    batchNo: (item.batchNo || "").trim(),
+    amount: (qty * price).toFixed(2)
+  })
+  proxy.$modal.msgSuccess(`已更新【${getProductName(item.productId)}】库位/批次`)
+}
+
+async function handleApplyDefaultInboundBinBatch() {
+  if (!selectedInboundId.value || !inboundItems.value.length) return
+  const defaultLocId = selectedInboundLocationId.value
+  const defaultBatch = String(inboundDefaultBatchNo.value || "").trim()
+  if (!defaultLocId && !defaultBatch) {
+    proxy.$modal.msgWarning("请先选择默认上架库位或填写默认批次号")
+    return
+  }
+  let patched = 0
+  for (const item of inboundItems.value) {
+    const nextLoc = item.locationId || defaultLocId
+    const nextBatch = String(item.batchNo || "").trim() || defaultBatch
+    if (nextLoc !== item.locationId || nextBatch !== String(item.batchNo || "").trim()) {
+      const qty = Number(item.quantity || 0)
+      const price = Number(item.price || 0)
+      await updateInboundItem({
+        ...item,
+        locationId: nextLoc,
+        batchNo: nextBatch,
+        amount: (qty * price).toFixed(2)
+      })
+      patched++
+    }
+  }
+  await loadInboundItems()
+  proxy.$modal.msgSuccess(patched > 0 ? `已为 ${patched} 条入库明细补齐库位/批次` : "所有明细均已具备库位与批次")
+}
+
 async function handlePickOutboundChange(outboundId) {
+  outboundPickCountMap.value = {}
+  fefoNotInOutbound.value = false
   if (!outboundId) {
     outboundItems.value = []
     return
@@ -459,6 +640,7 @@ async function handleExecuteScan() {
 
     if (activeMode.value === "outbound") {
       fefoResultProduct.value = product
+      fefoNotInOutbound.value = false
       const batchRes = await recommendStockBatch(pickWarehouseId.value, product.productId)
       fefoBatches.value = batchRes.data || []
       if (selectedOutboundId.value && outboundItems.value.length) {
@@ -478,15 +660,16 @@ async function handleExecuteScan() {
                 locationId: topFefo.locationId,
                 batchNo: topFefo.batchNo
               })
-              await handlePickOutboundChange(selectedOutboundId.value)
+              const refreshed = await listOutboundItem({ pageNum: 1, pageSize: 200, outboundId: selectedOutboundId.value })
+              outboundItems.value = refreshed.rows || []
             }
             proxy.$modal.msgSuccess(`FEFO 拣货复核：${product.productName} (${prevPick + 1} / ${targetQty})`)
           }
         } else {
-          proxy.$modal.msgWarning(`出库单不包含商品【${product.productName}】，仅展示 FEFO 推荐位`)
+          fefoNotInOutbound.value = true
+          proxy.$modal.msgWarning(`出库单不包含商品【${product.productName}】，请核对货品！`)
         }
       }
-      scanCode.value = ""
       return
     }
 
@@ -500,11 +683,26 @@ async function handleExecuteScan() {
         proxy.$modal.msgWarning(`当前入库单不包含商品【${product.productName}】`)
         return
       }
+      const nextLocId = target.locationId || selectedInboundLocationId.value || inboundLocationOptions.value[0]?.locationId
+      const nextBatch = String(target.batchNo || "").trim() || String(inboundDefaultBatchNo.value || "").trim()
+      const needsBinPatch = (nextLocId && nextLocId !== target.locationId) || (nextBatch && nextBatch !== String(target.batchNo || "").trim())
+
       const currentScanned = Number(inboundScanCountMap.value[target.inboundItemId] || 0) + 1
       inboundScanCountMap.value[target.inboundItemId] = currentScanned
       const currentQty = Number(target.quantity || 0)
       const maxAllowed = target.purchaseOrderItemId && target.remainQuantity != null ? Number(target.remainQuantity) : null
+      const price = Number(target.price || 0)
+
       if (maxAllowed !== null && currentQty >= maxAllowed) {
+        if (needsBinPatch && canEditInbound.value) {
+          await updateInboundItem({
+            ...target,
+            locationId: nextLocId,
+            batchNo: nextBatch,
+            amount: (currentQty * price).toFixed(2)
+          })
+          await loadInboundItems()
+        }
         if (currentScanned > maxAllowed) {
           inboundScanCountMap.value[target.inboundItemId] = maxAllowed
           proxy.$modal.msgWarning(`商品【${product.productName}】已达采购单待收上限(${maxAllowed})，点验已完成`)
@@ -513,16 +711,16 @@ async function handleExecuteScan() {
         }
       } else {
         const nextQty = currentQty + 1
-        const price = Number(target.price || 0)
         await updateInboundItem({
           ...target,
+          locationId: nextLocId || target.locationId,
+          batchNo: nextBatch || target.batchNo,
           quantity: nextQty,
           amount: (nextQty * price).toFixed(2)
         })
         proxy.$modal.msgSuccess(`收货点验：${product.productName} 实收 -> ${nextQty}`)
-        loadInboundItems()
+        await loadInboundItems()
       }
-      scanCode.value = ""
       return
     }
 
@@ -531,42 +729,60 @@ async function handleExecuteScan() {
         proxy.$modal.msgWarning("请先选择草稿盘点单")
         return
       }
-      const existing = checkItems.value.find(it =>
+      let existing = checkItems.value.find(it =>
         it.productId === product.productId &&
         (!selectedCheckLocationId.value || !it.locationId || it.locationId === selectedCheckLocationId.value)
       )
+      let matchedOtherBin = false
+      if (!existing && selectedCheckLocationId.value) {
+        existing = checkItems.value.find(it => it.productId === product.productId)
+        if (existing) {
+          matchedOtherBin = true
+        }
+      }
       if (existing) {
         const nextActual = Number(existing.actualQty || 0) + 1
         const stockQty = Number(existing.stockQty || 0)
-        const price = Number(existing.price || 0)
         const diffQty = nextActual - stockQty
         await updateInventoryCheckItem({
           ...existing,
           actualQty: nextActual,
           diffQty,
-          diffAmount: (diffQty * price).toFixed(2)
+          price: existing.price,
+          diffAmount: existing.price != null ? (diffQty * Number(existing.price)).toFixed(2) : null
         })
-        proxy.$modal.msgSuccess(`盲盘点验：${product.productName} 实盘 -> ${nextActual}`)
+        proxy.$modal.msgSuccess(
+          matchedOtherBin
+            ? `盲盘点验（已匹配快照库位 ${getCheckLocationName(existing.locationId)}）：${product.productName} 实盘 -> ${nextActual}`
+            : `盲盘点验：${product.productName} 实盘 -> ${nextActual}`
+        )
       } else {
         const targetLocId = selectedCheckLocationId.value || checkLocationOptions.value[0]?.locationId
+        if (!targetLocId) {
+          proxy.$modal.msgWarning("请先选择盘点默认库位后再新增盘盈商品")
+          return
+        }
         await addInventoryCheckItem({
           checkId: selectedCheckId.value,
           productId: product.productId,
           locationId: targetLocId,
-          batchNo: "",
+          batchNo: `SURPLUS-${formatTodayCompact()}`,
           stockQty: 0,
           actualQty: 1,
           diffQty: 1,
-          price: Number(product.costPrice || 0),
-          diffAmount: Number(product.costPrice || 0)
+          price: product.costPrice != null ? Number(product.costPrice) : null,
+          diffAmount: product.costPrice != null ? Number(product.costPrice) : null
         })
         proxy.$modal.msgSuccess(`新增盘盈实盘商品：${product.productName} (实盘 1)`)
       }
-      scanCode.value = ""
-      loadCheckItems()
+      await loadCheckItems()
     }
   } finally {
+    scanCode.value = ""
     scanning.value = false
+    nextTick(() => {
+      scanInputRef.value?.focus?.()
+    })
   }
 }
 
@@ -574,26 +790,60 @@ async function handleLoadSnapshotFromPda() {
   if (!selectedCheckId.value) return
   const res = await loadInventoryCheckStockSnapshot(selectedCheckId.value, selectedCheckLocationId.value, true)
   proxy.$modal.msgSuccess(res.msg || "已载入仓库真盲盘快照（实盘初始化为0）")
-  loadCheckItems()
+  await loadCheckItems()
 }
 
 async function handleSubmitInboundFromPda() {
+  if (!selectedInboundId.value) return
+  const missingItems = inboundItems.value.filter(it => !it.locationId || !String(it.batchNo || "").trim())
+  if (missingItems.length) {
+    const defaultLocId = selectedInboundLocationId.value || inboundLocationOptions.value[0]?.locationId
+    const defaultBatch = String(inboundDefaultBatchNo.value || "").trim()
+    if (defaultLocId && defaultBatch && canEditInbound.value) {
+      for (const item of missingItems) {
+        const qty = Number(item.quantity || 0)
+        const price = Number(item.price || 0)
+        await updateInboundItem({
+          ...item,
+          locationId: item.locationId || defaultLocId,
+          batchNo: String(item.batchNo || "").trim() || defaultBatch,
+          amount: (qty * price).toFixed(2)
+        })
+      }
+      await loadInboundItems()
+    } else {
+      proxy.$modal.msgWarning(`仍有 ${missingItems.length} 条入库明细未填写上架库位或批次号，请完善后再提交审核`)
+      return
+    }
+  }
   await submitInbound(selectedInboundId.value)
   proxy.$modal.msgSuccess("入库单已提交主管审核")
   selectedInboundId.value = undefined
   inboundItems.value = []
+  inboundScanCountMap.value = {}
   loadAllDraftTasks()
 }
 
 async function handleSubmitOutboundFromPda() {
+  if (!selectedOutboundId.value) return
+  const unpicked = outboundItems.value.filter(it => Number(outboundPickCountMap.value[it.outboundItemId] || 0) < Number(it.quantity || 0))
+  if (unpicked.length > 0) {
+    try {
+      await proxy.$modal.confirm(`当前仍有 ${unpicked.length} 项出库明细未完成扫码拣货复核，确定仍要直接提交审核吗？`)
+    } catch {
+      return
+    }
+  }
   await submitOutbound(selectedOutboundId.value)
   proxy.$modal.msgSuccess("出库单已提交审核")
   selectedOutboundId.value = undefined
   outboundItems.value = []
+  outboundPickCountMap.value = {}
   loadAllDraftTasks()
 }
 
 async function handleSubmitCheckFromPda() {
+  if (!selectedCheckId.value) return
   await submitInventoryCheck(selectedCheckId.value)
   proxy.$modal.msgSuccess("盲盘单已提交主管复核")
   selectedCheckId.value = undefined
@@ -696,7 +946,15 @@ Promise.all([initBaseResources(), loadAllDraftTasks()])
 
 .check-select-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.inbound-inline-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .quick-sku-row {

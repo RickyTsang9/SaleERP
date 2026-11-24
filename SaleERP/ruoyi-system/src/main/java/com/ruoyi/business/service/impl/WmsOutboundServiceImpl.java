@@ -217,6 +217,11 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
             {
                 throw new ServiceException("出库明细信息不完整");
             }
+            if (complianceHelper != null)
+            {
+                complianceHelper.assertEntityEnabled("md_product", "product_id", wmsOutboundItem.getProductId(), "商品");
+                complianceHelper.assertEntityEnabled("md_location", "location_id", wmsOutboundItem.getLocationId(), "库位");
+            }
             // 记录出库审核时刻的单位成本快照，确保历史毛利不受后续进价波动污染
             BigDecimal costSnapshot = BigDecimal.ZERO;
             if (mdProductMapper != null)
@@ -565,11 +570,11 @@ public class WmsOutboundServiceImpl implements IWmsOutboundService
             {
                 throw new ServiceException("第" + (outboundItemIndex + 1) + "行出库明细商品与来源销售明细不一致");
             }
-            if (!Objects.equals(wmsOutboundItem.getLocationId(), saleOrderItem.getLocationId()))
+            if (saleOrderItem.getLocationId() != null && !Objects.equals(wmsOutboundItem.getLocationId(), saleOrderItem.getLocationId()))
             {
                 throw new ServiceException("第" + (outboundItemIndex + 1) + "行出库明细库位与来源销售明细不一致");
             }
-            if (!Objects.equals(wmsOutboundItem.getBatchNo(), saleOrderItem.getBatchNo()))
+            if (StringUtils.isNotEmpty(saleOrderItem.getBatchNo()) && !Objects.equals(wmsOutboundItem.getBatchNo(), saleOrderItem.getBatchNo()))
             {
                 throw new ServiceException("第" + (outboundItemIndex + 1) + "行出库明细批次与来源销售明细不一致");
             }

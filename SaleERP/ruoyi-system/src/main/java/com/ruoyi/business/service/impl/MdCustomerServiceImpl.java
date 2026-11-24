@@ -43,7 +43,6 @@ public class MdCustomerServiceImpl implements IMdCustomerService
      * @return 客户列表
      */
     @Override
-    @DataScope(deptAlias = "su", userAlias = "su", permission = "business:customer:list")
     public List<MdCustomer> selectMdCustomerList(MdCustomer mdCustomer)
     {
         return mdCustomerMapper.selectMdCustomerList(mdCustomer);

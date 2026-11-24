@@ -20,6 +20,11 @@ public interface FinPayableMapper
     public FinPayable selectFinPayableByPayableId(Long payableId);
 
     /**
+     * 加行级悲观锁查询应付账款（防止并发付款/冲红覆盖余额）
+     */
+    public FinPayable selectFinPayableByPayableIdForUpdate(Long payableId);
+
+    /**
      * 查询应付账款列表
      * 
      * @param finPayable 应付账款

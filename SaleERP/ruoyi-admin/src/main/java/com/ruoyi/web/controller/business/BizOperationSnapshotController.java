@@ -16,6 +16,9 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.framework.web.service.PermissionService;
 
 /**
  * 管理层经营快照Controller
@@ -30,6 +33,41 @@ public class BizOperationSnapshotController extends BaseController
     @Autowired
     private IBizOperationSnapshotService bizOperationSnapshotService;
 
+    @Autowired
+    private PermissionService permissionService;
+
+    private boolean canViewProfit()
+    {
+        try
+        {
+            return SecurityUtils.isAdmin(getUserId()) || permissionService.hasPermi("business:report:profit");
+        }
+        catch (Exception ignored)
+        {
+            return false;
+        }
+    }
+
+    private String redactProfitText(String text)
+    {
+        if (StringUtils.isEmpty(text))
+        {
+            return text;
+        }
+        return text.replaceAll("((?:本月|累计|预估|当月|年度)?(?:毛利额|毛利率|毛利目标|毛利预算|毛利)[：:\\s]*(?:[¥￥]?[-]?[0-9,]+(?:\\.[0-9]+)?%?))", "毛利数据[权限脱敏]");
+    }
+
+    private void maskSnapshotIfUnauthorized(BizOperationSnapshot snapshot)
+    {
+        if (snapshot == null || canViewProfit())
+        {
+            return;
+        }
+        snapshot.setGrossProfitAmount(null);
+        snapshot.setSummaryContent(redactProfitText(snapshot.getSummaryContent()));
+        snapshot.setPlainTextContent(redactProfitText(snapshot.getPlainTextContent()));
+    }
+
     /**
      * 查询经营快照列表
      */
@@ -40,6 +78,13 @@ public class BizOperationSnapshotController extends BaseController
         startPage();
         List<BizOperationSnapshot> operationSnapshotList =
             bizOperationSnapshotService.selectBizOperationSnapshotList(bizOperationSnapshot);
+        if (!canViewProfit() && operationSnapshotList != null)
+        {
+            for (BizOperationSnapshot item : operationSnapshotList)
+            {
+                maskSnapshotIfUnauthorized(item);
+            }
+        }
         return getDataTable(operationSnapshotList);
     }
 
@@ -50,7 +95,9 @@ public class BizOperationSnapshotController extends BaseController
     @GetMapping("/{snapshotId}")
     public AjaxResult getInfo(@PathVariable Long snapshotId)
     {
-        return success(bizOperationSnapshotService.selectBizOperationSnapshotBySnapshotId(snapshotId));
+        BizOperationSnapshot snapshot = bizOperationSnapshotService.selectBizOperationSnapshotBySnapshotId(snapshotId);
+        maskSnapshotIfUnauthorized(snapshot);
+        return success(snapshot);
     }
 
     /**

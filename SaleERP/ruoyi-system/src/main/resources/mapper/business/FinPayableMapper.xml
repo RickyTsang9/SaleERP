@@ -32,7 +32,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from fin_payable
         left join wms_purchase_order purchase_order on purchase_order.purchase_order_id = fin_payable.purchase_order_id
         left join md_supplier ms on ms.supplier_id = fin_payable.supplier_id
-        left join sys_user su on su.user_name = coalesce(nullif(fin_payable.create_by, ''), purchase_order.create_by)
+        left join sys_user su on su.user_name = coalesce(nullif(fin_payable.create_by, ''), purchase_order.create_by) and su.del_flag = '0'
     </sql>
 
     <select id="selectFinPayableList" parameterType="FinPayable" resultMap="FinPayableResult">
@@ -88,6 +88,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectFinPayableByPayableId" parameterType="Long" resultMap="FinPayableResult">
         <include refid="selectFinPayableVo"/>
         where fin_payable.payable_id = #{payableId}
+    </select>
+
+    <select id="selectFinPayableByPayableIdForUpdate" parameterType="Long" resultMap="FinPayableResult">
+        select payable_id, purchase_order_id, supplier_id, amount_due, amount_paid, remain_amount,
+               status, due_date, overdue_days, remark, create_by, create_time, update_by, update_time
+        from fin_payable
+        where payable_id = #{payableId}
+        for update
     </select>
         
     <insert id="insertFinPayable" parameterType="FinPayable" useGeneratedKeys="true" keyProperty="payableId">

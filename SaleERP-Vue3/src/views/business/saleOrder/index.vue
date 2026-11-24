@@ -54,9 +54,8 @@
         <el-button size="small" type="warning" plain :disabled="single || selectedStatus !== 'draft'" @click="handleSubmit" v-hasPermi="['business:saleOrder:submit']">提交</el-button>
         <el-button size="small" type="primary" plain :disabled="single || selectedStatus !== 'submitted'" @click="handleManagerAudit" v-hasPermi="['business:saleOrder:managerAudit']">经理审核</el-button>
         <el-button size="small" type="success" plain :disabled="single || selectedStatus !== 'manager_approved'" @click="handleFinanceAudit" v-hasPermi="['business:saleOrder:financeAudit']">财务审核</el-button>
-        <el-button size="small" type="danger" plain :disabled="single || (selectedStatus !== 'manager_approved' && selectedStatus !== 'audited')" @click="selectedStatus === 'audited' ? handleFinanceRollback() : handleManagerRollback()" v-hasPermi="['business:saleOrder:managerAudit', 'business:saleOrder:financeAudit']">
-          {{ selectedStatus === 'audited' ? '财务回退' : '审核回退' }}
-        </el-button>
+        <el-button size="small" type="danger" plain :disabled="single || selectedStatus !== 'manager_approved'" @click="handleManagerRollback" v-hasPermi="['business:saleOrder:managerAudit']">经理回退</el-button>
+        <el-button size="small" type="danger" plain :disabled="single || selectedStatus !== 'audited'" @click="handleFinanceRollback" v-hasPermi="['business:saleOrder:financeAudit']">财务回退</el-button>
         <el-button size="small" type="info" plain :disabled="single || !canCancelSelectedSaleOrder" @click="handleCancel" v-hasPermi="['business:saleOrder:edit']">作废</el-button>
         <el-button size="small" type="danger" plain icon="Delete" :disabled="multiple || !canDeleteSelectedSaleOrder" @click="handleDelete" v-hasPermi="['business:saleOrder:remove']">删除</el-button>
         <el-button size="small" plain :disabled="single" @click="handlePrintTemplate" v-hasPermi="['business:saleOrder:print']">打印</el-button>
@@ -124,13 +123,13 @@
                 <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="canViewOutbound(scope.row)" @click="handleViewOutbound(scope.row)">{{ getOutboundActionLabel(scope.row) }}</el-dropdown-item>
-                    <el-dropdown-item v-if="canForceCloseSaleOrder(scope.row)" @click="handleForceClose(scope.row)">短装结案</el-dropdown-item>
-                    <el-dropdown-item v-if="canViewReceivable(scope.row)" @click="handleViewReceivable(scope.row)">查看应收</el-dropdown-item>
-                    <el-dropdown-item v-if="canCreateReceipt(scope.row)" @click="handleCreateReceipt(scope.row)">登记回款</el-dropdown-item>
-                    <el-dropdown-item v-if="canViewReceipt(scope.row)" @click="handleViewReceipt(scope.row)">查看回款</el-dropdown-item>
-                    <el-dropdown-item v-if="canEditSaleOrder(scope.row)" @click="handleUpdate(scope.row)">修改订单</el-dropdown-item>
-                    <el-dropdown-item v-if="canDeleteSaleOrder(scope.row)" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                    <el-dropdown-item v-if="canViewOutbound(scope.row)" v-hasPermi="['business:outbound:list']" @click="handleViewOutbound(scope.row)">{{ getOutboundActionLabel(scope.row) }}</el-dropdown-item>
+                    <el-dropdown-item v-if="canForceCloseSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:financeAudit', 'business:saleOrder:edit']" @click="handleForceClose(scope.row)">短装结案</el-dropdown-item>
+                    <el-dropdown-item v-if="canViewReceivable(scope.row)" v-hasPermi="['business:receivable:list']" @click="handleViewReceivable(scope.row)">查看应收</el-dropdown-item>
+                    <el-dropdown-item v-if="canCreateReceipt(scope.row)" v-hasPermi="['business:receipt:add']" @click="handleCreateReceipt(scope.row)">登记回款</el-dropdown-item>
+                    <el-dropdown-item v-if="canViewReceipt(scope.row)" v-hasPermi="['business:receipt:list']" @click="handleViewReceipt(scope.row)">查看回款</el-dropdown-item>
+                    <el-dropdown-item v-if="canEditSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:edit']" @click="handleUpdate(scope.row)">修改订单</el-dropdown-item>
+                    <el-dropdown-item v-if="canDeleteSaleOrder(scope.row)" v-hasPermi="['business:saleOrder:remove']" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -717,7 +716,7 @@
   </div>
 </template>
 
-<script setup name="BusinessSaleOrder">
+<script setup name="SaleOrder">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { getToken } from "@/utils/auth"
 import { listSaleOrder, getSaleOrder, addSaleOrder, updateSaleOrder, delSaleOrder, submitSaleOrder, managerAuditSaleOrder, managerRollbackSaleOrder, financeAuditSaleOrder, financeRollbackSaleOrder, cancelSaleOrder, forceCloseSaleOrder, getSaleOrderPrintTemplate, listSaleOrderStatusHistory, getSaleOrderChain, suggestSalePrice } from "@/api/business/saleOrder"
@@ -793,6 +792,7 @@ const upload = reactive({
   selectedFile: null
 })
 const route = useRoute()
+const router = useRouter()
 const customerList = ref([])
 const warehouseList = ref([])
 const productList = ref([])
@@ -838,7 +838,11 @@ const data = reactive({
   saleOrderItemRules: {
     productId: [{ required: true, message: "商品不能为空", trigger: "change" }],
     locationId: [{ required: true, message: "库位不能为空", trigger: "change" }],
-    batchNo: [{ required: true, message: "批次号不能为空", trigger: "blur" }]
+    batchNo: [{ required: true, message: "批次号不能为空", trigger: "blur" }],
+    quantity: [
+      { required: true, message: "销售数量不能为空", trigger: "change" },
+      { validator: (_rule, val, cb) => Number(val) > 0 ? cb() : cb(new Error("销售数量必须大于0")), trigger: "change" }
+    ]
   }
 })
 
@@ -882,7 +886,11 @@ const locationSelectOptionList = computed(() => buildLocationSelectOptionList())
 // 根据首页和经营看板传入的参数初始化销售订单筛选条件。
 function initializeQueryParamsFromRoute() {
   queryParams.value.saleOrderId = route.query.saleOrderId || undefined
+  queryParams.value.customerId = route.query.customerId ? Number(route.query.customerId) : undefined
   queryParams.value.status = route.query.status || undefined
+  if (queryParams.value.customerId) {
+    ensureCustomerOptionLoaded(queryParams.value.customerId)
+  }
 }
 
 // 判断当前是否来自首页一键开销售单入口。
@@ -904,6 +912,7 @@ function loadCustomerOptionList(searchKeyword) {
   listCustomer({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     customerName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const customerRowList = response.rows || []
@@ -921,6 +930,7 @@ function loadWarehouseOptionList(searchKeyword) {
   listWarehouse({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     warehouseName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const warehouseRowList = response.rows || []
@@ -938,6 +948,7 @@ function loadProductOptionList(searchKeyword) {
   listProduct({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     productName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const productRowList = response.rows || []
@@ -949,12 +960,14 @@ function loadProductOptionList(searchKeyword) {
   })
 }
 
-// 远程加载库位下拉选项，按需补充库位名称数据，减少销售订单明细编辑时的加载压力。
+// 远程加载库位下拉选项，按当前销售单所属仓库限定范围，避免跨仓选库位。
 function loadLocationOptionList(searchKeyword) {
   locationListLoading.value = true
   listLocation({
     pageNum: 1,
-    pageSize: 20,
+    pageSize: 50,
+    status: "0",
+    warehouseId: currentSaleOrderWarehouseId.value || form.value.warehouseId || undefined,
     locationName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const locationRowList = response.rows || []
@@ -1091,7 +1104,11 @@ function buildProductSelectOptionList() {
 
 // 组合库位下拉选项，兼容历史销售订单明细中主数据缺失时的兜底回显。
 function buildLocationSelectOptionList() {
-  return buildSelectOptionList(locationList.value, [saleOrderItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
+  const targetWarehouseId = currentSaleOrderWarehouseId.value || form.value.warehouseId
+  const filtered = targetWarehouseId
+    ? locationList.value.filter(loc => (!loc.warehouseId || Number(loc.warehouseId) === Number(targetWarehouseId)) && loc.status !== "1")
+    : locationList.value.filter(loc => loc.status !== "1")
+  return buildSelectOptionList(filtered, [saleOrderItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据客户编号返回客户名称，减少页面出现内部编号带来的识别成本。
@@ -1334,7 +1351,7 @@ function resetSaleOrderItemForm() {
     productId: undefined,
     locationId: undefined,
     batchNo: undefined,
-    quantity: 0,
+    quantity: 1,
     price: 0,
     amount: 0
   }
@@ -1356,6 +1373,11 @@ function handleQuery() {
 function resetQuery() {
   proxy.resetForm("queryRef")
   queryParams.value.saleOrderId = undefined
+  queryParams.value.customerId = undefined
+  queryParams.value.status = undefined
+  if (Object.keys(route.query || {}).length > 0) {
+    router.replace({ path: route.path, query: {} })
+  }
   handleQuery()
 }
 
@@ -1391,6 +1413,7 @@ function handleOpenSaleOrderItem(row) {
   currentSaleOrderStatus.value = row.status
   currentSaleOrderCustomerId.value = row.customerId
   currentSaleOrderWarehouseId.value = row.warehouseId
+  loadLocationOptionList()
   saleOrderItemTitle.value = "销售订单明细 - " + row.orderNo + "（" + getSaleOrderStatusLabel(row.status) + "）"
   saleOrderItemOpen.value = true
   selectedSaleOrderItemIds.value = []
@@ -1875,8 +1898,8 @@ async function handleSaleOrderProductSelect(productId) {
         standard_sale_price: "商品标准售价"
       }
       priceSuggestionHint.value = {
-        sourceLabel: labelMap[pData.priceSource] || pData.priceSourceLabel || "智能推荐价",
-        costPrice: pData.costPrice ?? null
+        sourceLabel: labelMap[pData.priceSource] || pData.priceSourceLabel || pData.priceSource || "智能推荐价",
+        costPrice: pData.costPrice !== undefined && pData.costPrice !== null ? Number(pData.costPrice) : null
       }
     }
     const batches = batchRes?.data || []
@@ -1934,6 +1957,7 @@ function handleSaleOrderChain(row) {
       receivableList: response.data?.receivableList || [],
       receiptList: response.data?.receiptList || [],
       saleReturnList: response.data?.saleReturnList || [],
+      invoiceList: response.data?.invoiceList || [],
       statusHistoryList: response.data?.statusHistoryList || []
     }
     ensureCustomerOptionLoaded(saleOrderChainData.value.saleOrder.customerId)
@@ -2000,4 +2024,10 @@ watch(
 )
 
 initializePage()
+
+onActivated(() => {
+  if (route.query.saleOrderId || route.query.customerId || route.query.status || route.query.mode === "create") {
+    initializePage()
+  }
+})
 </script>

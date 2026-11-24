@@ -24,7 +24,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                f.next_follow_time, f.status, f.create_by, f.create_time, f.update_by, f.update_time
         from crm_customer_follow f
         left join md_customer mc on mc.customer_id = f.customer_id
-        left join sys_user su on su.user_name = f.create_by
+        left join sys_user su on su.user_name = f.create_by and su.del_flag = '0'
     </sql>
 
     <select id="selectCrmCustomerFollowList" parameterType="CrmCustomerFollow" resultMap="CrmCustomerFollowResult">
@@ -68,7 +68,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             sum(case when f.status = '0' and f.next_follow_time >= curdate() and f.next_follow_time &lt; date_add(curdate(), interval 1 day) then 1 else 0 end) as today_count,
             sum(case when f.status = '0' and f.next_follow_time is not null and f.next_follow_time &lt; now() then 1 else 0 end) as overdue_count
         from crm_customer_follow f
-        left join sys_user su on su.user_name = f.create_by
+        left join sys_user su on su.user_name = f.create_by and su.del_flag = '0'
         <where>
             <if test="customerId != null "> and f.customer_id = #{customerId}</if>
             <if test="followType != null  and followType != ''"> and f.follow_type = #{followType}</if>

@@ -147,7 +147,7 @@
   </div>
 </template>
 
-<script setup name="BusinessDataBackup">
+<script setup name="DataBackup">
 import { listDataBackup, manualBackup, restoreDataBackup, delDataBackup, downloadDataBackup, uploadRestoreDataBackup } from "@/api/business/dataBackup"
 import { parseTime } from "@/utils/ruoyi"
 

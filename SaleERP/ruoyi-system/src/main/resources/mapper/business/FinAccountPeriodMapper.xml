@@ -220,18 +220,46 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectMonthSnapshot" resultType="java.util.HashMap">
-        select ifnull((
-                   select sum(total_amount)
-                   from wms_sale_order
-                   where status = 'audited'
-                     and date_format(ifnull(audit_time, create_time), '%Y-%m') = #{periodMonth}
-               ), 0) as saleAmount,
-               ifnull((
-                   select sum(total_amount)
-                   from wms_purchase_order
-                   where status in ('1', '2', '3')
-                     and date_format(ifnull(purchase_date, create_time), '%Y-%m') = #{periodMonth}
-               ), 0) as purchaseAmount,
+        select greatest(
+                   ifnull((
+                       select sum(
+                           case
+                               when so.status = 'closed' then ifnull((
+                                   select sum(ob.total_amount)
+                                   from wms_outbound ob
+                                   where ob.sale_order_id = so.sale_order_id
+                                     and ob.status = 'audited'
+                               ), 0)
+                               else so.total_amount
+                           end
+                       )
+                       from wms_sale_order so
+                       where so.status in ('audited', 'closed')
+                         and date_format(ifnull(so.audit_time, so.create_time), '%Y-%m') = #{periodMonth}
+                   ), 0)
+                   - ifnull((
+                       select sum(sr.total_amount)
+                       from wms_sale_return sr
+                       where sr.status = 'audited'
+                         and date_format(ifnull(sr.audit_time, sr.create_time), '%Y-%m') = #{periodMonth}
+                   ), 0),
+                   0
+               ) as saleAmount,
+               greatest(
+                   ifnull((
+                       select sum(po.total_amount)
+                       from wms_purchase_order po
+                       where po.status in ('1', '2', '3')
+                         and date_format(ifnull(po.purchase_date, po.create_time), '%Y-%m') = #{periodMonth}
+                   ), 0)
+                   - ifnull((
+                       select sum(pr.total_amount)
+                       from wms_purchase_return pr
+                       where pr.status = 'audited'
+                         and date_format(ifnull(pr.audit_time, pr.create_time), '%Y-%m') = #{periodMonth}
+                   ), 0),
+                   0
+               ) as purchaseAmount,
                (
                    select count(*)
                    from wms_sale_order
@@ -270,7 +298,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                ) + (
                    select count(*)
                    from wms_transfer
-                   where status in ('submitted', 'in_transit')
+                   where status in ('0', 'in_transit')
                      and date_format(create_time, '%Y-%m') = #{periodMonth}
                ) as pendingBillCount
     </select>

@@ -102,8 +102,13 @@
         </el-table-column>
         <el-table-column label="单价 / 金额" align="right" width="125">
           <template #default="scope">
-            <div class="erp-amount">¥{{ Number(scope.row.amount || 0).toFixed(2) }}</div>
-            <div class="erp-cell-sub">单价 ¥{{ Number(scope.row.price || 0).toFixed(2) }}</div>
+            <template v-if="scope.row.amount === null || scope.row.amount === undefined">
+              <div class="erp-cell-sub">权限脱敏</div>
+            </template>
+            <template v-else>
+              <div class="erp-amount">¥{{ Number(scope.row.amount || 0).toFixed(2) }}</div>
+              <div class="erp-cell-sub">单价 ¥{{ Number(scope.row.price || 0).toFixed(2) }}</div>
+            </template>
           </template>
         </el-table-column>
         <el-table-column label="发生时间" align="center" prop="createTime" width="165">
@@ -124,7 +129,7 @@
   </div>
 </template>
 
-<script setup name="BusinessStockLog">
+<script setup name="StockLog">
 import { listStockLog } from "@/api/business/stockLog"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
 import { listProduct, getProduct } from "@/api/business/product"
@@ -420,16 +425,18 @@ function getInOutTagType(inOutValue) {
 }
 
 const billTypeRouteMap = {
-  inbound: { path: "/purchase/inbound" },
-  outbound: { path: "/sales/outbound" },
+  inbound: { path: "/purchase/inbound", noKey: "inboundNo" },
+  outbound: { path: "/sales/outbound", noKey: "outboundNo" },
   sale_order: { path: "/sales/saleOrder", queryKey: "saleOrderId" },
   sale_order_rollback: { path: "/sales/saleOrder", queryKey: "saleOrderId" },
-  sale_return: { path: "/sales/saleReturn" },
-  purchase_return: { path: "/purchase/purchaseReturn" },
-  inventory_check: { path: "/inventory/inventoryCheck" },
-  transfer: { path: "/inventory/transfer" },
-  stock_freeze: { path: "/inventory/stock" },
-  stock_unfreeze: { path: "/inventory/stock" }
+  sale_return: { path: "/sales/saleReturn", noKey: "returnNo" },
+  purchase_return: { path: "/purchase/purchaseReturn", noKey: "returnNo" },
+  inventory_check: { path: "/inventory/inventoryCheck", noKey: "checkNo" },
+  transfer: { path: "/inventory/transfer", noKey: "transferNo" },
+  transfer_out: { path: "/inventory/transfer", noKey: "transferNo" },
+  transfer_in: { path: "/inventory/transfer", noKey: "transferNo" },
+  stock_freeze: { path: "/inventory/stock", productKey: "productId" },
+  stock_unfreeze: { path: "/inventory/stock", productKey: "productId" }
 }
 
 function canJumpSourceBill(row) {
@@ -442,6 +449,10 @@ function handleJumpSourceBill(row) {
   const query = {}
   if (target.queryKey && row.billId) {
     query[target.queryKey] = String(row.billId)
+  } else if (target.noKey && row.billNo) {
+    query[target.noKey] = String(row.billNo)
+  } else if (target.productKey && row.productId) {
+    query[target.productKey] = String(row.productId)
   }
   router.push({ path: target.path, query })
 }

@@ -341,7 +341,7 @@
   </div>
 </template>
 
-<script setup name="BusinessReceivable">
+<script setup name="Receivable">
 import { listReceivable, getReceivable, updateReceivable } from "@/api/business/receivable"
 import { addReceipt, batchAddReceipt } from "@/api/business/receipt"
 import { listAccount } from "@/api/business/account"

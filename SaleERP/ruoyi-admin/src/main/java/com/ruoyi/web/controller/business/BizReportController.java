@@ -37,7 +37,7 @@ public class BizReportController extends BaseController
         return bizReportService.getDashboardData();
     }
 
-    @PreAuthorize("@ss.hasPermi('business:report:sale')")
+    @PreAuthorize("@ss.hasAnyPermi('business:report:sale,business:report:view')")
     @GetMapping("/saleList")
     public TableDataInfo saleList(@RequestParam Map<String, Object> params)
     {

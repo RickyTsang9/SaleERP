@@ -9,7 +9,7 @@
       :badge="`共 ${total} 家供应商`"
     >
       <template #actions>
-        <el-button icon="Upload" plain @click="handleImport" v-hasPermi="['business:supplier:add']">批量导入</el-button>
+        <el-button icon="Upload" plain @click="handleImport" v-hasPermi="['business:supplier:import', 'business:supplier:add']">批量导入</el-button>
         <el-button icon="Download" plain @click="handleExport" v-hasPermi="['business:supplier:export']">导出</el-button>
         <el-button type="primary" icon="Plus" @click="handleAdd" v-hasPermi="['business:supplier:add']">新增供应商</el-button>
       </template>
@@ -198,7 +198,7 @@
   </div>
 </template>
 
-<script setup name="BusinessSupplier">
+<script setup name="Supplier">
 import { listSupplier, getSupplier, delSupplier, addSupplier, updateSupplier } from "@/api/business/supplier";
 import { parseTime } from "@/utils/ruoyi";
 import { getToken } from "@/utils/auth";

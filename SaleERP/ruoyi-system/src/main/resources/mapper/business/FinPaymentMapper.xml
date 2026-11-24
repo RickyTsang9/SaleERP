@@ -38,7 +38,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         left join wms_purchase_order purchase_order on purchase_order.purchase_order_id = fin_payment.purchase_order_id
         left join md_supplier ms on ms.supplier_id = fin_payment.supplier_id
         left join fin_account fa on fa.account_id = fin_payment.account_id
-        left join sys_user su on su.user_name = fin_payment.create_by
+        left join sys_user su on su.user_name = fin_payment.create_by and su.del_flag = '0'
     </sql>
 
     <select id="selectFinPaymentList" parameterType="FinPayment" resultMap="FinPaymentResult">

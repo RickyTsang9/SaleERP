@@ -259,13 +259,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="shipLockedStockAtomically">
         update wms_stock
         set quantity = ifnull(quantity, 0) - #{shipQty},
-            locked_quantity = greatest(ifnull(locked_quantity, 0) - #{shipQty}, 0),
+            locked_quantity = ifnull(locked_quantity, 0) - #{shipQty},
             version = ifnull(version, 0) + 1,
             update_by = #{updateBy},
             update_time = sysdate()
         where stock_id = #{stockId}
           and ifnull(version, 0) = #{version}
           and ifnull(quantity, 0) &gt;= #{shipQty}
+          and ifnull(locked_quantity, 0) &gt;= #{shipQty}
+          and (ifnull(quantity, 0) - ifnull(frozen_quantity, 0)) &gt;= #{shipQty}
     </update>
 
     <update id="freezeStockAtomically">

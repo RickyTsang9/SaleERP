@@ -12,9 +12,13 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import com.ruoyi.system.service.ISysConfigService;
+import com.ruoyi.system.service.ISysDictTypeService;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -58,6 +62,12 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
     private static final String RESTORE_STATUS_FAILED = "failed";
 
     private static final String SYSTEM_OPERATOR = "system";
+
+    @Autowired(required = false)
+    private ISysConfigService sysConfigService;
+
+    @Autowired(required = false)
+    private ISysDictTypeService sysDictTypeService;
 
     @Autowired
     private BizDataBackupMapper bizDataBackupMapper;
@@ -248,6 +258,26 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
         {
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
         }
+        refreshSystemCachesAfterRestore();
+    }
+
+    private void refreshSystemCachesAfterRestore()
+    {
+        try
+        {
+            if (sysConfigService != null)
+            {
+                sysConfigService.resetConfigCache();
+            }
+            if (sysDictTypeService != null)
+            {
+                sysDictTypeService.resetDictCache();
+            }
+        }
+        catch (Exception ignored)
+        {
+            // 非缓存环境忽略
+        }
     }
 
     @Override
@@ -342,24 +372,44 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
             File targetFile = new File(baseDir, relativeFileName);
 
             LinkedHashMap<String, Integer> tableRowSummary = new LinkedHashMap<>();
-            long totalRecordCount = 0L;
+            long[] totalRecordHolder = new long[] { 0L };
 
-            try (OutputStream fos = new FileOutputStream(targetFile);
-                 GZIPOutputStream gzos = new GZIPOutputStream(fos);
-                 JsonGenerator generator = objectMapper.getFactory().createGenerator(gzos))
-            {
-                generator.writeStartObject();
-                for (String tableName : backupTableNameList)
+            Runnable snapshotDumpTask = () -> {
+                try (OutputStream fos = new FileOutputStream(targetFile);
+                     GZIPOutputStream gzos = new GZIPOutputStream(fos);
+                     JsonGenerator generator = objectMapper.getFactory().createGenerator(gzos))
                 {
-                    generator.writeArrayFieldStart(tableName);
-                    int tableRows = streamWriteTableRows(tableName, generator);
-                    generator.writeEndArray();
-                    tableRowSummary.put(tableName, tableRows);
-                    totalRecordCount += tableRows;
+                    generator.writeStartObject();
+                    for (String tableName : backupTableNameList)
+                    {
+                        generator.writeArrayFieldStart(tableName);
+                        int tableRows = streamWriteTableRows(tableName, generator);
+                        generator.writeEndArray();
+                        tableRowSummary.put(tableName, tableRows);
+                        totalRecordHolder[0] += tableRows;
+                    }
+                    generator.writeEndObject();
+                    generator.flush();
                 }
-                generator.writeEndObject();
-                generator.flush();
+                catch (Exception ex)
+                {
+                    throw new RuntimeException(ex);
+                }
+            };
+            if (platformTransactionManager != null)
+            {
+                // 在单次 REPEATABLE_READ 只读事务内读取全部业务表，保证跨表 MVCC 快照一致性
+                TransactionTemplate readSnapshotTx = new TransactionTemplate(platformTransactionManager);
+                readSnapshotTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                readSnapshotTx.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+                readSnapshotTx.setReadOnly(true);
+                readSnapshotTx.executeWithoutResult(status -> snapshotDumpTask.run());
             }
+            else
+            {
+                snapshotDumpTask.run();
+            }
+            long totalRecordCount = totalRecordHolder[0];
 
             Map<String, Object> metaMap = new LinkedHashMap<>();
             metaMap.put("format", "gzip-json-v2");
@@ -494,8 +544,50 @@ public class BizDataBackupServiceImpl implements IBizDataBackupService
 
     private void insertTableData(String tableName, List<LinkedHashMap<String, Object>> tableDataList)
     {
-        LinkedHashMap<String, Object> firstRecord = tableDataList.get(0);
-        List<String> columnNameList = new ArrayList<String>(firstRecord.keySet());
+        // 汇总所有行出现的键集合，并与当前数据库真实表列求交集，避免表结构演进或首行缺列导致恢复失败
+        Set<String> existingTableColumns = new LinkedHashSet<>();
+        try
+        {
+            List<String> dbCols = jdbcTemplate.queryForList(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? ORDER BY ordinal_position ASC",
+                String.class,
+                tableName
+            );
+            if (dbCols != null)
+            {
+                for (String col : dbCols)
+                {
+                    if (col != null)
+                    {
+                        existingTableColumns.add(col.toLowerCase(Locale.ROOT));
+                    }
+                }
+            }
+        }
+        catch (Exception ignored)
+        {
+            // 若查询元数据失败则回退使用备份键集
+        }
+        Set<String> allBackupKeys = new LinkedHashSet<>();
+        for (LinkedHashMap<String, Object> row : tableDataList)
+        {
+            if (row != null)
+            {
+                allBackupKeys.addAll(row.keySet());
+            }
+        }
+        List<String> columnNameList = new ArrayList<>();
+        for (String key : allBackupKeys)
+        {
+            if (existingTableColumns.isEmpty() || existingTableColumns.contains(key.toLowerCase(Locale.ROOT)))
+            {
+                columnNameList.add(key);
+            }
+        }
+        if (columnNameList.isEmpty())
+        {
+            return;
+        }
         StringBuilder columnNameSqlBuilder = new StringBuilder();
         StringBuilder placeHolderSqlBuilder = new StringBuilder();
         for (int columnIndex = 0; columnIndex < columnNameList.size(); columnIndex++)

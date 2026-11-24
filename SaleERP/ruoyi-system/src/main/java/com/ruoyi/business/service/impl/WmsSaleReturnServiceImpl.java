@@ -62,6 +62,9 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
     @Autowired
     private FinReceivableMapper finReceivableMapper;
 
+    @Autowired(required = false)
+    private FinInvoiceService finInvoiceService;
+
     @Autowired
     private IWmsStockService wmsStockService;
 
@@ -208,6 +211,14 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
         for (WmsSaleReturnItem wmsSaleReturnItem : itemList)
         {
             validateSaleReturnItem(wmsSaleReturnItem);
+            if (bizComplianceHelper != null)
+            {
+                bizComplianceHelper.assertEntityEnabled("md_product", "product_id", wmsSaleReturnItem.getProductId(), "商品");
+                if (wmsSaleReturnItem.getLocationId() != null)
+                {
+                    bizComplianceHelper.assertEntityEnabled("md_location", "location_id", wmsSaleReturnItem.getLocationId(), "库位");
+                }
+            }
             Long locationId = wmsSaleReturnItem.getLocationId();
             String batchNo = wmsSaleReturnItem.getBatchNo();
             Date existingExpireDate = null;
@@ -273,6 +284,10 @@ public class WmsSaleReturnServiceImpl implements IWmsSaleReturnService
         if (updateCount == 0)
         {
             throw new ServiceException("销售退货单状态已变更，请刷新后重试");
+        }
+        if (finInvoiceService != null && databaseSaleReturn.getSaleOrderId() != null)
+        {
+            finInvoiceService.syncOrderInvoiceStatus("sale", databaseSaleReturn.getSaleOrderId());
         }
         return updateCount;
     }

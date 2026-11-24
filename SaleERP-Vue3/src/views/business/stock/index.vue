@@ -262,7 +262,7 @@
   </div>
 </template>
 
-<script setup name="BusinessStock">
+<script setup name="Stock">
 import { listStock, listWarningStock, remindWarningStock, updateStockWarningThreshold, freezeStock, unfreezeStock } from "@/api/business/stock"
 import { getUnreadMessageCount, listPopupMessage, readAllMessage } from "@/api/business/message"
 import { listWarehouse, getWarehouse } from "@/api/business/warehouse"
@@ -622,9 +622,9 @@ function getExpireTagInfo(expireDate) {
 }
 
 function checkWarningReminder() {
-  getUnreadMessageCount("stock_warning").then(unreadResponse => {
+  getUnreadMessageCount({ messageType: "stock_warning" }).then(unreadResponse => {
     warningUnreadCount.value = unreadResponse.unreadCount || 0
-    return listPopupMessage("stock_warning", 5)
+    return listPopupMessage({ messageType: "stock_warning", limitCount: 5 })
   }).then(popupResponse => {
     const popupMessageList = popupResponse.rows || []
     if (popupMessageList.length === 0) {
@@ -633,7 +633,7 @@ function checkWarningReminder() {
     const popupTitleList = popupMessageList.map(messageItem => messageItem.messageTitle)
     const popupContent = popupTitleList.join("；")
     proxy.$modal.confirm(`当前存在${warningUnreadCount.value}条库存预警消息：${popupContent}。是否立即标记为已读？`).then(() => {
-      return readAllMessage("stock_warning")
+      return readAllMessage({ messageType: "stock_warning" })
     }).then(() => {
       warningUnreadCount.value = 0
       proxy.$modal.msgSuccess("库存预警消息已标记为已读")
@@ -657,7 +657,7 @@ function handleWarningRemind() {
 }
 
 function handleReadWarningMessage() {
-  listPopupMessage("stock_warning", 20).then(res => {
+  listPopupMessage({ messageType: "stock_warning", limitCount: 20 }).then(res => {
     warningMessageList.value = res.rows || []
     warningUnreadCount.value = warningMessageList.value.length
     warningDrawerOpen.value = true
@@ -668,7 +668,7 @@ function handleReadWarningMessage() {
 }
 
 function handleConfirmReadAllWarnings() {
-  readAllMessage("stock_warning").then(() => {
+  readAllMessage({ messageType: "stock_warning" }).then(() => {
     warningUnreadCount.value = 0
     warningMessageList.value = []
     warningDrawerOpen.value = false
@@ -752,8 +752,12 @@ function handleClearWarningQuery() {
 
 function resetQuery() {
   proxy.resetForm("queryRef")
+  queryParams.value.productId = undefined
   isWarningQuery.value = false
   isExpiringQuery.value = false
+  if (Object.keys(route.query || {}).length > 0) {
+    router.replace({ path: route.path, query: {} })
+  }
   handleQuery()
 }
 
@@ -774,9 +778,14 @@ function handleDelete() {
 }
 
 function handleExport() {
-  proxy.download("business/stock/export", {
-    ...queryParams.value
-  }, `stock_${new Date().getTime()}.xlsx`)
+  const exportParams = { ...queryParams.value }
+  if (isWarningQuery.value) {
+    exportParams["params[warningOnly]"] = "1"
+  }
+  if (isExpiringQuery.value) {
+    exportParams["params[expiringQuery]"] = "1"
+  }
+  proxy.download("business/stock/export", exportParams, `stock_${new Date().getTime()}.xlsx`)
 }
 
 function handleOpenThresholdDialog(row) {
@@ -852,6 +861,10 @@ function handleOpeningImportSuccess(response) {
 async function initializePage() {
   isWarningQuery.value = route.query.warningQuery === "1"
   isExpiringQuery.value = route.query.expiringQuery === "1"
+  queryParams.value.productId = route.query.productId ? Number(route.query.productId) : undefined
+  if (queryParams.value.productId) {
+    ensureProductOptionLoaded(queryParams.value.productId)
+  }
   await Promise.all([
     Promise.resolve(initBasicData()),
     Promise.resolve(getList())
@@ -861,6 +874,12 @@ async function initializePage() {
 onMounted(() => {
   initializePage()
   checkWarningReminder()
+})
+
+onActivated(() => {
+  if (route.query.warningQuery || route.query.expiringQuery || route.query.productId) {
+    initializePage()
+  }
 })
 
 // 监听同一路由下的查询参数变化，避免库存页在预警筛选切换后仍显示旧列表。

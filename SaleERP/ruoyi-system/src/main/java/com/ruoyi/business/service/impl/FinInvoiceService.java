@@ -112,6 +112,10 @@ public class FinInvoiceService
         {
             throw new ServiceException("已红冲作废的发票禁止修改");
         }
+        if (!"draft".equals(existing.getStatus()))
+        {
+            throw new ServiceException("已开具的正式税票禁止直接修改，如需更正请先执行【红冲作废】后重新开票");
+        }
         normalizeAndValidate(finInvoice, existing.getInvoiceId());
         if (bizComplianceHelper != null)
         {
@@ -217,6 +221,10 @@ public class FinInvoiceService
         {
             finInvoice.setStatus("issued");
         }
+        else if (!"draft".equals(finInvoice.getStatus()) && !"issued".equals(finInvoice.getStatus()))
+        {
+            throw new ServiceException("发票保存状态仅允许为草稿(draft)或已开具(issued)，红冲作废请走专用红冲流程");
+        }
         if (finInvoice.getTotalAmount() == null || finInvoice.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0)
         {
             throw new ServiceException("价税合计金额必须大于0");
@@ -255,10 +263,18 @@ public class FinInvoiceService
                     throw new ServiceException("销项发票客户必须与关联销售订单的客户保持一致");
                 }
                 finInvoice.setSourceOrderNo(saleOrder.getOrderNo());
+                if (jdbcTemplate != null)
+                {
+                    jdbcTemplate.queryForList(
+                        "SELECT sale_order_id FROM wms_sale_order WHERE sale_order_id = ? FOR UPDATE",
+                        Long.class, saleOrder.getSaleOrderId()
+                    );
+                }
                 if (!"red_void".equals(finInvoice.getStatus()) && saleOrder.getTotalAmount() != null)
                 {
+                    BigDecimal baseOrderAmount = resolveOrderBaseInvoiceableAmount("sale", saleOrder.getSaleOrderId(), saleOrder.getStatus(), saleOrder.getTotalAmount());
                     BigDecimal returnedAmount = queryAuditedReturnAmount("sale", saleOrder.getSaleOrderId());
-                    BigDecimal maxInvoiceable = saleOrder.getTotalAmount().subtract(returnedAmount).max(BigDecimal.ZERO);
+                    BigDecimal maxInvoiceable = baseOrderAmount.subtract(returnedAmount).max(BigDecimal.ZERO);
                     BigDecimal alreadyActive = finInvoiceMapper.selectActiveAmountBySourceOrder("sale", saleOrder.getSaleOrderId(), excludeInvoiceId);
                     if (alreadyActive == null)
                     {
@@ -310,10 +326,18 @@ public class FinInvoiceService
                     throw new ServiceException("进项发票供应商必须与关联采购订单的供应商保持一致");
                 }
                 finInvoice.setSourceOrderNo(purchaseOrder.getOrderNo());
+                if (jdbcTemplate != null)
+                {
+                    jdbcTemplate.queryForList(
+                        "SELECT purchase_order_id FROM wms_purchase_order WHERE purchase_order_id = ? FOR UPDATE",
+                        Long.class, purchaseOrder.getPurchaseOrderId()
+                    );
+                }
                 if (!"red_void".equals(finInvoice.getStatus()) && purchaseOrder.getTotalAmount() != null)
                 {
+                    BigDecimal baseOrderAmount = resolveOrderBaseInvoiceableAmount("purchase", purchaseOrder.getPurchaseOrderId(), purchaseOrder.getStatus(), purchaseOrder.getTotalAmount());
                     BigDecimal returnedAmount = queryAuditedReturnAmount("purchase", purchaseOrder.getPurchaseOrderId());
-                    BigDecimal maxInvoiceable = purchaseOrder.getTotalAmount().subtract(returnedAmount).max(BigDecimal.ZERO);
+                    BigDecimal maxInvoiceable = baseOrderAmount.subtract(returnedAmount).max(BigDecimal.ZERO);
                     BigDecimal alreadyActive = finInvoiceMapper.selectActiveAmountBySourceOrder("purchase", purchaseOrder.getPurchaseOrderId(), excludeInvoiceId);
                     if (alreadyActive == null)
                     {
@@ -358,10 +382,39 @@ public class FinInvoiceService
         return val == null ? BigDecimal.ZERO : val;
     }
 
+    private BigDecimal resolveOrderBaseInvoiceableAmount(String direction, Long sourceOrderId, String orderStatus, BigDecimal orderTotalAmount)
+    {
+        BigDecimal total = orderTotalAmount == null ? BigDecimal.ZERO : orderTotalAmount;
+        if (jdbcTemplate == null || sourceOrderId == null)
+        {
+            return total;
+        }
+        if ("sale".equals(direction) && "closed".equals(orderStatus))
+        {
+            BigDecimal shipped = jdbcTemplate.queryForObject(
+                "SELECT IFNULL(SUM(total_amount), 0) FROM wms_outbound WHERE sale_order_id = ? AND status = 'audited'",
+                BigDecimal.class, sourceOrderId
+            );
+            return shipped == null ? BigDecimal.ZERO : shipped.min(total);
+        }
+        if ("purchase".equals(direction) && "3".equals(orderStatus))
+        {
+            BigDecimal received = jdbcTemplate.queryForObject(
+                "SELECT IFNULL(SUM(total_amount), 0) FROM wms_inbound WHERE purchase_order_id = ? AND status = 'audited'",
+                BigDecimal.class, sourceOrderId
+            );
+            if (received != null && received.compareTo(BigDecimal.ZERO) > 0 && received.compareTo(total) < 0)
+            {
+                return received;
+            }
+        }
+        return total;
+    }
+
     /**
      * 反写来源销售单/采购单的累计已开票/收票金额与开票状态（uninvoiced/partial/invoiced）
      */
-    private void syncOrderInvoiceStatus(String direction, Long sourceOrderId)
+    public void syncOrderInvoiceStatus(String direction, Long sourceOrderId)
     {
         if (jdbcTemplate == null || sourceOrderId == null || StringUtils.isEmpty(direction))
         {
@@ -379,8 +432,8 @@ public class FinInvoiceService
             {
                 return;
             }
-            BigDecimal netOrder = (order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount())
-                .subtract(queryAuditedReturnAmount("sale", sourceOrderId)).max(BigDecimal.ZERO);
+            BigDecimal baseOrder = resolveOrderBaseInvoiceableAmount("sale", sourceOrderId, order.getStatus(), order.getTotalAmount());
+            BigDecimal netOrder = baseOrder.subtract(queryAuditedReturnAmount("sale", sourceOrderId)).max(BigDecimal.ZERO);
             String status = issued.compareTo(BigDecimal.ZERO) <= 0
                 ? "uninvoiced"
                 : (netOrder.compareTo(BigDecimal.ZERO) > 0 && issued.compareTo(netOrder) >= 0 ? "invoiced" : "partial");
@@ -396,8 +449,8 @@ public class FinInvoiceService
             {
                 return;
             }
-            BigDecimal netOrder = (order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount())
-                .subtract(queryAuditedReturnAmount("purchase", sourceOrderId)).max(BigDecimal.ZERO);
+            BigDecimal baseOrder = resolveOrderBaseInvoiceableAmount("purchase", sourceOrderId, order.getStatus(), order.getTotalAmount());
+            BigDecimal netOrder = baseOrder.subtract(queryAuditedReturnAmount("purchase", sourceOrderId)).max(BigDecimal.ZERO);
             String status = issued.compareTo(BigDecimal.ZERO) <= 0
                 ? "uninvoiced"
                 : (netOrder.compareTo(BigDecimal.ZERO) > 0 && issued.compareTo(netOrder) >= 0 ? "invoiced" : "partial");

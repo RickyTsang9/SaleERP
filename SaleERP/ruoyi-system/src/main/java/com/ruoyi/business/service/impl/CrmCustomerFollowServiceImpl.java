@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.ruoyi.business.mapper.CrmCustomerFollowMapper;
 import com.ruoyi.business.domain.CrmCustomerFollow;
 import com.ruoyi.business.service.ICrmCustomerFollowService;
+import com.ruoyi.business.service.support.BizComplianceHelper;
 import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.utils.SecurityUtils;
 
@@ -22,6 +23,9 @@ public class CrmCustomerFollowServiceImpl implements ICrmCustomerFollowService
 {
     @Autowired
     private CrmCustomerFollowMapper crmCustomerFollowMapper;
+
+    @Autowired(required = false)
+    private BizComplianceHelper complianceHelper;
 
     /**
      * 查询客户跟进记录
@@ -70,6 +74,10 @@ public class CrmCustomerFollowServiceImpl implements ICrmCustomerFollowService
     @Override
     public int insertCrmCustomerFollow(CrmCustomerFollow crmCustomerFollow)
     {
+        if (complianceHelper != null && crmCustomerFollow != null && crmCustomerFollow.getCustomerId() != null)
+        {
+            complianceHelper.assertEntityEnabled("md_customer", "customer_id", crmCustomerFollow.getCustomerId(), "客户");
+        }
         crmCustomerFollow.setCreateTime(DateUtils.getNowDate());
         try {
             crmCustomerFollow.setCreateBy(SecurityUtils.getUsername());
@@ -88,6 +96,10 @@ public class CrmCustomerFollowServiceImpl implements ICrmCustomerFollowService
     @Override
     public int updateCrmCustomerFollow(CrmCustomerFollow crmCustomerFollow)
     {
+        if (complianceHelper != null && crmCustomerFollow != null && crmCustomerFollow.getCustomerId() != null)
+        {
+            complianceHelper.assertEntityEnabled("md_customer", "customer_id", crmCustomerFollow.getCustomerId(), "客户");
+        }
         crmCustomerFollow.setUpdateTime(DateUtils.getNowDate());
         try {
             crmCustomerFollow.setUpdateBy(SecurityUtils.getUsername());

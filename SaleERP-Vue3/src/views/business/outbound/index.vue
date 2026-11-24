@@ -121,11 +121,11 @@
                 <el-button link type="primary">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="scope.row.saleOrderId" @click="handleViewSaleOrder(scope.row)">查看销售单</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === 'draft'" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === 'submitted'" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status !== 'audited' && scope.row.status !== 'cancelled'" @click="handleCancel(scope.row)">作废单据</el-dropdown-item>
-                    <el-dropdown-item v-if="scope.row.status === 'draft'" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.saleOrderId" v-hasPermi="['business:saleOrder:list']" @click="handleViewSaleOrder(scope.row)">查看销售单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" v-hasPermi="['business:outbound:edit']" @click="handleUpdate(scope.row)">修改主单</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'submitted'" v-hasPermi="['business:outbound:audit']" @click="handleReject(scope.row)">审核驳回</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status !== 'audited' && scope.row.status !== 'cancelled'" v-hasPermi="['business:outbound:edit']" @click="handleCancel(scope.row)">作废单据</el-dropdown-item>
+                    <el-dropdown-item v-if="scope.row.status === 'draft'" v-hasPermi="['business:outbound:remove']" divided @click="handleDelete(scope.row)"><span style="color: var(--el-color-danger)">删除草稿</span></el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -310,7 +310,7 @@
             v-hasPermi="['business:outbound:remove']"
           >删除明细</el-button>
         </el-col>
-        <el-col :span="12" v-if="isOutboundItemEditable()">
+        <el-col :span="12" v-if="isOutboundItemEditable()" v-hasPermi="['business:outbound:add', 'business:outbound:edit']">
           <el-input
             v-model="outboundScanCode"
             placeholder="扫码出库：扫描/输入条码或商品编码按回车（自动匹配+1）"
@@ -466,7 +466,7 @@
   </div>
 </template>
 
-<script setup name="BusinessOutbound">
+<script setup name="Outbound">
 import DocumentPrintDialog from "@/components/DocumentPrintDialog/index.vue"
 import { listOutbound, getOutbound, addOutbound, updateOutbound, delOutbound, submitOutbound, auditOutbound, rejectOutbound, updateOutboundDelivery, cancelOutbound } from "@/api/business/outbound"
 import { listOutboundItem, getOutboundItem, addOutboundItem, updateOutboundItem, delOutboundItem } from "@/api/business/outboundItem"
@@ -587,7 +587,11 @@ const data = reactive({
   outboundItemRules: {
     productId: [{ required: true, message: "商品不能为空", trigger: "change" }],
     locationId: [{ required: true, message: "库位不能为空", trigger: "change" }],
-    batchNo: [{ required: true, message: "批次号不能为空", trigger: "blur" }]
+    batchNo: [{ required: true, message: "批次号不能为空", trigger: "blur" }],
+    quantity: [
+      { required: true, message: "出库数量不能为空", trigger: "change" },
+      { validator: (_rule, val, cb) => Number(val) > 0 ? cb() : cb(new Error("出库数量必须大于0")), trigger: "change" }
+    ]
   }
 })
 
@@ -734,6 +738,7 @@ function loadCustomerOptionList(searchKeyword) {
   return listCustomer({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     customerName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const customerRowList = response.rows || []
@@ -751,6 +756,7 @@ function loadWarehouseOptionList(searchKeyword) {
   return listWarehouse({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     warehouseName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const warehouseRowList = response.rows || []
@@ -768,6 +774,7 @@ function loadProductOptionList(searchKeyword) {
   return listProduct({
     pageNum: 1,
     pageSize: 20,
+    status: "0",
     productName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const productRowList = response.rows || []
@@ -779,12 +786,14 @@ function loadProductOptionList(searchKeyword) {
   })
 }
 
-// 远程加载库位下拉选项，按需补充库位名称数据，减少页面初始加载压力。
+// 远程加载库位下拉选项，按当前出库单仓库限定范围，避免跨仓选库位。
 function loadLocationOptionList(searchKeyword) {
   locationListLoading.value = true
   return listLocation({
     pageNum: 1,
-    pageSize: 20,
+    pageSize: 50,
+    status: "0",
+    warehouseId: currentOutboundWarehouseId.value || form.value.warehouseId || undefined,
     locationName: normalizeRemoteKeyword(searchKeyword)
   }).then(response => {
     const locationRowList = response.rows || []
@@ -921,7 +930,11 @@ function buildProductSelectOptionList() {
 
 // 组合库位下拉选项，兼容历史出库明细中主数据缺失时的兜底回显。
 function buildLocationSelectOptionList() {
-  return buildSelectOptionList(locationList.value, [outboundItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
+  const targetWarehouseId = currentOutboundWarehouseId.value || form.value.warehouseId
+  const filtered = targetWarehouseId
+    ? locationList.value.filter(loc => (!loc.warehouseId || Number(loc.warehouseId) === Number(targetWarehouseId)) && loc.status !== "1")
+    : locationList.value.filter(loc => loc.status !== "1")
+  return buildSelectOptionList(filtered, [outboundItemForm.value.locationId], "locationId", "locationName", () => "库位资料缺失")
 }
 
 // 根据来源销售单号和销售单编号生成可读的来源销售单展示内容。
@@ -1141,7 +1154,7 @@ function resetOutboundItemForm() {
     productId: undefined,
     locationId: undefined,
     batchNo: undefined,
-    quantity: 0,
+    quantity: 1,
     price: 0,
     amount: 0,
     saleQuantity: undefined,
@@ -1255,6 +1268,7 @@ function handleOpenOutboundItem(row) {
   currentOutboundStatus.value = row.status
   currentOutboundSaleOrderId.value = row.saleOrderId
   currentOutboundWarehouseId.value = row.warehouseId
+  loadLocationOptionList()
   outboundItemTitle.value = "出库明细 - " + row.outboundNo + "（" + getOutboundStatusLabel(row.status) + " / " + getOutboundDeliveryStatusLabel(row.deliveryStatus) + "）"
   outboundItemOpen.value = true
   outboundScanCode.value = ""
